@@ -90,7 +90,7 @@ Public registration always assigns `STUDENT`; clients cannot set role. Create th
 PYTHONPATH=src python -m ruangkampus.cli create-admin
 ```
 
-The command prompts for email, name, and password. No default administrator or official campus seed data is included.
+The command prompts for email, name, and password. A separate operator-only `create-admin-from-env` command supports a one-time bootstrap using `RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL`, `RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME`, and `RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD`. It refuses to create a new administrator if an active TU/Admin already exists, will not promote an existing Student, and never prints the password. Remove these temporary variables and restore the migration-only pre-deploy command immediately after a successful bootstrap. Public self-registration cannot create TU/Admin accounts. No default administrator or official campus seed data is included.
 
 ## Run and inspect the API
 
