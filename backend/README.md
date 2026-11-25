@@ -161,7 +161,7 @@ PYTHONPATH=src pytest -q
 python -m compileall -q src tests alembic
 ```
 
-The automated unit/API suite contains **45 passing SQLite tests** using isolated in-memory databases. A separate **9-test PostgreSQL 18 integration suite** is run by GitHub Actions against an ephemeral PostgreSQL service. It covers schema/index/FK/check constraints, migration lifecycle, concurrent overlapping creates, duplicate concurrent approval, approval-versus-create serialization, and rollback. CI run #19 passed both suites and PostgreSQL migration upgrade/check/downgrade/re-upgrade: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
+The automated unit/API suite contains **50 passing SQLite tests** using isolated in-memory databases. A separate **9-test PostgreSQL 18 integration suite** is run by GitHub Actions against an ephemeral PostgreSQL service. It covers schema/index/FK/check constraints, migration lifecycle, concurrent overlapping creates, duplicate concurrent approval, approval-versus-create serialization, and rollback. CI run #43 passed both suites and PostgreSQL migration upgrade/check/downgrade/re-upgrade: https://github.com/munggar/RuangKampus/actions/runs/45607354793.
 
 This is actual PostgreSQL integration evidence, not an inference from SQLite. It is still an ephemeral CI database; no production or campus database was changed.
 
@@ -170,7 +170,7 @@ This is actual PostgreSQL integration evidence, not an inference from SQLite. It
 - No RuangKampus cloud PostgreSQL, deployment, or SMTP provider has been confirmed; no cloud migration has been run.
 - The Figma file itself is not yet accessible for direct inspection; frontend branch and API client code were reviewed read-only.
 - CSV/XLSX schedule import preview/commit is implemented for TU/Admin through /api/v1/admin/schedules/imports/*.
-- AI recommendations are intentionally not implemented without a verified specification/provider.
+- The room-assistant endpoint is implemented with a stateless, grounded rule-based engine. A generative LLM provider is not configured; no chat data is sent externally.
 - Media upload/storage is not implemented; room/profile image attributes accept URLs only.
 - Historical refresh-token replay-family detection is not implemented.
 - Rate limiting is an in-process guard; production multi-worker/multi-instance deployments require shared API gateway/WAF rate limiting.
