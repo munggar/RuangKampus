@@ -17,7 +17,7 @@ def create_located_room(client, auth_headers, room_payload, faculty="FTII"):
     response = client.post(
         "/api/v1/rooms",
         json=payload,
-        headers=auth_headers("admin@example.com"),
+        headers=auth_headers("admin.uhamka"),
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]
@@ -74,7 +74,7 @@ def test_alternative_slot_endpoint_returns_only_available_slots(
             "start_time": "09:00:00",
             "end_time": "10:00:00",
         },
-        headers=auth_headers("admin@example.com"),
+        headers=auth_headers("admin.uhamka"),
     )
     assert schedule.status_code == 201, schedule.text
 
@@ -128,6 +128,6 @@ def test_room_assistant_is_student_only(client, auth_headers, student, admin):
     denied = client.post(
         "/api/v1/assistant/chat",
         json={"message": "Carikan ruangan rapat"},
-        headers=auth_headers("admin@example.com"),
+        headers=auth_headers("admin.uhamka"),
     )
     assert denied.status_code == 403
