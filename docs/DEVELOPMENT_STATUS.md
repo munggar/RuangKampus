@@ -79,18 +79,33 @@ The frontend currently does not call `/auth/refresh` or restore sessions after a
 ## Phase 2 validation status
 
 - Local disposable SQLite tests: 45 passed.
-- PostgreSQL-only tests: 8 are present and were skipped locally because the runtime has no Docker/local PostgreSQL service.
+- PostgreSQL-only integration tests: 9 passed on the GitHub Actions PostgreSQL 18 service (schema/FK/check constraints plus reservation concurrency and rollback). They were skipped only on the local workstation.
 - SQLite Alembic validation: upgrade to head, `alembic check`, downgrade to base, re-upgrade to head, second `alembic check`: passed against an isolated temporary SQLite database.
-- Neon PostgreSQL test project: a separate isolated project and branch were provisioned and a read-only connection/version query confirmed PostgreSQL 18.7. No Alembic migration has been applied to this project through the current tool session.
+- Neon PostgreSQL test project: a separate isolated project/branch was provisioned and a read-only query confirmed PostgreSQL 18.7. Migration/concurrency proof below comes from an ephemeral GitHub Actions PostgreSQL 18 service, not the Neon test branch.
 - Existing Neon `RuangKampus/production` branch was not used or modified.
-- The GitHub Actions workflow is configured to run the actual PostgreSQL migrations and concurrency suite. Final PostgreSQL pass/fail status must be reported from the workflow run after this commit is pushed; it is not inferred from SQLite tests.
-- Docker, Ruff, and pip-audit binaries were not available in the local container. CI is configured to install/run them; no local Docker build, lint, or dependency audit is claimed.
+- GitHub Actions run #19 completed successfully on commit 3959f51d0740f2786751c1213f37fe004dcd5e3c: SQLite tests, PostgreSQL migrations/integration, dependency audit, and Docker image build all passed.
+- Docker, Ruff, and pip-audit binaries were not available locally. Their CI equivalents passed: Ruff lint/format, pip-audit (no known vulnerabilities), and Docker image build.
 
 ## Remaining Phase 2/production blockers
 
-- Confirm successful PostgreSQL CI run before treating DB migration and concurrency tests as passed.
+- Provision and authorize the actual staging/production PostgreSQL target; the verified CI migration/concurrency run used ephemeral PostgreSQL 18.
 - Configure a real SMTP account/credentials in the hosting secret manager and run controlled delivery tests. No SMTP credentials or production email was used.
 - Deploy backend to an approved hosting target and run /health and /ready checks.
 - Full page-by-page frontend integration remains pending; current frontend branch provides auth integration scaffolding while room/reservation/dashboard pages are placeholders.
 - AI Recommendation, Room Image Upload, and WebSocket/SSE are intentionally deferred: no verified frontend flow or provider/storage requirement exists in the current Master Brief/frontend branch. The master brief positions AI as a later phase.
 - Shared distributed rate limiting remains a deployment-layer requirement for multi-worker/multi-instance production; the current application limiter is per-process.
+
+
+## Verified Phase 2 CI evidence
+
+GitHub Actions run #19 completed with conclusion SUCCESS for commit 3959f51d0740f2786751c1213f37fe004dcd5e3c on 2026-11-25.
+
+- Ruff lint, CI workspace formatting, and Python compile checks passed.
+- SQLite unit/API suite: 45 passed.
+- PostgreSQL 18 integration suite: 9 passed, covering schema/index/FK/check constraints, concurrent overlapping reservation creation, duplicate concurrent approval, approval-versus-overlapping-create serialization, and transaction rollback.
+- PostgreSQL migration database: all migrations upgraded to head, alembic check passed, downgraded to base, upgraded to head again, and second alembic check passed.
+- pip-audit: No known vulnerabilities found.
+- Backend Docker image build: passed.
+- Workflow: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
+
+These checks ran against ephemeral GitHub Actions PostgreSQL 18 databases. They do not mean a production database was migrated or a backend hosting provider was deployed.

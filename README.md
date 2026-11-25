@@ -4,7 +4,7 @@ RuangKampus is a campus room discovery and reservation platform. Students can di
 
 ## Current implementation status
 
-The backend core API is implemented under `backend/` using Python, FastAPI, SQLAlchemy, Alembic, and PostgreSQL as the target database engine. Automated tests run against isolated in-memory SQLite for portability; PostgreSQL-specific row-lock/concurrency behavior still requires a dedicated PostgreSQL integration test.
+The backend core API is implemented under backend/ using Python, FastAPI, SQLAlchemy, Alembic, and PostgreSQL. Verified GitHub Actions run #19 passed 45 isolated SQLite API/unit tests and 9 PostgreSQL 18 schema/concurrency tests, including simultaneous reservation create/approval scenarios. PostgreSQL migration upgrade/check/downgrade/re-upgrade also passed. Workflow evidence: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
 
 The frontend foundation exists on a separate `feat/frontend-foundation` branch. Account B (Adil Muslim Saputra) owns frontend implementation and UI/UX. Account A (Munggar Fajar Muharram) owns backend source, database schema/migrations, API contracts, and backend tests. The frontend feature branch remains separate; Account A did not modify it.
 
@@ -26,7 +26,7 @@ tests/      Shared/end-to-end test space; backend tests currently live in backen
 - Database engine: PostgreSQL for shared/staging/production deployments. Isolated SQLite is used for fast local/API tests only.
 - API: versioned REST under `/api/v1`, with generated OpenAPI and Swagger UI.
 
-This follows the existing Master Project Brief and repository architecture decision. No RuangKampus-specific cloud PostgreSQL resource has been identified; do not reuse unrelated databases.
+This follows the existing Master Project Brief and repository architecture decision. No production/staging database has been applied or modified by this implementation. CI used ephemeral PostgreSQL 18 databases; the existing Neon RuangKampus/production branch was not used.
 
 ## Quick start — backend
 
@@ -84,7 +84,7 @@ PYTHONPATH=src pytest -q
 
 ## Release readiness
 
-Not production-ready until a RuangKampus PostgreSQL resource is provisioned, migration and concurrency tests pass against PostgreSQL, Account B's full frontend contracts are reviewed, SMTP is configured, and deployment/operations are validated. CSV/XLSX schedule import, AI recommendations, and media upload are not implemented in this API slice.
+Not production-ready until a RuangKampus staging/production PostgreSQL resource is approved, Account B's full frontend pages are integrated and tested, SMTP credentials/provider are configured, and backend hosting/operations are deployed. CSV/XLSX schedule import is implemented. AI recommendations and room binary image upload/storage remain deferred because the current frontend branch has no confirmed flow/provider requirement.
 
 
 ## Backend Phase 2

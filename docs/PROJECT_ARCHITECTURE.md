@@ -117,3 +117,8 @@ Notification event handlers use deterministic unique event keys for in-app idemp
 Operational endpoints separate liveness (`/health`) from readiness (`/ready`). Structured logs omit request bodies and exception messages. A non-root container, local Compose PostgreSQL, and CI PostgreSQL service have been added. Migrations are explicitly run in CI/operator steps, not on application worker startup.
 
 The current release workflow separates SQLite tests from PostgreSQL integration tests. Its PostgreSQL service validates Alembic upgrade/check/downgrade/re-upgrade, schema constraints, foreign keys, concurrent reservation creation/approval, rollback, and container build. The workflow result—not local SQLite output—is the required evidence for PostgreSQL readiness.
+
+
+## Verified PostgreSQL/CI evidence
+
+GitHub Actions run #19 passed the backend pipeline against ephemeral PostgreSQL 18: 45 SQLite API/unit tests passed, 9 PostgreSQL schema and reservation concurrency integration tests passed, Alembic upgrade/check/downgrade/re-upgrade passed, Ruff lint and CI workspace formatting passed, pip-audit found no known vulnerabilities, and the backend Docker image build passed. This is evidence for ephemeral CI databases only, not a production database migration. Production/staging DB provisioning, SMTP credentials, full frontend integration, and deployment remain separate release gates. Workflow: https://github.com/munggar/RuangKampus/actions/runs/45596818058.

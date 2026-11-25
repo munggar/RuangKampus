@@ -161,15 +161,15 @@ PYTHONPATH=src pytest -q
 python -m compileall -q src tests alembic
 ```
 
-The suite currently has **24 passing tests** using isolated in-memory SQLite databases per test. It covers auth payload/role compatibility, password hashing, refresh rotation/logout, one-time password reset, role protection, room CRUD/filtering, student data isolation, reservation/schedule conflicts, dashboard statistics, cancellation, and audit history. Tests do not connect to production.
+The automated unit/API suite contains **45 passing SQLite tests** using isolated in-memory databases. A separate **9-test PostgreSQL 18 integration suite** is run by GitHub Actions against an ephemeral PostgreSQL service. It covers schema/index/FK/check constraints, migration lifecycle, concurrent overlapping creates, duplicate concurrent approval, approval-versus-create serialization, and rollback. CI run #19 passed both suites and PostgreSQL migration upgrade/check/downgrade/re-upgrade: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
 
-**PostgreSQL concurrency has not yet been tested.** Before production, run concurrent same-room/time create and approval race tests against a dedicated disposable PostgreSQL database.
+This is actual PostgreSQL integration evidence, not an inference from SQLite. It is still an ephemeral CI database; no production or campus database was changed.
 
 ## Known limitations
 
 - No RuangKampus cloud PostgreSQL, deployment, or SMTP provider has been confirmed; no cloud migration has been run.
 - The Figma file itself is not yet accessible for direct inspection; frontend branch and API client code were reviewed read-only.
-- CSV/XLSX schedule import preview/commit is not implemented; admin schedule maintenance is available via API.
+- CSV/XLSX schedule import preview/commit is implemented for TU/Admin through /api/v1/admin/schedules/imports/*.
 - AI recommendations are intentionally not implemented without a verified specification/provider.
 - Media upload/storage is not implemented; room/profile image attributes accept URLs only.
 - Historical refresh-token replay-family detection is not implemented.
@@ -212,3 +212,19 @@ SMTP sends multipart plain-text and HTML alternatives. User-controlled content i
 - GitHub Actions starts a PostgreSQL 18 service, runs SQLite unit/API tests separately from PostgreSQL integration tests, performs PostgreSQL Alembic upgrade/drift/downgrade/re-upgrade, runs concurrency/schema tests, dependency audit, and a Docker build.
 
 PostgreSQL CI evidence must be checked from the GitHub Actions run attached to the backend commit. Local SQLite tests do not prove PostgreSQL row-lock semantics.
+
+
+## Verified Phase 2 CI result
+
+GitHub Actions run #19 completed successfully on 2026-11-25: 45 SQLite API/unit tests passed; 9 PostgreSQL 18 schema/concurrency integration tests passed; Alembic PostgreSQL upgrade, drift check, downgrade, re-upgrade, and second drift check passed; Ruff lint and CI workspace formatting passed; pip-audit reported no known vulnerabilities; and the non-root backend Docker image built successfully. See https://github.com/munggar/RuangKampus/actions/runs/45596818058.
+
+## Run with Docker Compose (local development)
+
+Copy root .env.example to .env and replace local placeholder values. From repository root:
+
+```bash
+docker compose up --build -d
+docker compose exec api alembic upgrade head
+```
+
+API readiness: http://localhost:8000/ready. Stop services with docker compose down. Use docker compose down -v only when intentionally deleting the disposable local database volume. Example passwords are local-only.

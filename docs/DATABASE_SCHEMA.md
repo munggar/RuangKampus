@@ -154,3 +154,8 @@ Account A owns schema changes and migrations. Migrations must be versioned, revi
 2. `c3d7e91a4b02`: tightens lecture schedule discriminator so exactly one of `schedule_date` or `day_of_week` is supplied.
 
 The current CI workflow tests Alembic upgrade, model/migration drift, downgrade to base, and re-upgrade on a dedicated PostgreSQL 18 migration database. The separate PostgreSQL integration database runs schema, FK/check constraint, reservation concurrency, and rollback tests. These results must be read from the actual CI run; SQLite evidence is not substituted for PostgreSQL evidence.
+
+
+## PostgreSQL verification evidence
+
+GitHub Actions run #19 completed successfully on 2026-11-25 using PostgreSQL 18. It applied all Alembic migrations to a dedicated migration database, checked model/migration drift, downgraded to base, re-upgraded to head, and checked drift again. A separate ephemeral integration database passed 9 schema/constraint and reservation concurrency tests. Simultaneous conflicting create requests, concurrent duplicate approval, and approval racing with an overlapping create did not produce more than one active reservation for a room/time. This did not modify a production database. Workflow: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
