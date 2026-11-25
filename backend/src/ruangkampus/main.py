@@ -14,7 +14,7 @@ from ruangkampus.config import get_settings
 from ruangkampus.database import SessionLocal, engine
 from ruangkampus.rate_limit import limiter
 from ruangkampus.responses import failure, success
-from ruangkampus.routers import auth, dashboard, notifications, reservations, rooms, schedule_imports, schedules, users
+from ruangkampus.routers import auth, dashboard, discovery, notifications, reservations, rooms, schedule_imports, schedules, users
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -93,6 +93,8 @@ async def add_security_headers_and_request_limit(request: Request, call_next):
         (f"{settings.api_v1_prefix}/auth/forgot-password", "POST"): 3,
         (f"{settings.api_v1_prefix}/auth/reset-password", "POST"): 5,
         (f"{settings.api_v1_prefix}/auth/refresh", "POST"): 10,
+        (f"{settings.api_v1_prefix}/assistant/chat", "POST"): 12,
+        (f"{settings.api_v1_prefix}/rooms/alternative-slots", "POST"): 20,
     }
     limit = rate_limits.get((request.url.path, request.method))
     if limit:
@@ -167,6 +169,7 @@ app.include_router(schedules.router, prefix=api)
 app.include_router(schedule_imports.router, prefix=api)
 app.include_router(notifications.router, prefix=api)
 app.include_router(dashboard.router, prefix=api)
+app.include_router(discovery.router, prefix=api)
 
 
 @app.get("/health", tags=["Operations"])
