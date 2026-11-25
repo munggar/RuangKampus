@@ -59,18 +59,21 @@ def pg_users(pg_session):
     admin = User(
         name="Postgres Admin",
         email="pg-admin@example.com",
+        student_identifier="admin.uhamka",
         password_hash=hash_password("StrongPass123!"),
         role="TU_ADMIN",
     )
     student_a = User(
         name="Postgres Student A",
         email="pg-a@example.com",
+        student_identifier="2403045010",
         password_hash=hash_password("StrongPass123!"),
         role="STUDENT",
     )
     student_b = User(
         name="Postgres Student B",
         email="pg-b@example.com",
+        student_identifier="2403045011",
         password_hash=hash_password("StrongPass123!"),
         role="STUDENT",
     )
@@ -108,7 +111,7 @@ def pg_tokens(pg_client, pg_users):
     headers = {}
     for key, user in pg_users.items():
         result = pg_client.post("/api/v1/auth/login", json={
-            "email": user.email,
+            "identifier": user.student_identifier,
             "password": "StrongPass123!",
         })
         assert result.status_code == 200, result.text
