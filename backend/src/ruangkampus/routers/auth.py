@@ -4,7 +4,7 @@ from uuid import UUID
 import jwt
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -68,13 +68,17 @@ def _issue_session(user: User, db: Session, response: Response, user_agent: str 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterIn, request: Request, response: Response, db: Session = Depends(get_db)):
     email = str(payload.email).lower().strip()
-    existing = db.scalar(select(User.id).where(User.email == email, User.deleted_at.is_(None)))
-    if existing:
-        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    student_identifier = payload.student_identifier.strip()
+    if student_identifier.lower() == "admin.uhamka":
+        raise HTTPException(status_code=409, detail="This identifier is reserved for the administrator")
+    existing_email = db.scalar(select(User.id).where(User.email == email))
+    existing_identifier = db.scalar(select(User.id).where(func.lower(User.student_identifier) == student_identifier.lower()))
+    if existing_email or existing_identifier:
+        raise HTTPException(status_code=409, detail="An account with this email or NIM already exists")
     user = User(
         name=payload.name.strip(),
         email=email,
-        student_identifier=payload.student_identifier.strip() if payload.student_identifier else None,
+        student_identifier=student_identifier,
         phone=payload.phone,
         password_hash=hash_password(payload.password),
         role="STUDENT",
@@ -84,7 +88,7 @@ def register(payload: RegisterIn, request: Request, response: Response, db: Sess
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="An account with this email already exists") from None
+        raise HTTPException(status_code=409, detail="An account with this email or NIM already exists") from None
     db.refresh(user)
     tokens = _issue_session(user, db, response, request.headers.get("user-agent"))
     return tokens
@@ -92,10 +96,13 @@ def register(payload: RegisterIn, request: Request, response: Response, db: Sess
 
 @router.post("/login")
 def login(payload: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    email = str(payload.email).lower().strip()
-    user = db.scalar(select(User).where(User.email == email, User.deleted_at.is_(None)))
+    identifier = payload.identifier.strip()
+    user = db.scalar(select(User).where(
+        func.lower(User.student_identifier) == identifier.lower(),
+        User.deleted_at.is_(None),
+    ))
     if user is None or user.account_status != "ACTIVE" or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Email or password is incorrect")
+        raise HTTPException(status_code=401, detail="NIM, username, or password is incorrect")
     return _issue_session(user, db, response, request.headers.get("user-agent"))
 
 
