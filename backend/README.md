@@ -90,7 +90,7 @@ Public registration always assigns `STUDENT`; clients cannot set role. Create th
 PYTHONPATH=src python -m ruangkampus.cli create-admin
 ```
 
-The command prompts for email, name, and password. A separate operator-only `create-admin-from-env` command supports a one-time bootstrap using `RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL`, `RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME`, and `RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD`. It refuses to create a new administrator if an active TU/Admin already exists, will not promote an existing Student, and never prints the password. Remove these temporary variables and restore the migration-only pre-deploy command immediately after a successful bootstrap. Public self-registration cannot create TU/Admin accounts. No default administrator or official campus seed data is included.
+The command prompts for the administrator contact email, name, and password; the administrator login username is reserved as `admin.uhamka`. The operator-only `create-admin-from-env` command supports a one-time bootstrap using `RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME` and `RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD`; an optional `RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL` overrides the deliberately non-deliverable default alias. It refuses to create a new administrator if an active TU/Admin already exists, will not promote an existing Student, and never prints the password. Remove temporary variables and restore the migration-only pre-deploy command immediately after a successful bootstrap. Public self-registration cannot create TU/Admin accounts.
 
 ## Run and inspect the API
 
@@ -112,7 +112,7 @@ PYTHONPATH=src uvicorn ruangkampus.main:app --reload --host 127.0.0.1 --port 800
 - Public user role labels in API responses match the current frontend AuthContext: `Student` and `TU/Admin`.
 
 The existing separate `feat/frontend-foundation` branch was reviewed read-only. Its `frontend/src/api/auth.ts` expects:
-- `POST /auth/login`: direct response object `{ access_token, token_type, expires_in, user }` (not wrapped in `data`);
+- `POST /auth/login`: accepts `{ identifier, password }`; Students authenticate with NIM and TU/Admin authenticates with reserved username `admin.uhamka`. Returns a direct response object `{ access_token, token_type, expires_in, user }` (not wrapped in `data`);
 - `GET /auth/me`: direct safe user object;
 - `POST /auth/logout`: `{ success: true }`;
 - bearer access tokens in `Authorization` and `credentials: include` for the HttpOnly refresh cookie.
