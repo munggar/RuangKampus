@@ -166,7 +166,7 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
             if any(alias in message for alias in aliases):
                 facilities.append(canonical)
 
-    requested_date = payload.date
+    requested_date = payload.requested_date
     if requested_date is None:
         date_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", message)
         if date_match:
