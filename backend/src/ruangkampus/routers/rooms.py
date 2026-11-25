@@ -12,7 +12,7 @@ from ruangkampus.dependencies import get_optional_user, require_admin
 from ruangkampus.models import Reservation, Room, RoomUpdateLog, User, utcnow
 from ruangkampus.responses import success
 from ruangkampus.schemas import AvailabilityOut, RoomCreateIn, RoomUpdateIn, serialize_room
-from ruangkampus.services.availability import check_room_availability
+from ruangkampus.services.availability import campus_today, check_room_availability
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
@@ -133,7 +133,7 @@ def update_room(room_id: UUID, payload: RoomUpdateIn, admin: User = Depends(requ
         future_bookings = db.scalars(select(Reservation).where(
             Reservation.room_id == room.id,
             Reservation.status.in_(["PENDING", "APPROVED"]),
-            Reservation.reservation_date >= utcnow().date(),
+            Reservation.reservation_date >= campus_today(),
             Reservation.participant_count > changes["capacity"],
         )).all()
         if future_bookings:
@@ -142,7 +142,7 @@ def update_room(room_id: UUID, payload: RoomUpdateIn, admin: User = Depends(requ
         active_bookings = db.scalar(select(func.count(Reservation.id)).where(
             Reservation.room_id == room.id,
             Reservation.status.in_(["PENDING", "APPROVED"]),
-            Reservation.reservation_date >= utcnow().date(),
+            Reservation.reservation_date >= campus_today(),
         )) or 0
         if active_bookings:
             raise HTTPException(status_code=409, detail="Room status cannot be changed while future pending/approved reservations exist")
@@ -167,7 +167,7 @@ def soft_delete_room(room_id: UUID, admin: User = Depends(require_admin), db: Se
     active_bookings = db.scalar(select(func.count(Reservation.id)).where(
         Reservation.room_id == room.id,
         Reservation.status.in_(["PENDING", "APPROVED"]),
-        Reservation.reservation_date >= utcnow().date(),
+        Reservation.reservation_date >= campus_today(),
     )) or 0
     if active_bookings:
         raise HTTPException(status_code=409, detail="Room cannot be deleted while future pending/approved reservations exist")

@@ -59,6 +59,8 @@ class Settings(BaseSettings):
                 raise ValueError("Console email backend is development-only; configure SMTP or disabled")
             if self.email_backend == "smtp" and not self.smtp_host:
                 raise ValueError("EMAIL_BACKEND=smtp requires SMTP_HOST")
+            if self.email_backend == "smtp" and not self.smtp_use_tls:
+                raise ValueError("Production SMTP must use STARTTLS (SMTP_USE_TLS=true)")
             if self.cookie_samesite == "none" and not self.cookie_secure:
                 raise ValueError("SameSite=None requires COOKIE_SECURE=true")
             if "*" in self.cors_origins:

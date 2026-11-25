@@ -169,3 +169,36 @@ The frontend currently does not call refresh/session restoration after a hard re
 - AI recommendation provider/endpoint.
 - Media upload/storage.
 - Push/WebSocket notifications.
+
+
+## Phase 2 — schedule import endpoints
+
+All routes below require TU/Admin and retain the `/api/v1` prefix.
+
+| Method | Path | Request/query | Behavior |
+|---|---|---|---|
+| POST | `/admin/schedules/imports/preview` | multipart form field `file` | Parse CSV/XLSX, validate each row, check conflicts, persist preview batch |
+| POST | `/admin/schedules/imports/commit` | `{ "batch_id": "uuid" }` | Revalidate and atomically insert preview-valid rows |
+| GET | `/admin/schedules/imports` | `limit` (1–100, default 20) | Current administrator's import history |
+| GET | `/admin/schedules/imports/{batch_id}` | None | Current administrator's batch details |
+
+Accepted headers are `course_name`, `start_time`, `end_time`, plus `room_code` or `room_id`, plus exactly one of `schedule_date` or `day_of_week`. Headers are case-insensitive; spaces and hyphens normalize to underscores. Date uses ISO `YYYY-MM-DD`; time uses `HH:MM` or `HH:MM:SS`; weekday accepts Monday–Sunday or integer 0–6 (Monday=0).
+
+Limits: 5 MiB upload, 5,000 non-empty rows, XLSX expanded ZIP payload at most 25 MiB. CSV must be UTF-8. XLSX is parsed using read-only/data-only mode; XLS/XLSM and unsupported MIME/signatures are rejected. Only the first active worksheet is parsed.
+
+Preview returns `batch_id`, source filename, SHA-256 digest, row/valid/invalid counts, row-level status/errors, and up to 50 normalized valid rows. A preview is valid for 24 hours and is scoped to the administrator who created it. Commit locks all affected room rows in sorted UUID order, rechecks current room status and schedule/reservation/maintenance conflicts, and inserts the batch in one transaction. New conflicts after preview produce HTTP 409 and zero inserted rows. No file binary is retained.
+
+## Phase 2 — notification idempotency and email states
+
+Notification rows now carry an optional unique `event_key`, `email_attempted_at`, and `email_attempt_count`. Reservation event keys are deterministic per reservation, event type, and recipient. This prevents duplicate in-app records when the same event handler is invoked more than once.
+
+Email delivery is attempted once per notification record. SMTP errors are recorded as `FAILED`; a network timeout is not automatically retried because delivery may have been accepted despite the lost response. Plain-text and HTML alternatives are sent; HTML content is escaped. `LOCAL_MAILBOX_WRITTEN` is still development-only and is not actual SMTP delivery.
+
+## Phase 2 — operations
+
+| Method | Path | Access | Meaning |
+|---|---|---|---|
+| GET | `/health` | Public | Liveness only; process is running |
+| GET | `/ready` | Public | Executes database `SELECT 1`; 503 if DB is unavailable |
+
+CORS uses explicit configured origins. Request size is limited to 6 MiB, including streamed requests without Content-Length. Production responses receive HSTS; structured JSON logs do not serialize request bodies or exception messages. Docker images run as a non-root user. Database migrations must be run explicitly as an operator/CI step.

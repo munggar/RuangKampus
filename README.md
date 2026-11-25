@@ -85,3 +85,16 @@ PYTHONPATH=src pytest -q
 ## Release readiness
 
 Not production-ready until a RuangKampus PostgreSQL resource is provisioned, migration and concurrency tests pass against PostgreSQL, Account B's full frontend contracts are reviewed, SMTP is configured, and deployment/operations are validated. CSV/XLSX schedule import, AI recommendations, and media upload are not implemented in this API slice.
+
+
+## Backend Phase 2
+
+The backend feature branch adds:
+- PostgreSQL-focused migration and row-lock/concurrency integration tests in CI.
+- Two-step CSV/XLSX schedule import preview and atomic commit endpoints.
+- HTML+plain-text SMTP messages, single-attempt delivery tracking, and idempotent in-app notification event keys.
+- Liveness/readiness split (`/health` and `/ready`), structured JSON logs, request-body limits, Dockerfile, Docker Compose, and GitHub Actions.
+
+Schedule import is TU/Admin-only. Only CSV/XLSX are accepted (5 MiB maximum, up to 5,000 rows). See [backend/README.md](backend/README.md) and [docs/API_CONTRACT.md](docs/API_CONTRACT.md) for the accepted import headers and full workflow.
+
+Production readiness still depends on the actual GitHub Actions PostgreSQL test result, SMTP credentials/provider, and deployment configuration. No production database migration or live email send is performed during repository development.

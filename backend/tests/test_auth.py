@@ -48,3 +48,28 @@ def test_admin_login_returns_frontend_role_label(client, admin):
     response = client.post("/api/v1/auth/login", json={"email": "admin@example.com", "password": "StrongPass123!"})
     assert response.status_code == 200
     assert response.json()["user"]["role"] == "TU/Admin"
+
+
+def test_admin_login_returns_frontend_role_label(client, admin):
+    response = client.post("/api/v1/auth/login", json={"email": "admin@example.com", "password": "StrongPass123!"})
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == "TU/Admin"
+
+
+def test_health_and_readiness_endpoints(client):
+    health = client.get("/health")
+    ready = client.get("/ready")
+    assert health.status_code == 200
+    assert health.json()["data"]["status"] == "ok"
+    assert ready.status_code == 200
+    assert ready.json()["data"]["database"] == "reachable"
+
+
+def test_chunked_body_size_limit_is_enforced(client):
+    response = client.post(
+        "/api/v1/auth/register",
+        content=b"x" * (6 * 1024 * 1024 + 1),
+        headers={"Content-Type": "application/json", "Transfer-Encoding": "chunked"},
+    )
+    assert response.status_code == 413
+    assert response.json()["success"] is False

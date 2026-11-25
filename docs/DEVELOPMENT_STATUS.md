@@ -66,3 +66,31 @@ The frontend currently does not call `/auth/refresh` or restore sessions after a
 ## Release readiness
 
 **Not production-ready yet.** Core backend APIs and automated tests exist, but production PostgreSQL connection, concurrency test evidence, full frontend integration, real email provider, deployment, and security/operational review remain outstanding.
+
+
+## Phase 2 implementation additions
+
+- Schedule import: CSV/XLSX upload, parser limits, row preview, room/date/time validation, duplicate/overlap checks, persisted batch history, 24-hour preview expiry, atomic commit with deterministic room-row locking and conflict revalidation.
+- Notifications: deterministic unique event keys, recipient-scoped reads, one-attempt SMTP delivery records, admin notification when a student cancels, HTML/plain-text messages.
+- Operations: liveness `/health`, DB readiness `/ready`, structured JSON logs, streamed request-size cap, HSTS in production.
+- Deployment artifacts: non-root backend Docker image, local PostgreSQL Compose file, isolated GitHub Actions PostgreSQL service, dependency audit and image build.
+- Tests added for schedule CSV/XLSX workflows, late conflicts at import commit, SMTP mock/HTML escaping/local mailbox permissions, event dedupe, notifications access control, PostgreSQL schema constraints, and real concurrent reservation create/approval paths.
+
+## Phase 2 validation status
+
+- Local disposable SQLite tests: 45 passed.
+- PostgreSQL-only tests: 8 are present and were skipped locally because the runtime has no Docker/local PostgreSQL service.
+- SQLite Alembic validation: upgrade to head, `alembic check`, downgrade to base, re-upgrade to head, second `alembic check`: passed against an isolated temporary SQLite database.
+- Neon PostgreSQL test project: a separate isolated project and branch were provisioned and a read-only connection/version query confirmed PostgreSQL 18.7. No Alembic migration has been applied to this project through the current tool session.
+- Existing Neon `RuangKampus/production` branch was not used or modified.
+- The GitHub Actions workflow is configured to run the actual PostgreSQL migrations and concurrency suite. Final PostgreSQL pass/fail status must be reported from the workflow run after this commit is pushed; it is not inferred from SQLite tests.
+- Docker, Ruff, and pip-audit binaries were not available in the local container. CI is configured to install/run them; no local Docker build, lint, or dependency audit is claimed.
+
+## Remaining Phase 2/production blockers
+
+- Confirm successful PostgreSQL CI run before treating DB migration and concurrency tests as passed.
+- Configure a real SMTP account/credentials in the hosting secret manager and run controlled delivery tests. No SMTP credentials or production email was used.
+- Deploy backend to an approved hosting target and run /health and /ready checks.
+- Full page-by-page frontend integration remains pending; current frontend branch provides auth integration scaffolding while room/reservation/dashboard pages are placeholders.
+- AI Recommendation, Room Image Upload, and WebSocket/SSE are intentionally deferred: no verified frontend flow or provider/storage requirement exists in the current Master Brief/frontend branch. The master brief positions AI as a later phase.
+- Shared distributed rate limiting remains a deployment-layer requirement for multi-worker/multi-instance production; the current application limiter is per-process.

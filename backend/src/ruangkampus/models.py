@@ -121,7 +121,7 @@ class LectureSchedule(Base):
     __table_args__ = (
         CheckConstraint("end_time > start_time", name="ck_schedules_time_order"),
         CheckConstraint("schedule_status IN ('ACTIVE', 'CANCELLED')", name="ck_schedules_status"),
-        CheckConstraint("schedule_date IS NOT NULL OR day_of_week IS NOT NULL", name="ck_schedules_has_date_or_weekday"),
+        CheckConstraint("(schedule_date IS NOT NULL AND day_of_week IS NULL) OR (schedule_date IS NULL AND day_of_week IS NOT NULL)", name="ck_schedules_has_date_or_weekday"),
         CheckConstraint("day_of_week IS NULL OR (day_of_week >= 0 AND day_of_week <= 6)", name="ck_schedules_weekday_range"),
         Index("ix_schedules_room_date", "room_id", "schedule_date", "day_of_week", "schedule_status"),
     )
@@ -157,7 +157,7 @@ class RoomUnavailablePeriod(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
-    __table_args__ = (Index("ix_notifications_recipient_read_created", "recipient_id", "read_at", "created_at"),)
+    __table_args__ = (Index("ix_notifications_recipient_read_created", "recipient_id", "read_at", "created_at"), Index("uq_notifications_event_key", "event_key", unique=True)),
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     recipient_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     notification_type: Mapped[str] = mapped_column(String(60), nullable=False)
@@ -167,8 +167,35 @@ class Notification(Base):
     delivery_status: Mapped[str] = mapped_column(String(40), nullable=False, default="IN_APP_CREATED")
     email_delivery_status: Mapped[str] = mapped_column(String(40), nullable=False, default="NOT_CONFIGURED")
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    event_key: Mapped[str | None] = mapped_column(String(180), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
     recipient: Mapped[User] = relationship()
+
+
+class ScheduleImportBatch(Base):
+    __tablename__ = "schedule_import_batches"
+    __table_args__ = (
+        CheckConstraint("status IN ('PREVIEWED', 'COMPLETED', 'FAILED')", name="ck_schedule_import_status"),
+        CheckConstraint("row_count >= 0 AND valid_count >= 0 AND invalid_count >= 0", name="ck_schedule_import_counts"),
+        Index("ix_schedule_import_creator_created", "created_by_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_by_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PREVIEWED")
+    source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    valid_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    invalid_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    parsed_rows: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    row_results: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_by: Mapped[User] = relationship()
 
 
 class RoomUpdateLog(Base):

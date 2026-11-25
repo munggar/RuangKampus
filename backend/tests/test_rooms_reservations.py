@@ -130,3 +130,138 @@ def test_admin_activity_tracks_reservation_approval(client, auth_headers, studen
     activity = client.get("/api/v1/admin/activity?entity_type=RESERVATION&action=APPROVE_RESERVATION", headers=auth_headers("admin@example.com"))
     assert activity.status_code == 200, activity.text
     assert activity.json()["meta"]["total"] == 1
+
+
+
+def test_adjacent_pending_reservations_are_allowed(client, auth_headers, student, admin, create_room):
+    room = create_room()
+    booking_date = next_weekday(3)
+    first = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Morning class", "date": booking_date.isoformat(),
+        "start_time": "09:00:00", "end_time": "10:00:00", "participant_count": 12,
+    }, headers=auth_headers())
+    second = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Following class", "date": booking_date.isoformat(),
+        "start_time": "10:00:00", "end_time": "11:00:00", "participant_count": 12,
+    }, headers=auth_headers())
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+
+
+def test_approved_reservation_still_blocks_overlapping_request(client, auth_headers, student, admin, create_room):
+    room = create_room()
+    booking_date = next_weekday(4)
+    created = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Approved blocker", "date": booking_date.isoformat(),
+        "start_time": "09:00:00", "end_time": "11:00:00", "participant_count": 4,
+    }, headers=auth_headers())
+    reservation_id = created.json()["data"]["id"]
+    approved = client.patch(f"/api/v1/reservations/{reservation_id}/approve", headers=auth_headers("admin@example.com"))
+    assert approved.status_code == 200
+    blocked = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Overlapping request", "date": booking_date.isoformat(),
+        "start_time": "10:00:00", "end_time": "12:00:00", "participant_count": 4,
+    }, headers=auth_headers())
+    assert blocked.status_code == 409
+
+
+def test_rejected_reservation_does_not_block_reuse(client, auth_headers, student, admin, create_room):
+    room = create_room()
+    booking_date = next_weekday(5)
+    created = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Reject this", "date": booking_date.isoformat(),
+        "start_time": "09:00:00", "end_time": "10:00:00", "participant_count": 4,
+    }, headers=auth_headers())
+    reservation_id = created.json()["data"]["id"]
+    rejected = client.patch(
+        f"/api/v1/reservations/{reservation_id}/reject",
+        json={"rejection_reason": "Room priority changed"},
+        headers=auth_headers("admin@example.com"),
+    )
+    assert rejected.status_code == 200
+    reused = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Replacement request", "date": booking_date.isoformat(),
+        "start_time": "09:00:00", "end_time": "10:00:00", "participant_count": 4,
+    }, headers=auth_headers())
+    assert reused.status_code == 201, reused.text
+
+
+def test_cancelled_reservation_does_not_block_reuse(client, auth_headers, student, admin, create_room):
+    room = create_room()
+    booking_date = next_weekday(6)
+    created = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Cancel this", "date": booking_date.isoformat(),
+        "start_time": "09:00:00", "end_time": "10:00:00", "participant_count": 4,
+    }, headers=auth_headers())
+    reservation_id = created.json()["data"]["id"]
+    cancelled = client.patch(
+        f"/api/v1/reservations/{reservation_id}/cancel",
+        json={"reason": "No longer needed"},
+        headers=auth_headers(),
+    )
+    assert cancelled.status_code == 200
+    reused = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Replacement booking", "date": booking_date.isoformat(),
+        "start_time": "09:00:00", "end_time": "10:00:00", "participant_count": 4,
+    }, headers=auth_headers())
+    assert reused.status_code == 201, reused.text
+
+
+def test_room_availability_reports_maintenance_inactive_and_hours(client, auth_headers, student, admin, create_room):
+    room = create_room()
+    booking_date = next_weekday(0)
+    outside = client.get(
+        f"/api/v1/rooms/{room['id']}/availability?date={booking_date.isoformat()}&startTime=22:00&endTime=23:00&participantCount=2"
+    )
+    assert outside.status_code == 200
+    assert "OUTSIDE_OPERATING_HOURS_OR_NOT_CONFIGURED" in outside.json()["data"]["reasons"]
+
+    changed = client.patch(
+        f"/api/v1/rooms/{room['id']}",
+        json={"room_status": "MAINTENANCE"},
+        headers=auth_headers("admin@example.com"),
+    )
+    assert changed.status_code == 200
+    maintenance = client.get(
+        f"/api/v1/rooms/{room['id']}/availability?date={booking_date.isoformat()}&startTime=12:00&endTime=13:00&participantCount=2"
+    )
+    assert "ROOM_IN_MAINTENANCE" in maintenance.json()["data"]["reasons"]
+
+
+def test_maintenance_period_blocks_new_reservation(client, auth_headers, student, admin, create_room):
+    room = create_room()
+    booking_date = next_weekday(1)
+    admin_headers = auth_headers("admin@example.com")
+    block = client.post("/api/v1/admin/room-unavailability", json={
+        "room_id": room["id"], "unavailable_date": booking_date.isoformat(),
+        "start_time": "13:00:00", "end_time": "15:00:00", "reason": "Air conditioner maintenance",
+    }, headers=admin_headers)
+    assert block.status_code == 201, block.text
+    reservation = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "Meeting", "date": booking_date.isoformat(),
+        "start_time": "14:00:00", "end_time": "14:30:00", "participant_count": 3,
+    }, headers=auth_headers())
+    assert reservation.status_code == 409
+
+
+def test_completed_reservation_is_historical_and_does_not_block(client, auth_headers, student, admin, create_room, db_session):
+    from datetime import time
+    from uuid import UUID
+
+    from ruangkampus.models import Reservation
+
+    room = create_room()
+    booking_date = next_weekday(2)
+    historical = Reservation(
+        user_id=student.id, room_id=UUID(room["id"]),
+        purpose="Historical reservation", reservation_date=booking_date,
+        start_time=time(9, 0), end_time=time(10, 0),
+        participant_count=5, status="COMPLETED",
+    )
+    db_session.add(historical)
+    db_session.commit()
+    request = client.post("/api/v1/reservations", json={
+        "room_id": room["id"], "purpose": "New slot request", "date": booking_date.isoformat(),
+        "start_time": "09:00:00", "end_time": "10:00:00", "participant_count": 5,
+    }, headers=auth_headers())
+    assert request.status_code == 201, request.text

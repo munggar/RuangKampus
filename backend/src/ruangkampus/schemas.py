@@ -304,3 +304,7 @@ def serialize_room(room) -> dict:
 
 def serialize_reservation(reservation) -> dict:
     return ReservationOut.model_validate(reservation).model_dump(mode="json")
+
+
+class ScheduleImportCommitIn(BaseModel):
+    batch_id: UUID

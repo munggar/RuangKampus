@@ -130,3 +130,27 @@ Account A owns schema changes and migrations. Migrations must be versioned, revi
 4. Cancellation cutoff and administrator override policy.
 5. Whether facilities and operating hours should be normalized.
 6. Notification channel/delivery tracking and audit retention.
+
+
+## Phase 2 schema additions
+
+### `schedule_import_batches`
+- `id UUID` primary key.
+- `created_by_id` FK to the TU/Admin user who created the preview.
+- `status`: `PREVIEWED`, `COMPLETED`, or `FAILED`.
+- `source_filename`, `file_sha256`, row/valid/invalid counts.
+- `parsed_rows JSON` and `row_results JSON` hold normalized preview data and row-level validation outcomes.
+- `created_at`, `completed_at`.
+- Preview data expires after 24 hours; file binaries are not stored.
+
+### Notification additions
+- `event_key`: nullable unique key for idempotent notification events.
+- `email_attempted_at`, `email_attempt_count`: record the single delivery attempt and avoid ambiguous automatic retries.
+- Unique partial semantics are achieved through a unique index on nullable `event_key` (PostgreSQL permits multiple NULL values).
+
+## Phase 2 migrations
+
+1. `b2c6a84f913d`: adds notification email-attempt/event-key columns and index; creates `schedule_import_batches`.
+2. `c3d7e91a4b02`: tightens lecture schedule discriminator so exactly one of `schedule_date` or `day_of_week` is supplied.
+
+The current CI workflow tests Alembic upgrade, model/migration drift, downgrade to base, and re-upgrade on a dedicated PostgreSQL 18 migration database. The separate PostgreSQL integration database runs schema, FK/check constraint, reservation concurrency, and rollback tests. These results must be read from the actual CI run; SQLite evidence is not substituted for PostgreSQL evidence.

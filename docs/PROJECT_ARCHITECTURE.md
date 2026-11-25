@@ -106,3 +106,14 @@ The existing frontend auth client expects direct JSON bodies for login/register/
 - Wire session restoration/refresh and the password-recovery page in frontend.
 - Implement schedule import after the authorized data source/file format is provided.
 - Consider AI only after core backend/availability integration and a confirmed functional requirement.
+
+
+## Phase 2 backend hardening
+
+Schedule imports are a dedicated backend module and use a two-stage preview/commit process. The preview parser rejects unsupported formats, limits upload size and row count, resolves room references, validates date/time/weekdays, and reports row-specific errors. Commit locks all target room rows in deterministic order and revalidates conflicts before a single transaction writes the schedule rows and audit records.
+
+Notification event handlers use deterministic unique event keys for in-app idempotency. SMTP sends a multipart message with a shared HTML template and escaped content. Delivery is attempted once per notification record and recorded separately from in-app creation; automatic retries are intentionally disabled when provider acceptance is ambiguous.
+
+Operational endpoints separate liveness (`/health`) from readiness (`/ready`). Structured logs omit request bodies and exception messages. A non-root container, local Compose PostgreSQL, and CI PostgreSQL service have been added. Migrations are explicitly run in CI/operator steps, not on application worker startup.
+
+The current release workflow separates SQLite tests from PostgreSQL integration tests. Its PostgreSQL service validates Alembic upgrade/check/downgrade/re-upgrade, schema constraints, foreign keys, concurrent reservation creation/approval, rollback, and container build. The workflow result—not local SQLite output—is the required evidence for PostgreSQL readiness.

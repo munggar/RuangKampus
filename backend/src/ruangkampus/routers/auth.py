@@ -15,7 +15,7 @@ from ruangkampus.models import AuthSession, PasswordResetToken, User, utcnow
 from ruangkampus.responses import success
 from ruangkampus.schemas import ForgotPasswordIn, LoginIn, RegisterIn, ResetPasswordIn, TokenOut, UserOut
 from ruangkampus.security import create_access_token, generate_opaque_token, hash_opaque_token, hash_password, verify_password
-from ruangkampus.services.mail import send_email
+from ruangkampus.services.mail import render_html_email, send_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -94,11 +94,9 @@ def register(payload: RegisterIn, request: Request, response: Response, db: Sess
 def login(payload: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     email = str(payload.email).lower().strip()
     user = db.scalar(select(User).where(User.email == email, User.deleted_at.is_(None)))
-    # A single generic message avoids revealing whether an email is registered.
     if user is None or user.account_status != "ACTIVE" or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email or password is incorrect")
-    tokens = _issue_session(user, db, response, request.headers.get("user-agent"))
-    return tokens
+    return _issue_session(user, db, response, request.headers.get("user-agent"))
 
 
 @router.post("/refresh")
@@ -122,18 +120,16 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Refresh session has expired")
 
-    # Rotate refresh token on every successful use; only the hash is stored.
     new_refresh = generate_opaque_token()
     auth_session.refresh_token_hash = hash_opaque_token(new_refresh)
     auth_session.expires_at = now + timedelta(days=get_settings().refresh_token_expire_days)
     db.commit()
     _set_refresh_cookie(response, new_refresh)
-    data = TokenOut(
+    return TokenOut(
         access_token=create_access_token(user.id, auth_session.id, user.role),
         expires_in=get_settings().access_token_expire_minutes * 60,
         user=UserOut.model_validate(user),
     ).model_dump(mode="json")
-    return data
 
 
 @router.post("/logout")
@@ -148,7 +144,7 @@ def logout(request: Request, response: Response, current_user: User = Depends(ge
         if auth_session and auth_session.user_id == current_user.id and auth_session.revoked_at is None:
             auth_session.revoked_at = utcnow()
             revoked = True
-    except Exception:
+    except jwt.InvalidTokenError:
         pass
     if not revoked:
         raw_token = request.cookies.get("ruangkampus_refresh")
@@ -182,12 +178,22 @@ def forgot_password(payload: ForgotPasswordIn, request: Request, db: Session = D
         )
         db.add(reset_record)
         db.commit()
-        reset_url = f"{get_settings().password_reset_base_url}?token={raw_token}"
+        # A URL fragment stays client-side and is not sent in HTTP requests or normal access logs.
+        reset_url = f"{get_settings().password_reset_base_url}#token={raw_token}"
+        subject = "RuangKampus password reset"
+        plain = (
+            f"Use this one-time link to reset your password: {reset_url}\n\n"
+            f"The link expires in {get_settings().password_reset_expire_minutes} minutes."
+        )
         try:
-            send_email(user.email, "RuangKampus password reset", f"Use this one-time link to reset your password: {reset_url}\n\nThe link expires in {get_settings().password_reset_expire_minutes} minutes.")
-        except Exception:
-            # Do not expose mail-provider errors or account existence to callers.
-            logger.exception("Password reset delivery failed")
+            send_email(
+                user.email,
+                subject,
+                plain,
+                render_html_email("Reset your RuangKampus password", "This one-time link expires soon.", reset_url, "Reset password"),
+            )
+        except Exception as exc:
+            logger.error("Password reset delivery failed (exception_type=%s)", type(exc).__name__)
     return success(None, "If an active account matches that email and email delivery is configured, reset instructions will be sent")
 
 

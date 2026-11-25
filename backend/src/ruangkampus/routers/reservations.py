@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ruangkampus.config import get_settings
@@ -15,7 +16,7 @@ from ruangkampus.models import Notification, Reservation, Room, RoomUpdateLog, U
 from ruangkampus.responses import success
 from ruangkampus.schemas import ReservationCancelIn, ReservationCreateIn, ReservationRejectIn, serialize_reservation
 from ruangkampus.services.availability import check_room_availability, ensure_future_campus_time
-from ruangkampus.services.mail import send_email
+from ruangkampus.services.mail import render_html_email, send_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/reservations", tags=["Reservations"])
@@ -42,7 +43,17 @@ def _get_reservation(db: Session, reservation_id: UUID, lock: bool = False) -> R
     return reservation
 
 
-def _notify(db: Session, recipient: User, notification_type: str, title: str, message: str):
+def _notify_once(
+    db: Session,
+    recipient: User,
+    notification_type: str,
+    title: str,
+    message: str,
+    event_key: str,
+) -> tuple[Notification, bool]:
+    existing = db.scalar(select(Notification).where(Notification.event_key == event_key))
+    if existing is not None:
+        return existing, False
     notification = Notification(
         recipient_id=recipient.id,
         notification_type=notification_type,
@@ -50,23 +61,47 @@ def _notify(db: Session, recipient: User, notification_type: str, title: str, me
         message=message,
         delivery_status="IN_APP_CREATED",
         email_delivery_status="NOT_CONFIGURED",
+        event_key=event_key,
     )
-    db.add(notification)
-    db.flush()
-    return notification
+    try:
+        with db.begin_nested():
+            db.add(notification)
+            db.flush()
+        return notification, True
+    except IntegrityError:
+        existing = db.scalar(select(Notification).where(Notification.event_key == event_key))
+        if existing is None:
+            raise
+        return existing, False
 
 
 def _deliver_notification_email(db: Session, notification: Notification, recipient: User) -> None:
+    # Claim the one permitted attempt under a row lock. SMTP cannot guarantee
+    # exactly-once delivery across network timeouts, so retries are not automatic.
+    record = db.scalar(select(Notification).where(Notification.id == notification.id).with_for_update())
+    if record is None or record.email_attempted_at is not None:
+        return
+    record.email_attempted_at = utcnow()
+    record.email_attempt_count += 1
+    record.email_delivery_status = "ATTEMPTED"
+    db.commit()
     try:
-        delivered = send_email(recipient.email, notification.title, notification.message)
+        delivered = send_email(
+            recipient.email,
+            record.title,
+            record.message,
+            render_html_email(record.title, record.message),
+        )
         if delivered:
-            notification.email_delivery_status = ("LOCAL_MAILBOX_WRITTEN" if get_settings().email_backend == "console" else "SENT")
-            notification.email_sent_at = utcnow() if get_settings().email_backend == "smtp" else None
+            record.email_delivery_status = (
+                "LOCAL_MAILBOX_WRITTEN" if get_settings().email_backend == "console" else "SENT"
+            )
+            record.email_sent_at = utcnow() if get_settings().email_backend == "smtp" else None
         else:
-            notification.email_delivery_status = "NOT_CONFIGURED"
-    except Exception:
-        notification.email_delivery_status = "FAILED"
-        logger.exception("Reservation notification email delivery failed")
+            record.email_delivery_status = "NOT_CONFIGURED"
+    except Exception as exc:
+        record.email_delivery_status = "FAILED"
+        logger.error("Reservation notification email delivery failed (exception_type=%s)", type(exc).__name__)
     db.commit()
 
 
@@ -104,8 +139,13 @@ def create_reservation(payload: ReservationCreateIn, user: User = Depends(requir
     admins = db.scalars(select(User).where(User.role == "TU_ADMIN", User.account_status == "ACTIVE", User.deleted_at.is_(None))).all()
     pending_deliveries = []
     for admin in admins:
-        notification = _notify(db, admin, "RESERVATION_NEW", "New reservation request", f"A new request was submitted for {room.room_name} on {payload.date.isoformat()}.")
-        pending_deliveries.append((notification, admin))
+        notification, is_new = _notify_once(
+            db, admin, "RESERVATION_NEW", "New reservation request",
+            f"A new request was submitted for {room.room_name} on {payload.date.isoformat()}.",
+            f"reservation:{reservation.id}:new:{admin.id}",
+        )
+        if is_new:
+            pending_deliveries.append((notification, admin))
     db.commit()
     for notification, recipient in pending_deliveries:
         _deliver_notification_email(db, notification, recipient)
@@ -177,9 +217,30 @@ def cancel_reservation(reservation_id: UUID, payload: ReservationCancelIn | None
     if user.role == "TU_ADMIN":
         reservation.admin_id = user.id
         _audit_reservation_action(db, user, reservation, "CANCEL_RESERVATION", previous_status)
-    notification = _notify(db, reservation.user, "RESERVATION_CANCELLED", "Reservation cancelled", f"Your reservation for {reservation.room.room_name} was cancelled.")
+    pending_deliveries = []
+    if user.role == "TU_ADMIN":
+        notification, is_new = _notify_once(
+            db, reservation.user, "RESERVATION_CANCELLED", "Reservation cancelled",
+            f"Your reservation for {reservation.room.room_name} was cancelled by the administrator.",
+            f"reservation:{reservation.id}:cancelled:{reservation.user_id}",
+        )
+        if is_new:
+            pending_deliveries.append((notification, reservation.user))
+    else:
+        admins = db.scalars(select(User).where(
+            User.role == "TU_ADMIN", User.account_status == "ACTIVE", User.deleted_at.is_(None)
+        )).all()
+        for admin in admins:
+            notification, is_new = _notify_once(
+                db, admin, "RESERVATION_CANCELLED_BY_STUDENT", "Reservation cancelled by student",
+                f"A reservation for {reservation.room.room_name} on {reservation.reservation_date.isoformat()} was cancelled by the applicant.",
+                f"reservation:{reservation.id}:cancelled-by-student:{admin.id}",
+            )
+            if is_new:
+                pending_deliveries.append((notification, admin))
     db.commit()
-    _deliver_notification_email(db, notification, reservation.user)
+    for notification, recipient in pending_deliveries:
+        _deliver_notification_email(db, notification, recipient)
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation cancelled")
 
@@ -201,9 +262,14 @@ def approve_reservation(reservation_id: UUID, admin: User = Depends(require_admi
     reservation.approved_at = utcnow()
     reservation.updated_at = utcnow()
     _audit_reservation_action(db, admin, reservation, "APPROVE_RESERVATION", previous_status)
-    notification = _notify(db, reservation.user, "RESERVATION_APPROVED", "Reservation approved", f"Your reservation for {room.room_name} has been approved.")
+    notification, is_new = _notify_once(
+        db, reservation.user, "RESERVATION_APPROVED", "Reservation approved",
+        f"Your reservation for {room.room_name} has been approved.",
+        f"reservation:{reservation.id}:approved:{reservation.user_id}",
+    )
     db.commit()
-    _deliver_notification_email(db, notification, reservation.user)
+    if is_new:
+        _deliver_notification_email(db, notification, reservation.user)
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation approved")
 
@@ -219,9 +285,14 @@ def reject_reservation(reservation_id: UUID, payload: ReservationRejectIn, admin
     reservation.rejection_reason = payload.rejection_reason.strip()
     reservation.updated_at = utcnow()
     _audit_reservation_action(db, admin, reservation, "REJECT_RESERVATION", previous_status)
-    notification = _notify(db, reservation.user, "RESERVATION_REJECTED", "Reservation rejected", f"Your reservation was rejected. Reason: {reservation.rejection_reason}")
+    notification, is_new = _notify_once(
+        db, reservation.user, "RESERVATION_REJECTED", "Reservation rejected",
+        f"Your reservation was rejected. Reason: {reservation.rejection_reason}",
+        f"reservation:{reservation.id}:rejected:{reservation.user_id}",
+    )
     db.commit()
-    _deliver_notification_email(db, notification, reservation.user)
+    if is_new:
+        _deliver_notification_email(db, notification, reservation.user)
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation rejected")
 

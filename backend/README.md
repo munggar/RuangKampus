@@ -174,3 +174,41 @@ The suite currently has **24 passing tests** using isolated in-memory SQLite dat
 - Media upload/storage is not implemented; room/profile image attributes accept URLs only.
 - Historical refresh-token replay-family detection is not implemented.
 - Rate limiting is an in-process guard; production multi-worker/multi-instance deployments require shared API gateway/WAF rate limiting.
+
+
+## Phase 2 — CSV/XLSX schedule import
+
+TU/Admin can import campus lecture schedules through a two-step preview/commit process. The endpoint accepts CSV and XLSX only; maximum upload size is 5 MiB, maximum non-empty records is 5,000, and XLSX expanded archive size is limited. Macro-enabled formats are rejected. The XLSX reader uses read-only/data-only mode and does not execute macros.
+
+Accepted header names are case-insensitive and whitespace/hyphens are normalized to underscores. Required columns are:
+- `course_name`
+- `start_time`
+- `end_time`
+- either `room_code` or `room_id`
+- exactly one of `schedule_date` or `day_of_week`
+
+One-time dates use ISO `YYYY-MM-DD`. Recurring weekdays accept Monday–Sunday or integers 0–6 (Monday=0). Time accepts `HH:MM` or `HH:MM:SS`. Empty rows are ignored.
+
+Workflow:
+1. `POST /api/v1/admin/schedules/imports/preview` with multipart field `file`.
+2. Inspect `data.row_results`, counts, and returned `batch_id`.
+3. `POST /api/v1/admin/schedules/imports/commit` with `{ "batch_id": "..." }`.
+4. Read `GET /api/v1/admin/schedules/imports` or `GET /api/v1/admin/schedules/imports/{batch_id}` for history.
+
+Preview results are persisted for the creating administrator for 24 hours. Commit re-locks the affected rooms in deterministic UUID order, re-checks existing schedules, maintenance, reservations, and room status, then inserts all valid preview rows in one transaction. If any conflict appears after preview, the entire batch is rejected and no schedule rows are inserted. Invalid rows are reported individually during preview; valid rows can still be committed as an atomic batch. File binary content is not retained; source filename, SHA-256 digest, normalized preview, and row results are retained.
+
+### Phase 2 — Notifications and email
+
+In-app events now have deterministic event keys protected by a unique index to prevent duplicate event rows when processing is repeated. Each email notification records an attempt timestamp and count. Automatic retry is intentionally disabled: SMTP cannot guarantee exactly-once delivery after an ambiguous network timeout, and silently retrying can send duplicates. Failed deliveries are visible as `FAILED`; they are not claimed as sent.
+
+SMTP sends multipart plain-text and HTML alternatives. User-controlled content in email HTML is escaped. Production configuration requires SMTP with STARTTLS; credentials remain in environment variables. Development `EMAIL_BACKEND=console` writes to the ignored local mailbox and is not real email delivery.
+
+### Phase 2 — Operations, Docker, and CI
+
+- `GET /health` is the liveness probe and does not require the database.
+- `GET /ready` executes `SELECT 1` and returns 503 if the database is unavailable.
+- `backend/Dockerfile` uses a non-root runtime image. Migrations remain a separate operator step and do not run automatically at worker startup.
+- `docker-compose.yml` starts an isolated local PostgreSQL service and the API.
+- GitHub Actions starts a PostgreSQL 18 service, runs SQLite unit/API tests separately from PostgreSQL integration tests, performs PostgreSQL Alembic upgrade/drift/downgrade/re-upgrade, runs concurrency/schema tests, dependency audit, and a Docker build.
+
+PostgreSQL CI evidence must be checked from the GitHub Actions run attached to the backend commit. Local SQLite tests do not prove PostgreSQL row-lock semantics.

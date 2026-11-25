@@ -47,8 +47,12 @@ def check_room_availability(
     reasons: list[str] = []
     if not ensure_future_campus_time(requested_date, start_time):
         reasons.append("PAST_OR_CURRENT_START_TIME")
-    if room.deleted_at is not None or room.room_status != "ACTIVE":
-        reasons.append("ROOM_NOT_ACTIVE")
+    if room.deleted_at is not None:
+        reasons.append("ROOM_DELETED")
+    elif room.room_status == "MAINTENANCE":
+        reasons.append("ROOM_IN_MAINTENANCE")
+    elif room.room_status != "ACTIVE":
+        reasons.append("ROOM_INACTIVE")
     if participant_count <= 0 or participant_count > room.capacity:
         reasons.append("CAPACITY_EXCEEDED")
     if not _within_operating_hours(room, requested_date, start_time, end_time):
@@ -92,3 +96,9 @@ def ensure_future_campus_time(requested_date: date, start_time: time) -> bool:
     now_local = datetime.now(ZoneInfo(settings.campus_timezone))
     requested_local = datetime.combine(requested_date, start_time, tzinfo=ZoneInfo(settings.campus_timezone))
     return requested_local > now_local
+
+
+
+def campus_today() -> date:
+    settings = get_settings()
+    return datetime.now(ZoneInfo(settings.campus_timezone)).date()

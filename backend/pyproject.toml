@@ -2,6 +2,7 @@
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
+markers = ["postgres: integration test requiring a dedicated PostgreSQL database"]
 
 [tool.ruff]
 line-length = 100
