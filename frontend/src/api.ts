@@ -187,6 +187,7 @@ export const scheduleApi = {
 
 export const adminApi = {
   activity: (params = new URLSearchParams()) => apiPage<Record<string, unknown>>("/admin/activity?" + params.toString()),
+  roomStatistics: (params = new URLSearchParams()) => dashboardApi.roomStatistics(params),
 };
 
 export function localToday(): string {
