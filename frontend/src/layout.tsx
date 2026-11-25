@@ -54,7 +54,8 @@ function pageLabel(path: string, role: AppRole) {
     [root + "/dashboard", "Dashboard"], [root + "/rooms", "Ruang kampus"],
     [root + "/reservations", role === "Student" ? "Reservasi saya" : "Permohonan reservasi"],
     [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"],
-    [root + "/assistant", "AI Assistant"], [root + "/schedules", "Jadwal ruang"],
+    [root + "/assistant", "AI Assistant"], [root + "/availability", "Ketersediaan ruangan"],
+    [root + "/alternatives", "Slot alternatif"], [root + "/schedules", "Jadwal ruang"],
   ];
   return items.find(([route]) => path === route)?.[1] || "RuangKampus";
 }
