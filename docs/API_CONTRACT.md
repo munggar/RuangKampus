@@ -166,7 +166,7 @@ The frontend currently does not call refresh/session restoration after a hard re
 ## Not implemented in this API slice
 
 - CSV/XLSX schedule import preview/commit.
-- AI recommendation provider/endpoint.
+- Generative LLM provider for the room assistant; the current stateless rule-based assistant endpoint is documented below.
 - Media upload/storage.
 - Push/WebSocket notifications.
 
