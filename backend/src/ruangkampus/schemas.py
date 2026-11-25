@@ -29,12 +29,17 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
     phone: str | None = Field(default=None, max_length=40)
-    student_identifier: str | None = Field(default=None, min_length=3, max_length=50)
+    student_identifier: str = Field(min_length=3, max_length=50)
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    identifier: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("identifier")
+    @classmethod
+    def clean_identifier(cls, value: str) -> str:
+        return value.strip()
 
 
 class UserOut(BaseOut):
