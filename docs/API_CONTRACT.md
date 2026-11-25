@@ -202,3 +202,41 @@ Email delivery is attempted once per notification record. SMTP errors are record
 | GET | `/ready` | Public | Executes database `SELECT 1`; 503 if DB is unavailable |
 
 CORS uses explicit configured origins. Request size is limited to 6 MiB, including streamed requests without Content-Length. Production responses receive HSTS; structured JSON logs do not serialize request bodies or exception messages. Docker images run as a non-root user. Database migrations must be run explicitly as an operator/CI step.
+
+## Backend flow for the 15 primary features
+
+The following is the backend contract that the frontend must follow. The backend owns authorization, validation, availability decisions, and reservation state transitions; the browser must not treat client-side checks as authoritative.
+
+| No. | Feature | Backend flow and contract |
+|---:|---|---|
+| 1 | Authentication & Authorization | `POST /auth/register` (Student-only role assignment), `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`; current-user and Student/TU_Admin dependencies enforce RBAC on every protected route. |
+| 2 | Student Dashboard | `GET /dashboard/summary` and `GET /dashboard/recent-reservations`; returns counts and only the authenticated student's records. |
+| 3 | TU Dashboard | The same summary/recent endpoints are role-scoped; `GET /dashboard/room-statistics` is TU/Admin-only. |
+| 4 | Room Management | TU/Admin-only `POST/PATCH/DELETE /rooms`; soft deletion and room changes are audited. |
+| 5 | Smart Room Availability | `GET /rooms/{room_id}/availability`; checks active state, capacity, operating hours, one-time/recurring lectures, maintenance blocks, and pending/approved reservations. Creation and approval repeat this check transactionally. |
+| 6 | Room Search & Filter | `GET /rooms` supports text, faculty, building, location, capacity/min/max capacity, repeated facilities, status (TU/Admin), sorting, and paging. Optional `date`, `startTime`, `endTime`, and `participantCount` filter to rooms available for that exact slot before pagination. |
+| 7 | Online Room Reservation | Student-only `POST /reservations`; server validates inputs and rechecks availability while holding the room row lock. |
+| 8 | TU Approval System | TU/Admin-only `PATCH /reservations/{id}/approve` and `/reject`; validates status transitions, rechecks the current room slot, writes an audit event, and notifies the student. |
+| 9 | Conflict Detection | One shared availability service checks schedules, maintenance, and PENDING/APPROVED bookings; PostgreSQL room-row locking serializes create/approval races. Conflicts return HTTP 409. |
+| 10 | Reservation Tracking | `GET /reservations` and `GET /reservations/{id}` apply student ownership scoping and return PENDING/APPROVED/REJECTED/CANCELLED/COMPLETED states. |
+| 11 | Chatbot / AI Room Assistant | Student-only `POST /assistant/chat`; accepts a message and optional structured filters, returns grounded room records and follow-up questions, never creates a reservation, and does not persist or forward chat content. The first engine is deterministic/rule-based; a generative LLM provider is not yet configured. |
+| 12 | Notification System | `GET /notifications` and `PATCH /notifications/{id}/read`; recipient scoping, event-key deduplication, and explicit email delivery states. |
+| 13 | Room Location Information | Room payload now includes `faculty`, `building`, `floor`, and `location_description`; existing `photo_url` remains an optional URL. |
+| 14 | Room Facility Information | Room payload includes capacity, facilities, description, operating hours, and status; these values are returned in search/detail and used by availability validation. |
+| 15 | Alternative Slot Recommendation | Student-only `POST /rooms/alternative-slots`; enumerates operating-hour slots in the requested date window and returns only slots that pass the same availability engine. It returns candidate suggestions, not a reservation; booking revalidates. |
+
+### Alternative-slot request
+
+`POST /api/v1/rooms/alternative-slots` accepts `date`, `duration_minutes`, `participant_count`, optional `room_id`, `faculty`, `building`, `facilities`, `preferred_start_time`, `search_days` (0–14), `slot_step_minutes` (5–120), and `limit` (1–50). Suggestions are ranked by date proximity, time proximity, same-room preference, and capacity slack. Each result carries `availability_source: LIVE_AVAILABILITY_CHECK`. Availability may change after the response, so the reservation endpoint always rechecks.
+
+### Assistant request
+
+`POST /api/v1/assistant/chat` accepts `message` plus optional `faculty`, `building`, `min_capacity`, `facilities`, `date`, `start_time`, `end_time`, and `participant_count`. Date and time filters must be complete as a group. The response includes `engine`, `intent`, `filters`, `rooms`, `alternative_slots`, `follow_up_questions`, and `reservation_action: NOT_CREATED`. `engine=RULE_BASED` identifies the current non-LLM implementation accurately; no external provider receives user chat messages.
+
+### Room search time filter
+
+`GET /api/v1/rooms` accepts `faculty`, `building`, `location`, `capacity`, `min_capacity`, `max_capacity`, repeated `facilities`, and `date` + `startTime` + `endTime` + optional `participantCount`. The date/time trio must be supplied together. When present, availability filtering is performed before pagination so `meta.total` counts matching available rooms only.
+
+### Schema migration
+
+Alembic revision `d4e8b71c2f90` adds nullable `rooms.faculty` and `rooms.location_description` columns and a faculty/building/status index. Existing room rows remain valid with null metadata; administrators should populate faculty and location details before relying on those filters.
