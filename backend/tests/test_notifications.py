@@ -30,7 +30,7 @@ def test_notifications_are_visible_only_to_recipient(client, auth_headers, stude
     db_session.commit()
 
     second = client.post("/api/v1/auth/register", json={
-        "name": "Second Student", "email": "second@example.com", "password": "AnotherStrongPass123!"
+        "name": "Second Student", "email": "second@example.com", "student_identifier": "2403045008", "password": "AnotherStrongPass123!"
     })
     assert second.status_code == 201
     second_headers = {"Authorization": f"Bearer {second.json()['access_token']}"}
