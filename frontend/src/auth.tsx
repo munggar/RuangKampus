@@ -7,8 +7,8 @@ import type { AppRole, AuthUser } from "./types";
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, expectedRole: AppRole) => Promise<AuthUser>;
-  register: (payload: { name: string; email: string; password: string; phone?: string; student_identifier?: string }) => Promise<AuthUser>;
+  login: (identifier: string, password: string, expectedRole: AppRole) => Promise<AuthUser>;
+  register: (payload: { name: string; email: string; password: string; student_identifier: string; phone?: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   replaceUser: (user: AuthUser) => void;
 }
@@ -35,8 +35,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => { active = false; };
   }, []);
 
-  const login = useCallback(async (email: string, password: string, expectedRole: AppRole) => {
-    const session = await authApi.login(email, password);
+  const login = useCallback(async (identifier: string, password: string, expectedRole: AppRole) => {
+    const session = await authApi.login(identifier, password);
     if (session.user.role !== expectedRole) {
       setAccessToken(null);
       throw new ApiError("Jenis akun yang dipilih tidak sesuai dengan role akun pada server.", 403, "ROLE_MISMATCH");
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return session.user;
   }, []);
 
-  const register = useCallback(async (payload: { name: string; email: string; password: string; phone?: string; student_identifier?: string }) => {
+  const register = useCallback(async (payload: { name: string; email: string; password: string; student_identifier: string; phone?: string }) => {
     const session = await authApi.register(payload);
     if (session.user.role !== "Student") {
       setAccessToken(null);
