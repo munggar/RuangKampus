@@ -64,12 +64,15 @@ class Room(Base):
         CheckConstraint("capacity > 0", name="ck_rooms_capacity_positive"),
         CheckConstraint("room_status IN ('ACTIVE', 'INACTIVE', 'MAINTENANCE')", name="ck_rooms_status"),
         Index("ix_rooms_building_status", "building", "room_status", "deleted_at"),
+        Index("ix_rooms_faculty_building_status", "faculty", "building", "room_status", "deleted_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     room_name: Mapped[str] = mapped_column(String(160), nullable=False)
     room_code: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
     building: Mapped[str] = mapped_column(String(160), nullable=False)
+    faculty: Mapped[str | None] = mapped_column(String(160), nullable=True)
     floor: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    location_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     facilities: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
