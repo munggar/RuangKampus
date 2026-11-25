@@ -336,15 +336,15 @@ class AssistantChatIn(BaseModel):
     building: str | None = Field(default=None, max_length=160)
     min_capacity: int | None = Field(default=None, ge=1, le=10000)
     facilities: list[str] = Field(default_factory=list, max_length=25)
-    date: date | None = None
+    requested_date: date | None = Field(default=None, alias="date")
     start_time: time | None = None
     end_time: time | None = None
     participant_count: int = Field(default=1, ge=1, le=10000)
 
     @model_validator(mode="after")
     def validate_optional_time_filter(self):
-        has_any_time = self.date is not None or self.start_time is not None or self.end_time is not None
-        if has_any_time and not (self.date is not None and self.start_time is not None and self.end_time is not None):
+        has_any_time = self.requested_date is not None or self.start_time is not None or self.end_time is not None
+        if has_any_time and not (self.requested_date is not None and self.start_time is not None and self.end_time is not None):
             raise ValueError("date, start_time, and end_time must be supplied together")
         if self.start_time is not None and self.end_time is not None and self.end_time <= self.start_time:
             raise ValueError("end_time must be later than start_time")
