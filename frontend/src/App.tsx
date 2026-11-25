@@ -4,7 +4,7 @@ import { useAuth } from "./auth";
 import { AppShell } from "./layout";
 import {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
-  ForgotPasswordPage, LoginPage, NotificationsPage, ProfilePage,
+  ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
   ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
   StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
   AlternativeSlotsPage, RoomAssistantPage,
@@ -35,6 +35,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ForgotPasswordPage />} />
 
