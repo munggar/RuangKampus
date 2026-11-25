@@ -15,7 +15,7 @@ def test_admin_can_preview_and_commit_csv_schedule_import(client, auth_headers, 
     from ruangkampus.models import LectureSchedule
 
     room = create_room()
-    headers = auth_headers("admin@example.com")
+    headers = auth_headers("admin.uhamka")
     content = (
         "room_code,course_name,schedule_date,start_time,end_time\n"
         f"{room['room_code']},Software Engineering,{next_weekday(4).isoformat()},10:00,11:30\n"
@@ -48,7 +48,7 @@ def test_admin_can_preview_and_commit_csv_schedule_import(client, auth_headers, 
 
 def test_schedule_import_preview_reports_invalid_and_overlapping_rows(client, auth_headers, admin, create_room):
     room = create_room()
-    headers = auth_headers("admin@example.com")
+    headers = auth_headers("admin.uhamka")
     content = (
         "room_code,course_name,day_of_week,start_time,end_time\n"
         f"{room['room_code']},Class A,Monday,09:00,11:00\n"
@@ -75,7 +75,7 @@ def test_student_cannot_import_schedules(client, auth_headers, student):
 
 
 def test_schedule_import_rejects_unsupported_and_malformed_files(client, auth_headers, admin):
-    headers = auth_headers("admin@example.com")
+    headers = auth_headers("admin.uhamka")
     unsupported = client.post(
         "/api/v1/admin/schedules/imports/preview",
         files=csv_file("not important", filename="macro.xlsm"),
@@ -93,7 +93,7 @@ def test_schedule_import_rejects_unsupported_and_malformed_files(client, auth_he
 
 def test_schedule_import_commit_rechecks_changes_since_preview(client, auth_headers, student, admin, create_room):
     room = create_room()
-    headers = auth_headers("admin@example.com")
+    headers = auth_headers("admin.uhamka")
     booking_date = next_weekday(5)
     content = (
         "room_code,course_name,schedule_date,start_time,end_time\n"
@@ -136,6 +136,6 @@ def test_admin_can_preview_xlsx_schedule_import(client, auth_headers, admin, cre
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
     }
-    response = client.post("/api/v1/admin/schedules/imports/preview", files=file, headers=auth_headers("admin@example.com"))
+    response = client.post("/api/v1/admin/schedules/imports/preview", files=file, headers=auth_headers("admin.uhamka"))
     assert response.status_code == 201, response.text
     assert response.json()["data"]["valid_count"] == 1
