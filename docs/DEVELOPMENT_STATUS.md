@@ -122,3 +122,17 @@ Backend implementation now maps each of the 15 primary features to an API/data f
 The core flows for features 1–10 and 12–14 already exist in the Phase 1/2 routers and services. Feature 11 has a functioning backend chat/search contract but does not yet use a generative LLM provider. Feature 15 now has a deterministic availability-based recommendation endpoint. All candidate recommendations are revalidated when a student actually submits a reservation.
 
 The frontend branch was not modified. Frontend work should be based on these final request/response contracts after backend review and CI passes.
+
+## Verified 15-feature backend CI result
+
+GitHub Actions run #43 completed successfully for backend commit `1e80718e283ce5060ad5375e020a79c71320a930` on 2026-11-25:
+- SQLite unit/API suite: **50 tests passed**.
+- PostgreSQL 18 schema/concurrency integration suite: **9 tests passed**.
+- PostgreSQL Alembic upgrade, drift check, downgrade-to-base, re-upgrade, and second drift check: passed.
+- Ruff lint, formatting in CI workspace, and Python compile: passed.
+- `pip-audit`: no known vulnerabilities found.
+- Backend Docker image build: passed.
+
+Run: https://github.com/munggar/RuangKampus/actions/runs/45607354793.
+
+This validates the backend source and migrations against isolated CI databases only. No production database was migrated and no hosting provider was deployed. Frontend sources were not modified. The room assistant API currently uses a deterministic rule-based engine; an external generative LLM provider remains unconfigured.
