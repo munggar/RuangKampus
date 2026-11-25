@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import os
 from pathlib import Path
 
 
@@ -28,7 +29,7 @@ def test_password_reset_token_is_one_time_and_revokes_sessions(client, student):
     old_headers_response = client.post("/api/v1/auth/login", json={"email": "student@example.com", "password": "StrongPass123!"})
     old_headers = {"Authorization": f"Bearer {old_headers_response.json()['access_token']}"}
 
-    mailbox = Path(".local_mailbox")
+    mailbox = Path(os.environ.get("LOCAL_MAILBOX_DIR", ".local_mailbox"))
     mailbox.mkdir(exist_ok=True)
     for old_file in mailbox.glob("*.eml.txt"):
         old_file.unlink()
