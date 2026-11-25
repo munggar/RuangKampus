@@ -34,7 +34,7 @@ def create_admin_from_env():
     """One-time bootstrap for an empty installation; never exposed through HTTP."""
     # Email stays required by the user record, but authentication uses the
     # reserved username. The .invalid address is deliberately non-deliverable.
-    email_value = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL", "admin.uhamka@ruangkampus.invalid").strip().lower()
+    email_value = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL", "admin.uhamka@example.com").strip().lower()
     name = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME", "Admin UHAMKA").strip()
     password = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD", "")
     username = "admin.uhamka"
@@ -54,6 +54,8 @@ def create_admin_from_env():
         existing = existing_by_username or existing_by_email
         if existing is not None:
             if existing.role == "TU_ADMIN" and existing.account_status == "ACTIVE" and existing.deleted_at is None:
+                if existing.email.lower() != email.lower():
+                    raise SystemExit("Bootstrap is restricted to an installation without a different active TU/Admin account")
                 if existing.student_identifier not in (None, username):
                     raise SystemExit("An active administrator already uses a different login username")
                 if existing.student_identifier is None:
