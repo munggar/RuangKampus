@@ -8,12 +8,22 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1").replace(/\/+$/, "");
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE_URL = (configuredApiBase || (import.meta.env.DEV ? "http://localhost:8000/api/v1" : "")).replace(/\/+$/, "");
+
+export function isApiConfigured() {
+  return API_BASE_URL.length > 0;
+}
 let accessToken: string | null = null;
 let refreshPromise: Promise<TokenResponse | null> | null = null;
 
 export function setAccessToken(token: string | null) { accessToken = token; }
-export function buildApiUrl(path: string) { return API_BASE_URL + "/" + path.replace(/^\/+/, ""); }
+export function buildApiUrl(path: string) {
+  if (!API_BASE_URL) {
+    throw new ApiError("Backend belum dikonfigurasi. Tampilan frontend bisa dilihat, tetapi login dan data belum aktif.", 0, "API_NOT_CONFIGURED");
+  }
+  return API_BASE_URL + "/" + path.replace(/^\/+/, "");
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -33,6 +43,10 @@ function messageFrom(payload: unknown, status: number): string {
 }
 
 async function refreshAccessToken(): Promise<TokenResponse | null> {
+  if (!API_BASE_URL) {
+    setAccessToken(null);
+    return null;
+  }
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {
@@ -59,6 +73,9 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown; noRefresh?: boolean; rawResponse?: boolean;
 }
 async function rawRequest<T>(path: string, options: RequestOptions = {}, retried = false): Promise<T> {
+  if (!API_BASE_URL) {
+    throw new ApiError("Backend belum dikonfigurasi. Atur VITE_API_BASE_URL setelah API dipublikasikan.", 0, "API_NOT_CONFIGURED");
+  }
   const { body, headers: initialHeaders, noRefresh = false, rawResponse = false, ...rest } = options;
   const headers = new Headers(initialHeaders);
   headers.set("Accept", "application/json");

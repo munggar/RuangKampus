@@ -46,8 +46,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const logout = useCallback(async () => {
-    try { if (user) await authApi.logout(); }
-    finally { setAccessToken(null); setUser(null); }
+    try {
+      if (user) await authApi.logout();
+    } catch {
+      // A password change or expired session may already have revoked the server session.
+      // Local logout must still complete and must not block navigation to the login page.
+    } finally {
+      setAccessToken(null);
+      setUser(null);
+    }
   }, [user]);
 
   const replaceUser = useCallback((nextUser: AuthUser) => setUser(nextUser), []);

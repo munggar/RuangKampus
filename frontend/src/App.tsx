@@ -35,6 +35,7 @@ export function App() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ForgotPasswordPage />} />
 
       <Route path="/student" element={<RequireRole role="Student"><AppShell role="Student" /></RequireRole>}>
         <Route index element={<Navigate to="dashboard" replace />} />

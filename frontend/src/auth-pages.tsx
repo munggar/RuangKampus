@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { ApiError, authApi } from "./api";
+import { ApiError, authApi, isApiConfigured } from "./api";
 import { useAuth } from "./auth";
 import type { AppRole } from "./types";
 import { Button, Field, Notice } from "./ui";
@@ -45,6 +45,7 @@ export function LoginPage() {
         <p className="eyebrow">WELCOME BACK</p>
         <h2>Selamat datang kembali</h2>
         <p className="muted">Masuk dengan akun universitas yang terdaftar.</p>
+        {!isApiConfigured() ? <Notice tone="warning">Mode preview: tampilan tersedia, tetapi backend belum di-host atau URL API belum diatur. Login dan pemuatan data belum aktif.</Notice> : null}
         <div className="role-switch" aria-label="Pilih jenis akun">
           <button type="button" aria-pressed={role === "Student"} className={role === "Student" ? "is-active" : ""} onClick={() => { setRole("Student"); setError(""); }}>Student</button>
           <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setError(""); }}>Administrator</button>
