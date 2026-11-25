@@ -157,7 +157,10 @@ class RoomUnavailablePeriod(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
-    __table_args__ = (Index("ix_notifications_recipient_read_created", "recipient_id", "read_at", "created_at"), Index("uq_notifications_event_key", "event_key", unique=True)),
+    __table_args__ = (
+        Index("ix_notifications_recipient_read_created", "recipient_id", "read_at", "created_at"),
+        Index("uq_notifications_event_key", "event_key", unique=True),
+    )
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     recipient_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     notification_type: Mapped[str] = mapped_column(String(60), nullable=False)
