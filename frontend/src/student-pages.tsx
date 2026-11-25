@@ -456,6 +456,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
+  const accountRoot = role === "Student" ? "/student" : "/admin";
 
   useEffect(() => {
     let active = true;
@@ -517,7 +518,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
         </form>
       </div>
     </div>
-    <Link className="panel profile-link" to="/student/assistant"><span><b>Bantuan & FAQ</b><small>Informasi alur reservasi dan aturan layanan</small></span><ArrowRight size={18} /></Link>
+    <Link className="panel profile-link" to={accountRoot + "/assistant"}><span><b>Bantuan & FAQ</b><small>Informasi alur reservasi dan aturan layanan</small></span><ArrowRight size={18} /></Link>
   </div>;
 }
 

@@ -1,4 +1,4 @@
-import type { AppNotification, AuthUser, AvailabilityResult, PageMeta, PageResult, Reservation, Room, Schedule, TokenResponse } from "./types";
+import type { AppNotification, AuthUser, AvailabilityResult, PageMeta, PageResult, Reservation, Room, RoomUnavailability, Schedule, TokenResponse } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;

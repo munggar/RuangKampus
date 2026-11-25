@@ -8,7 +8,7 @@ import {
   adminApi, dashboardApi, formatDate, formatTime, localToday, reservationApi, roomApi,
   scheduleApi, statusLabel,
 } from "./api";
-import type { Reservation, Room, RoomStatus, Schedule } from "./types";
+import type { Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from "./types";
 import { PageTitle } from "./layout";
 import { Button, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
 
@@ -299,6 +299,7 @@ export function AdminRoomEditorPage() {
 export function AdminSchedulesPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [items, setItems] = useState<Schedule[]>([]);
+  const [blocks, setBlocks] = useState<RoomUnavailability[]>([]);
   const [roomId, setRoomId] = useState("");
   const [course, setCourse] = useState("");
   const [mode, setMode] = useState<"date" | "weekly">("date");
@@ -306,6 +307,10 @@ export function AdminSchedulesPage() {
   const [day, setDay] = useState("0");
   const [start, setStart] = useState("08:00");
   const [end, setEnd] = useState("10:00");
+  const [blockDate, setBlockDate] = useState(localToday());
+  const [blockStart, setBlockStart] = useState("08:00");
+  const [blockEnd, setBlockEnd] = useState("17:00");
+  const [blockReason, setBlockReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -316,8 +321,11 @@ export function AdminSchedulesPage() {
     Promise.all([
       roomApi.list(new URLSearchParams({ page: "1", limit: "100" })),
       scheduleApi.list(),
-    ]).then(([roomData, scheduleData]) => {
-      setRooms(roomData.items); setItems(scheduleData.items);
+      scheduleApi.listUnavailability(),
+    ]).then(([roomData, scheduleData, blockData]) => {
+      setRooms(roomData.items);
+      setItems(scheduleData.items);
+      setBlocks(blockData);
       if (!roomId && roomData.items.length) setRoomId(roomData.items[0].id);
     }).catch((cause) => setError(cause instanceof Error ? cause.message : "Data jadwal belum dapat dimuat."))
       .finally(() => setLoading(false));
@@ -340,16 +348,45 @@ export function AdminSchedulesPage() {
     finally { setSaving(false); }
   }
 
+  async function createBlock(event: FormEvent) {
+    event.preventDefault(); setError(""); setSuccess("");
+    if (!roomId) { setError("Pilih ruangan terlebih dahulu."); return; }
+    if (blockEnd <= blockStart) { setError("Jam selesai harus lebih akhir dari jam mulai."); return; }
+    if (blockReason.trim().length < 3) { setError("Alasan periode tidak tersedia minimal 3 karakter."); return; }
+    setSaving(true);
+    try {
+      await scheduleApi.createUnavailability({
+        room_id: roomId,
+        unavailable_date: blockDate,
+        start_time: blockStart,
+        end_time: blockEnd,
+        reason: blockReason.trim(),
+      });
+      setBlockReason("");
+      setSuccess("Periode tidak tersedia berhasil ditambahkan.");
+      reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Periode tidak tersedia belum berhasil disimpan.");
+    } finally { setSaving(false); }
+  }
+
   async function cancel(id: string) {
-    if (!window.confirm("Batalkan jadwal ini?")) return;
+    if (!window.confirm("Batalkan jadwal akademik ini?")) return;
     setError("");
     try { await scheduleApi.cancel(id); reload(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Jadwal belum berhasil dibatalkan."); }
   }
 
+  async function deactivateBlock(id: string) {
+    if (!window.confirm("Nonaktifkan periode pemeliharaan ini?")) return;
+    setError("");
+    try { await scheduleApi.deactivateUnavailability(id); reload(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Periode belum berhasil dinonaktifkan."); }
+  }
+
   const dayNames = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
   return <div className="page-stack">
-    <PageTitle eyebrow="ROOM SCHEDULES" title="Jadwal & pemeliharaan" description="Catat jadwal akademik yang digunakan backend saat menghitung ketersediaan ruangan." />
+    <PageTitle eyebrow="ROOM SCHEDULES" title="Jadwal & pemeliharaan" description="Catat jadwal akademik dan periode ruangan tidak tersedia agar backend dapat memeriksa benturan reservasi." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {success ? <Notice tone="success">{success}</Notice> : null}
     <form className="panel stack-form" onSubmit={create}>
@@ -365,7 +402,19 @@ export function AdminSchedulesPage() {
       </div>
       <Button type="submit" disabled={saving}>{saving ? "Menyimpan…" : "Simpan jadwal"}</Button>
     </form>
-    <PageSection title="Jadwal tercatat">
+    <form className="panel stack-form" onSubmit={createBlock}>
+      <h2>Tambah periode pemeliharaan / tidak tersedia</h2>
+      <p className="muted">Periode ini akan menjadi penghalang ketersediaan ruang pada tanggal dan waktu yang ditentukan.</p>
+      <Field label="Ruangan"><select value={roomId} onChange={(e) => setRoomId(e.target.value)} required><option value="">Pilih ruangan</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.room_name} · {room.building}</option>)}</select></Field>
+      <Field label="Tanggal"><input type="date" min={localToday()} value={blockDate} onChange={(e) => setBlockDate(e.target.value)} required /></Field>
+      <div className="form-grid form-grid--narrow">
+        <Field label="Jam mulai"><input type="time" value={blockStart} onChange={(e) => setBlockStart(e.target.value)} required /></Field>
+        <Field label="Jam selesai"><input type="time" value={blockEnd} onChange={(e) => setBlockEnd(e.target.value)} required /></Field>
+      </div>
+      <Field label="Alasan"><input value={blockReason} onChange={(e) => setBlockReason(e.target.value)} minLength={3} maxLength={240} required placeholder="Contoh: Pemeliharaan fasilitas" /></Field>
+      <Button type="submit" variant="secondary" disabled={saving}>{saving ? "Menyimpan…" : "Simpan periode"}</Button>
+    </form>
+    <PageSection title="Jadwal akademik tercatat">
       {loading ? <Loading label="Memuat jadwal…" /> : items.length ? <div className="table-wrap"><table className="data-table">
         <thead><tr><th>Ruangan</th><th>Kegiatan</th><th>Waktu</th><th>Sumber</th><th /></tr></thead>
         <tbody>{items.map((item) => <tr key={item.id}>
@@ -376,6 +425,18 @@ export function AdminSchedulesPage() {
           <td><Button variant="ghost" onClick={() => void cancel(item.id)}>Batalkan</Button></td>
         </tr>)}</tbody>
       </table></div> : <EmptyState title="Belum ada jadwal" description="Jadwal yang ditambahkan di sini akan digunakan backend saat mengevaluasi benturan reservasi." icon={<CalendarClock size={22} />} />}
+    </PageSection>
+    <PageSection title="Periode pemeliharaan / tidak tersedia">
+      {loading ? <Loading label="Memuat periode…" /> : blocks.length ? <div className="table-wrap"><table className="data-table">
+        <thead><tr><th>Ruangan</th><th>Tanggal</th><th>Waktu</th><th>Alasan</th><th /></tr></thead>
+        <tbody>{blocks.map((block) => <tr key={block.id}>
+          <td>{rooms.find((room) => room.id === block.room_id)?.room_name || block.room_id.slice(0, 8)}</td>
+          <td>{formatDate(block.unavailable_date)}</td>
+          <td>{formatTime(block.start_time)}–{formatTime(block.end_time)}</td>
+          <td>{block.reason}</td>
+          <td><Button variant="ghost" onClick={() => void deactivateBlock(block.id)}>Nonaktifkan</Button></td>
+        </tr>)}</tbody>
+      </table></div> : <EmptyState title="Belum ada periode pemeliharaan" description="Tambahkan periode ketika ruangan ditutup sementara atau sedang diperbaiki." />}
     </PageSection>
   </div>;
 }
