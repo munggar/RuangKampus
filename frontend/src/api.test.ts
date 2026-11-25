@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   availabilityReasonLabel,
+  authApi,
+  buildApiUrl,
   formatTime,
   statusLabel,
 } from "./api";
 
 describe("frontend API display helpers", () => {
+  it("exposes a registration endpoint using the public Student payload", () => {
+    expect(buildApiUrl("/auth/register")).toContain("/api/v1/auth/register");
+    expect(typeof authApi.register).toBe("function");
+  });
   it("formats API time values without changing their timezone meaning", () => {
     expect(formatTime("09:30:00")).toBe("09:30");
     expect(formatTime(null)).toBe("—");
