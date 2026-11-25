@@ -20,7 +20,7 @@ function BrandHero() {
 
 export function LoginPage() {
   const [role, setRole] = useState<AppRole>("Student");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -31,7 +31,7 @@ export function LoginPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setSubmitting(true);
     try {
-      const user = await login(email.trim(), password, role);
+      const user = await login(role === "TU/Admin" ? "admin.uhamka" : identifier.trim(), password, role);
       navigate(user.role === "Student" ? "/student/dashboard" : "/admin/dashboard", { replace: true });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Login belum berhasil. Periksa kembali data masuk Anda.");
@@ -47,12 +47,20 @@ export function LoginPage() {
         <p className="muted">Masuk dengan akun universitas yang terdaftar.</p>
         {!isApiConfigured() ? <Notice tone="warning">Mode preview: tampilan tersedia, tetapi backend belum di-host atau URL API belum diatur. Login dan pemuatan data belum aktif.</Notice> : null}
         <div className="role-switch" aria-label="Pilih jenis akun">
-          <button type="button" aria-pressed={role === "Student"} className={role === "Student" ? "is-active" : ""} onClick={() => { setRole("Student"); setError(""); }}>Student</button>
-          <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setError(""); }}>Administrator</button>
+          <button type="button" aria-pressed={role === "Student"} className={role === "Student" ? "is-active" : ""} onClick={() => { setRole("Student"); setIdentifier(""); setError(""); }}>Student</button>
+          <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setIdentifier("admin.uhamka"); setError(""); }}>Administrator</button>
         </div>
         <form className="stack-form" onSubmit={submit}>
-          <Field label="Email kampus">
-            <input type="email" autoComplete="username" placeholder="nama@kampus.ac.id" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          <Field label={role === "Student" ? "NIM" : "Username Administrator"}>
+            <input
+              type="text"
+              autoComplete="username"
+              placeholder={role === "Student" ? "Masukkan NIM Anda" : "admin.uhamka"}
+              value={role === "TU/Admin" ? "admin.uhamka" : identifier}
+              onChange={(event) => setIdentifier(event.target.value)}
+              readOnly={role === "TU/Admin"}
+              required
+            />
           </Field>
           <Field label="Password">
             <span className="input-with-action">
@@ -152,7 +160,7 @@ export function RegisterPage() {
         name: name.trim(),
         email: email.trim(),
         password,
-        ...(studentIdentifier.trim() ? { student_identifier: studentIdentifier.trim() } : {}),
+        student_identifier: studentIdentifier.trim(),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
       });
       navigate("/student/dashboard", { replace: true });
@@ -171,7 +179,7 @@ export function RegisterPage() {
       <div className="auth-panel__inner">
         <p className="eyebrow">CREATE YOUR ACCOUNT</p>
         <h2>Daftar RuangKampus</h2>
-        <p className="muted">Buat akun Student untuk mencari ruangan dan mengajukan reservasi kampus.</p>
+        <p className="muted">Buat akun Student untuk mencari ruangan dan mengajukan reservasi kampus. NIM akan digunakan untuk login.</p>
         {!isApiConfigured() ? <Notice tone="warning">Backend belum dikonfigurasi. Pendaftaran akan aktif setelah layanan API tersedia.</Notice> : null}
         <form className="stack-form" onSubmit={submit}>
           <Field label="Nama lengkap">
@@ -180,8 +188,8 @@ export function RegisterPage() {
           <Field label="Email kampus">
             <input type="email" autoComplete="email" maxLength={254} placeholder="nama@kampus.ac.id" value={email} onChange={(event) => setEmail(event.target.value)} required />
           </Field>
-          <Field label="NIM (opsional)">
-            <input type="text" autoComplete="off" maxLength={50} placeholder="Masukkan NIM jika tersedia" value={studentIdentifier} onChange={(event) => setStudentIdentifier(event.target.value)} />
+          <Field label="NIM">
+            <input type="text" autoComplete="username" minLength={3} maxLength={50} placeholder="Masukkan NIM aktif Anda" value={studentIdentifier} onChange={(event) => setStudentIdentifier(event.target.value)} required />
           </Field>
           <Field label="Nomor telepon (opsional)">
             <input type="tel" autoComplete="tel" maxLength={40} placeholder="08xxxxxxxxxx" value={phone} onChange={(event) => setPhone(event.target.value)} />
