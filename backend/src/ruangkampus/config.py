@@ -52,20 +52,25 @@ class Settings(BaseSettings):
                 raise ValueError("Production requires a strong JWT_SECRET_KEY (32+ bytes)")
             if not self.database_url.startswith(("postgresql://", "postgresql+psycopg://")):
                 raise ValueError("Production DATABASE_URL must use PostgreSQL")
-            if self.email_backend != "smtp" or not self.smtp_host or not self.smtp_username:
-                raise ValueError("Production requires EMAIL_BACKEND=smtp and SMTP configuration")
             if not self.cookie_secure:
                 raise ValueError("Production requires COOKIE_SECURE=true")
-            if self.email_backend == "console":
-                raise ValueError("Console email backend is development-only; configure SMTP or disabled")
-            if self.email_backend == "smtp" and not self.smtp_host:
-                raise ValueError("EMAIL_BACKEND=smtp requires SMTP_HOST")
-            if self.email_backend == "smtp" and not self.smtp_use_tls:
-                raise ValueError("Production SMTP must use STARTTLS (SMTP_USE_TLS=true)")
             if self.cookie_samesite == "none" and not self.cookie_secure:
                 raise ValueError("SameSite=None requires COOKIE_SECURE=true")
             if "*" in self.cors_origins:
                 raise ValueError("Production CORS_ORIGINS must list explicit trusted origins")
+
+            # Explicitly disabling outbound email is a supported deployment mode.
+            # In-app notifications remain available; reset links and email alerts
+            # are delivered only after a real SMTP provider is configured.
+            if self.email_backend == "console":
+                raise ValueError("Console email backend is development-only; use smtp or disabled")
+            if self.email_backend not in {"smtp", "disabled"}:
+                raise ValueError("Production EMAIL_BACKEND must be smtp or disabled")
+            if self.email_backend == "smtp":
+                if not self.smtp_host or not self.smtp_username:
+                    raise ValueError("EMAIL_BACKEND=smtp requires SMTP_HOST and SMTP_USERNAME")
+                if not self.smtp_use_tls:
+                    raise ValueError("Production SMTP must use STARTTLS (SMTP_USE_TLS=true)")
         return self
 
     @property
