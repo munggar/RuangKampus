@@ -271,7 +271,6 @@ def commit_schedule_import(
             failures.append({"row_number": row["row_number"], "status": "INVALID", "errors": [reason]})
     if failures:
         batch.status = "FAILED"
-        failed_numbers = {item["row_number"] for item in failures}
         batch.row_results = [
             next((failed for failed in failures if failed["row_number"] == item.get("row_number")), item)
             for item in batch.row_results

@@ -50,12 +50,6 @@ def test_admin_login_returns_frontend_role_label(client, admin):
     assert response.json()["user"]["role"] == "TU/Admin"
 
 
-def test_admin_login_returns_frontend_role_label(client, admin):
-    response = client.post("/api/v1/auth/login", json={"email": "admin@example.com", "password": "StrongPass123!"})
-    assert response.status_code == 200
-    assert response.json()["user"]["role"] == "TU/Admin"
-
-
 def test_health_and_readiness_endpoints(client):
     health = client.get("/health")
     ready = client.get("/ready")
