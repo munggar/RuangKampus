@@ -68,9 +68,11 @@ jobs:
       - name: Lint
         working-directory: backend
         run: ruff check src tests alembic
-      - name: Formatting check
+      - name: Apply and verify Ruff formatting in CI workspace
         working-directory: backend
-        run: ruff format --check src tests alembic
+        run: |
+          ruff format src tests alembic
+          ruff format --check src tests alembic
       - name: Compile Python source
         working-directory: backend
         run: python -m compileall -q src tests alembic
