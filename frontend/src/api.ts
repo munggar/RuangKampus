@@ -165,7 +165,7 @@ export const scheduleApi = {
   listUnavailability: (params = new URLSearchParams()) => apiRequest<RoomUnavailability[]>("/admin/room-unavailability?" + params.toString()),
   createUnavailability: (payload: { room_id: string; unavailable_date: string; start_time: string; end_time: string; reason: string }) =>
     apiRequest<RoomUnavailability>("/admin/room-unavailability", { method: "POST", body: payload }),
-  deactivateUnavailability: (id: string) => apiRequest<RoomUnavailability>("/admin/room-unavailability/" + encodeURIComponent(id) + "/deactivate", { method: "PATCH" }),
+  deactivateUnavailability: (id: string) => apiRequest<Pick<RoomUnavailability, "id" | "is_active">>("/admin/room-unavailability/" + encodeURIComponent(id) + "/deactivate", { method: "PATCH" }),
 };
 
 export const adminApi = {
