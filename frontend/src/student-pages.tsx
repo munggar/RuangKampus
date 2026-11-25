@@ -98,10 +98,12 @@ export function StudentDashboardPage() {
 
 export function RoomDirectoryPage({ role }: { role: AppRole }) {
   const [search, setSearch] = useState("");
+  const [faculty, setFaculty] = useState("");
   const [building, setBuilding] = useState("");
+  const [location, setLocation] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [date, setDate] = useState(localToday());
-  const [applied, setApplied] = useState({ search: "", building: "", capacity: "" });
+  const [facility, setFacility] = useState("");
+  const [applied, setApplied] = useState({ search: "", faculty: "", building: "", location: "", capacity: "", facility: "" });
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -112,8 +114,11 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     setLoading(true); setError("");
     const params = new URLSearchParams({ page: "1", limit: "100", sortBy: "room_name", sortOrder: "asc" });
     if (applied.search) params.set("search", applied.search);
+    if (applied.faculty) params.set("faculty", applied.faculty);
     if (applied.building) params.set("building", applied.building);
-    if (applied.capacity) params.set("capacity", applied.capacity);
+    if (applied.location) params.set("location", applied.location);
+    if (applied.capacity) params.set("min_capacity", applied.capacity);
+    if (applied.facility) params.append("facilities", applied.facility);
     roomApi.list(params).then((result) => {
       if (!active) return;
       setRooms(result.items); setMeta(result.meta ? { total: result.meta.total } : undefined);
@@ -124,22 +129,34 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
   }, [applied]);
 
   function applyFilters(event: FormEvent) {
-    event.preventDefault(); setApplied({ search: search.trim(), building: building.trim(), capacity });
+    event.preventDefault();
+    setApplied({ search: search.trim(), faculty: faculty.trim(), building: building.trim(),
+      location: location.trim(), capacity, facility: facility.trim() });
+  }
+  function resetFilters() {
+    setSearch(""); setFaculty(""); setBuilding(""); setLocation(""); setCapacity(""); setFacility("");
+    setApplied({ search: "", faculty: "", building: "", location: "", capacity: "", facility: "" });
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="SPACES TO COME TOGETHER" title="Direktori ruangan" description="Temukan ruang yang sesuai dengan rencana kegiatan Anda." />
+    <PageTitle eyebrow="CAMPUS ROOM DIRECTORY" title="Direktori ruangan"
+      description="Temukan ruang berdasarkan fakultas, gedung, lokasi, kapasitas, dan fasilitas yang dibutuhkan."
+      action={role === "Student" ? <Link className="button button--primary" to="/student/availability"><CalendarDays size={16} />Cek ketersediaan</Link> : undefined} />
     <form className="filter-panel filter-panel--room" onSubmit={applyFilters}>
-      <Field label="Cari ruang"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nama ruang, gedung, atau fasilitas" /></span></Field>
+      <Field label="Cari ruangan"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nama, kode, atau deskripsi ruangan" /></span></Field>
       <div className="filter-grid">
-        <Field label="Tanggal rencana"><input type="date" min={localToday()} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-        <Field label="Kapasitas minimum"><input type="number" min="1" max="10000" value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Semua kapasitas" /></Field>
+        <Field label="Fakultas"><input value={faculty} onChange={(e) => setFaculty(e.target.value)} placeholder="Semua fakultas" /></Field>
         <Field label="Gedung"><input value={building} onChange={(e) => setBuilding(e.target.value)} placeholder="Semua gedung" /></Field>
+        <Field label="Lokasi detail"><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Contoh: sayap timur" /></Field>
+        <Field label="Kapasitas minimum"><input type="number" min="1" max="10000" value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Semua kapasitas" /></Field>
+        <Field label="Fasilitas"><input value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="Contoh: proyektor, Wi-Fi" /></Field>
       </div>
-      <div className="filter-panel__actions"><span className="muted">Tanggal dipakai saat memeriksa ketersediaan ruang.</span><Button type="submit"><Search size={16} />Terapkan filter</Button></div>
+      <div className="filter-panel__actions">
+        <Button type="submit"><Search size={16} />Terapkan filter</Button>
+        <Button type="button" variant="secondary" onClick={resetFilters}>Reset</Button>
+      </div>
     </form>
-
-    <div className="list-summary"><strong>{meta?.total ?? rooms.length} ruangan</strong><span>Data berdasarkan direktori aktif dari server</span></div>
+    <div className="list-summary"><strong>{meta?.total ?? rooms.length} ruangan</strong><span>Informasi lokasi dan fasilitas dari inventaris kampus</span></div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat direktori ruangan…" /> : rooms.length ? (
       <div className="room-grid">
@@ -150,13 +167,13 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
           <div className="room-card__body">
             <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang</span></div>
             <Link className="room-card__title" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>{room.room_name}</Link>
-            <p>{room.building}{room.floor ? " · Lantai " + room.floor : ""}</p>
-            <div className="chip-list">{room.facilities.slice(0, 3).map((item) => <span key={item}>{item}</span>)}</div>
-            {role === "Student" ? <Link className="button button--secondary button--wide" to={"/student/rooms/" + room.id + "?date=" + encodeURIComponent(date)}>Lihat detail</Link> : <Link className="button button--secondary button--wide" to={"/admin/rooms/" + room.id + "/edit"}>Edit ruangan</Link>}
+            <p>{[room.faculty, room.building, room.floor ? "Lantai " + room.floor : null, room.location_description].filter(Boolean).join(" · ")}</p>
+            <div className="chip-list">{room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
+            {role === "Student" ? <Link className="button button--secondary button--wide" to={"/student/rooms/" + room.id}>Lihat detail</Link> : <Link className="button button--secondary button--wide" to={"/admin/rooms/" + room.id + "/edit"}>Edit ruangan</Link>}
           </div>
         </article>)}
       </div>
-    ) : <EmptyState title="Tidak ada ruangan yang cocok" description="Coba ubah kata kunci, gedung, atau kapasitas pencarian." icon={<Search size={22} />} />}
+    ) : <EmptyState title="Tidak ada ruangan yang cocok" description="Coba ubah kata kunci, fakultas, gedung, kapasitas, atau fasilitas pencarian." icon={<Search size={22} />} />}
   </div>;
 }
 
@@ -182,7 +199,7 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
     <Link className="back-link" to={base}><ArrowLeft size={16} />Kembali ke direktori</Link>
     <div className="room-detail">
       <div className="room-detail__main">
-        <p className="eyebrow">{room.building.toUpperCase()}{room.floor ? " · LANTAI " + room.floor : ""}</p>
+        <p className="eyebrow">{[room.faculty, room.building, room.floor ? "LANTAI " + room.floor : null].filter(Boolean).join(" · ").toUpperCase()}</p>
         <h1>{room.room_name}</h1>
         <p className="page-description">{room.description || "Informasi ruangan dikelola oleh administrator kampus."}</p>
         <StatusBadge status={room.room_status} />
@@ -197,8 +214,9 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
       <aside className="room-detail__side">
         <div className="room-fact"><Users size={19} /><span>Kapasitas<b>{room.capacity} orang</b></span></div>
         <div className="room-fact"><Clock3 size={19} /><span>Jam operasional<b>{Object.keys(room.operating_hours || {}).length ? "Mengikuti jadwal terdaftar" : "Belum diatur"}</b></span></div>
-        <div className="room-fact"><MapPin size={19} /><span>Lokasi<b>{room.building}{room.floor ? " · Lantai " + room.floor : ""}</b></span></div>
-        {role === "Student" ? <Link className="button button--primary button--wide" to={"/student/rooms/" + room.id + "/book" + (searchParams.get("date") ? "?date=" + encodeURIComponent(searchParams.get("date") || "") : "")}>Ajukan reservasi</Link> : <Link className="button button--primary button--wide" to={"/admin/rooms/" + room.id + "/edit"}>Edit ruangan</Link>}
+        <div className="room-fact"><MapPin size={19} /><span>Lokasi<b>{[room.building, room.floor ? "Lantai " + room.floor : null, room.location_description].filter(Boolean).join(" · ")}</b></span></div>
+        {room.faculty ? <div className="room-fact"><Building2 size={19} /><span>Fakultas<b>{room.faculty}</b></span></div> : null}
+        {role === "Student" ? <Link className="button button--primary button--wide" to={"/student/rooms/" + room.id + "/book" + (searchParams.toString() ? "?" + searchParams.toString() : "")}>Ajukan reservasi</Link> : <Link className="button button--primary button--wide" to={"/admin/rooms/" + room.id + "/edit"}>Edit ruangan</Link>}
         <p className="muted small">Ketersediaan waktu akan diperiksa kembali sebelum permohonan dikirim.</p>
       </aside>
     </div>
@@ -212,8 +230,8 @@ export function BookingPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [loadingRoom, setLoadingRoom] = useState(true);
   const [date, setDate] = useState(searchParams.get("date") || localToday());
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+  const [start, setStart] = useState(searchParams.get("startTime") || "");
+  const [end, setEnd] = useState(searchParams.get("endTime") || "");
   const [participants, setParticipants] = useState("1");
   const [purpose, setPurpose] = useState("");
   const [notes, setNotes] = useState("");
