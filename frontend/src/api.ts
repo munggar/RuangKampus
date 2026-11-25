@@ -116,6 +116,8 @@ export async function apiPage<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 export const authApi = {
+  register: (payload: { name: string; email: string; password: string; phone?: string; student_identifier?: string }) =>
+    apiRequest<TokenResponse>("/auth/register", { method: "POST", noRefresh: true, body: payload }),
   login: (email: string, password: string) => apiRequest<TokenResponse>("/auth/login", {
     method: "POST", noRefresh: true, body: { email, password },
   }),
