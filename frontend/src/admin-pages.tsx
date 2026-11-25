@@ -209,7 +209,9 @@ export function AdminRoomEditorPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [building, setBuilding] = useState("");
+  const [faculty, setFaculty] = useState("");
   const [floor, setFloor] = useState("");
+  const [locationDescription, setLocationDescription] = useState("");
   const [capacity, setCapacity] = useState("8");
   const [description, setDescription] = useState("");
   const [facilities, setFacilities] = useState("");
@@ -228,7 +230,8 @@ export function AdminRoomEditorPage() {
     roomApi.get(roomId).then((room) => {
       if (!active) return;
       setName(room.room_name); setCode(room.room_code || ""); setBuilding(room.building);
-      setFloor(room.floor || ""); setCapacity(String(room.capacity)); setDescription(room.description || "");
+      setFaculty(room.faculty || ""); setFloor(room.floor || ""); setLocationDescription(room.location_description || "");
+      setCapacity(String(room.capacity)); setDescription(room.description || "");
       setFacilities(room.facilities.join(", ")); setPhotoUrl(room.photo_url || ""); setStatus(room.room_status);
       const configured = Object.keys(room.operating_hours || {}).filter((day) => Array.isArray(room.operating_hours[day]) && room.operating_hours[day].length);
       setDays(configured);
@@ -250,7 +253,8 @@ export function AdminRoomEditorPage() {
     const operating_hours: Record<string, Array<{ start: string; end: string }>> = {};
     days.forEach((day) => { operating_hours[day] = [{ start, end }]; });
     const payload = {
-      room_name: name.trim(), room_code: code.trim() || null, building: building.trim(), floor: floor.trim() || null,
+      room_name: name.trim(), room_code: code.trim() || null, building: building.trim(),
+      faculty: faculty.trim() || null, floor: floor.trim() || null, location_description: locationDescription.trim() || null,
       capacity: Number(capacity), description: description.trim() || null,
       facilities: facilities.split(",").map((value) => value.trim()).filter(Boolean),
       operating_hours, room_status: status, photo_url: photoUrl.trim() || null,
@@ -273,8 +277,10 @@ export function AdminRoomEditorPage() {
       <div className="form-grid">
         <Field label="Nama ruangan"><input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={160} required placeholder="Contoh: Discussion Room A201" /></Field>
         <Field label="Kode ruangan (opsional)"><input value={code} onChange={(e) => setCode(e.target.value)} maxLength={80} placeholder="Contoh: RK-A201" /></Field>
+        <Field label="Fakultas"><input value={faculty} onChange={(e) => setFaculty(e.target.value)} maxLength={160} placeholder="Nama fakultas" /></Field>
         <Field label="Gedung"><input value={building} onChange={(e) => setBuilding(e.target.value)} maxLength={160} required placeholder="Nama gedung" /></Field>
         <Field label="Lantai"><input value={floor} onChange={(e) => setFloor(e.target.value)} maxLength={40} placeholder="Contoh: 2" /></Field>
+        <Field label="Lokasi detail"><input value={locationDescription} onChange={(e) => setLocationDescription(e.target.value)} maxLength={500} placeholder="Contoh: dekat lift, sayap timur" /></Field>
         <Field label="Kapasitas"><input type="number" min="1" max="10000" value={capacity} onChange={(e) => setCapacity(e.target.value)} required /></Field>
         <Field label="Status ruangan"><select value={status} onChange={(e) => setStatus(e.target.value as RoomStatus)}><option value="ACTIVE">Aktif</option><option value="INACTIVE">Nonaktif</option><option value="MAINTENANCE">Pemeliharaan</option></select></Field>
       </div>
