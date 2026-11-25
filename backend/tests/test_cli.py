@@ -25,6 +25,7 @@ def test_bootstrap_creates_first_active_admin_without_printing_password(db_sessi
     admin = db_session.scalar(select(User).where(User.email == "first-admin@example.test"))
     assert admin is not None
     assert admin.role == "TU_ADMIN"
+    assert admin.student_identifier == "admin.uhamka"
     assert admin.account_status == "ACTIVE"
     assert verify_password("VeryStrongTemporaryPassword-123!", admin.password_hash)
     output = capsys.readouterr().out
