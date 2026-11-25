@@ -1,0 +1,112 @@
+name: RuangKampus Backend CI
+
+on:
+  push:
+    branches: ['backend/**']
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+      - 'docs/**'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend lint, SQLite tests, PostgreSQL integration, migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ruangkampus_ci
+          POSTGRES_PASSWORD: ruangkampus_ci_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ruangkampus_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PYTHONPATH: src
+      POSTGRES_ADMIN_URL: postgresql://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/postgres
+      POSTGRES_TEST_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/ruangkampus_integration
+      POSTGRES_MIGRATION_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/ruangkampus_migrations
+      JWT_SECRET_KEY: ci-only-ephemeral-secret-not-for-deployment-000000000000
+      APP_ENV: development
+      EMAIL_BACKEND: disabled
+      COOKIE_SECURE: 'false'
+      CORS_ORIGINS: http://localhost:5173
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies and CI tools
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff pip-audit
+      - name: Lint
+        working-directory: backend
+        run: ruff check src tests alembic
+      - name: Apply and verify Ruff formatting in CI workspace
+        working-directory: backend
+        run: |
+          ruff format src tests alembic
+          ruff format --check src tests alembic
+      - name: Compile Python source
+        working-directory: backend
+        run: python -m compileall -q src tests alembic
+      - name: Create isolated PostgreSQL databases
+        working-directory: backend
+        run: |
+          psql "$POSTGRES_ADMIN_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE ruangkampus_integration'
+          psql "$POSTGRES_ADMIN_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE ruangkampus_migrations'
+      - name: Run SQLite unit/API tests
+        working-directory: backend
+        env:
+          DATABASE_URL: sqlite:///./ci_unit_tests.db
+          EMAIL_BACKEND: console
+          LOCAL_MAILBOX_DIR: ./.ci_mailbox
+        run: pytest -m 'not postgres' -q -ra
+      - name: Validate PostgreSQL Alembic upgrade, drift, downgrade, and re-upgrade
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.POSTGRES_MIGRATION_URL }}
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+          alembic check
+      - name: Run PostgreSQL schema and reservation concurrency tests
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.POSTGRES_TEST_URL }}
+        run: |
+          alembic upgrade head
+          pytest -m postgres tests/postgres -q -ra
+      - name: Dependency vulnerability audit
+        working-directory: backend
+        run: pip-audit -r requirements.txt
+      - name: Build backend Docker image
+        run: docker build -f backend/Dockerfile backend
