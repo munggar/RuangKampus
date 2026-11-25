@@ -30,7 +30,8 @@ def _room_or_404(db: Session, room_id: UUID, lock: bool = False) -> Room:
 def _room_snapshot(room: Room) -> dict:
     return {
         "room_name": room.room_name, "room_code": room.room_code, "building": room.building,
-        "floor": room.floor, "capacity": room.capacity, "description": room.description,
+        "faculty": room.faculty, "floor": room.floor, "location_description": room.location_description,
+        "capacity": room.capacity, "description": room.description,
         "facilities": room.facilities, "operating_hours": room.operating_hours,
         "room_status": room.room_status, "photo_url": room.photo_url,
     }
@@ -40,12 +41,18 @@ def _room_snapshot(room: Room) -> dict:
 def list_rooms(
     search: str | None = None,
     building: str | None = None,
+    faculty: str | None = None,
+    location: str | None = None,
     capacity: int | None = Query(default=None, ge=1),
     min_capacity: int | None = Query(default=None, ge=1),
     max_capacity: int | None = Query(default=None, ge=1),
     facilities: list[str] | None = Query(default=None),
     status: str | None = Query(default=None, pattern="^(ACTIVE|INACTIVE|MAINTENANCE)$"),
-    sort_by: str = Query(default="room_name", alias="sortBy", pattern="^(room_name|building|capacity|created_at)$"),
+    available_date: date | None = Query(default=None, alias="date"),
+    available_start: time | None = Query(default=None, alias="startTime"),
+    available_end: time | None = Query(default=None, alias="endTime"),
+    participant_count: int = Query(default=1, alias="participantCount", ge=1),
+    sort_by: str = Query(default="room_name", alias="sortBy", pattern="^(room_name|building|faculty|floor|capacity|created_at)$"),
     sort_order: str = Query(default="asc", alias="sortOrder", pattern="^(asc|desc)$"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
@@ -61,9 +68,20 @@ def list_rooms(
         stmt = stmt.where(Room.room_status == "ACTIVE")
     if search:
         term = f"%{search.strip()}%"
-        stmt = stmt.where(or_(Room.room_name.ilike(term), Room.room_code.ilike(term), Room.description.ilike(term)))
+        stmt = stmt.where(or_(
+            Room.room_name.ilike(term), Room.room_code.ilike(term), Room.description.ilike(term),
+            Room.building.ilike(term), Room.faculty.ilike(term), Room.location_description.ilike(term),
+        ))
     if building:
         stmt = stmt.where(Room.building.ilike(f"%{building.strip()}%"))
+    if faculty:
+        stmt = stmt.where(Room.faculty.ilike(f"%{faculty.strip()}%"))
+    if location:
+        stmt = stmt.where(Room.location_description.ilike(f"%{location.strip()}%"))
+    if (available_date is None) != (available_start is None) or (available_date is None) != (available_end is None):
+        raise HTTPException(status_code=422, detail="date, startTime, and endTime must be supplied together")
+    if available_start is not None and available_end is not None and available_end <= available_start:
+        raise HTTPException(status_code=422, detail="endTime must be later than startTime")
     if capacity is not None:
         stmt = stmt.where(Room.capacity >= capacity)
     if min_capacity is not None:
@@ -74,10 +92,22 @@ def list_rooms(
         stmt = stmt.where(func.lower(Room.facilities.cast(String)).like(f"%{facility.lower()}%"))
     sort_column = getattr(Room, sort_by)
     stmt = stmt.order_by(sort_column.desc() if sort_order == "desc" else sort_column.asc())
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = db.scalar(count_stmt) or 0
-    rooms = db.scalars(stmt.offset((page - 1) * limit).limit(limit)).all()
-    items = [serialize_room(room) for room in rooms]
+    if available_date is not None and available_start is not None and available_end is not None:
+        # Availability filtering happens before pagination so totals describe only reservable rooms.
+        candidates = db.scalars(stmt).all()
+        rooms = [
+            room for room in candidates
+            if check_room_availability(
+                db, room, available_date, available_start, available_end, participant_count
+            ).available
+        ]
+        total = len(rooms)
+        page_rooms = rooms[(page - 1) * limit:page * limit]
+    else:
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = db.scalar(count_stmt) or 0
+        page_rooms = db.scalars(stmt.offset((page - 1) * limit).limit(limit)).all()
+    items = [serialize_room(room) for room in page_rooms]
     meta = {"page": page, "limit": limit, "total": total, "total_pages": ceil(total / limit) if total else 0}
     return success(items, "Rooms retrieved", meta)
 
