@@ -2,7 +2,7 @@ name: RuangKampus Backend CI
 
 on:
   push:
-    branches: ['backend/**']
+    branches: ['develop', 'main', 'backend/**']
   pull_request:
     branches: [develop, main]
     paths:
