@@ -3,61 +3,69 @@
 Last updated: 2026-11-25
 
 ## Current phase
-**Phase 1 — Frontend Foundation.** Repository bootstrap is complete. The initial frontend foundation is on a feature branch and has not been merged into `develop`.
+**Phase 1.1 — Foundation Verification & Application Shell.** Work is on `feat/frontend-foundation`; PR #1 remains open as Draft and has not been merged.
 
 ## Verified repository baseline
 - [x] GitHub repository `munggar/RuangKampus` exists.
 - [x] `main` and `develop` are available.
-- [x] Bootstrap commit `86c2fa77480a268a08e86d5d080684d9c731349c` is present on both branches at branch creation.
-- [x] Shared project documentation and feature ownership boundaries are present.
-- [x] `frontend/` was empty except for its placeholder at the base commit.
-- [x] Connected RuangKampus Figma file and earlier audit are available in the working conversation.
-- [x] React + TypeScript + Vite frontend foundation added on `feat/frontend-foundation`.
-- [x] Design tokens and Student/TU login foundations added.
-- [x] API client scaffolding added for the planned API contract.
-- [ ] Dependencies installed and lockfile generated.
-- [ ] Frontend build and unit tests executed in a provisioned environment.
+- [x] Latest checked `develop` commit is `86c2fa77480a268a08e86d5d080684d9c731349c`.
+- [x] Feature branch base is current `develop`; feature branch was one commit ahead before Phase 1.1 changes.
+- [x] Shared project documentation and ownership boundaries are present.
+- [x] Existing frontend scaffold and login foundation inspected before modification.
+- [x] Application shell, Student/TU navigation, dashboards, and placeholder destinations added.
+- [x] Navigation config tests added.
+- [ ] Dependency installation and lockfile generation.
+- [ ] Frontend build and automated tests executed.
+- [ ] Browser testing and responsive viewport QA.
 - [ ] Backend routes implemented and verified against OpenAPI.
-- [ ] Authentication and the role/session strategy finalized with Account A.
-- [ ] Student booking and TU/Admin workflows implemented.
-- [ ] Notifications, schedule import, and AI workflows implemented.
+- [ ] Authentication and role/session strategy finalized with Account A.
 
-## Frontend implementation notes
+## Frontend technology
 - Framework: React 19 + TypeScript.
-- Build tool: Vite.
+- Build tool: Vite 8.
 - Package manager: npm.
-- Routing: React Router.
+- Routing: React Router 7 (selected for Node 22.16 compatibility; React Router 8 requires Node 22.22 or newer).
 - Icons: Lucide React.
-- Styling: CSS variables and component CSS derived from the Figma audit; no UI framework was present in the monorepo bootstrap.
-- Vite reads environment values from the repository root. The root `.env.example` already defines `VITE_API_BASE_URL`.
-- The login screen includes Student and TU/Admin role selection, credential inputs, password visibility, feedback, and a password-recovery route.
-- Access tokens are held in memory only. Persistent session and refresh behavior requires agreement with Account A.
-- Password recovery is not wired because its endpoint is not in the API contract.
-- No backend, database, migrations, or cloud configuration was changed by Account B.
+- Styling: CSS variables and component styles based on the Figma audit; no UI framework was present in the repository bootstrap.
+- Vite reads environment values from the repository root. The root `.env.example` defines `VITE_API_BASE_URL`.
 
-## Figma and asset notes
-- The linked Figma file has a mobile-first screen set, Light/Dark variables, Inter typography, blue brand tokens, and reusable component patterns.
-- The Figma login designs show campus photography and the official wordmark/logo. These exact image/vector assets have not yet been exported to the repository; the current login hero uses the brand colors and a text wordmark.
-- Desktop and tablet artboards remain incomplete; responsive behavior is an implementation requirement to validate with the team.
+## Phase 1.1 implementation
+- Student layout: sidebar navigation for desktop; bottom navigation for tablet/mobile.
+- TU/Admin layout: separate six-item navigation, with compact mobile labels.
+- Shared topbar, page title, notification route link, profile menu, logout action, and light/dark toggle.
+- Student dashboard scaffold: quick room-search action, unavailable reservation summary states, upcoming reservation and recent activity empty states.
+- TU/Admin dashboard scaffold: unavailable summary cards, pending request, upcoming room use, and activity empty states.
+- Student and Admin non-dashboard routes currently use explicit "not implemented" placeholders.
+- Dashboard placeholders do not contain invented reservations, counts, names, or campus data.
+- Client-side role route guard is only a navigation UX control and does not replace backend authorization.
+- Login now navigates after server response only when the returned role matches the role selected at sign-in.
+
+## Design notes
+- Colors, typography, spacing, and radii use the prior Figma audit tokens.
+- Exact official wordmark/logo and campus photo artwork have not yet been exported; text brand treatment and brand-color hero remain fallback.
+- Desktop/sidebar composition is an implementation adaptation because Figma's verified screens are predominantly 390 × 844 mobile frames; it needs design review and responsive browser QA.
+- Manual theme toggle applies audited Light/Dark variables. Theme persistence is not implemented.
 
 ## API integration status
 - `docs/API_CONTRACT.md` is a planning baseline and explicitly states that routes are planned, not implemented.
-- The frontend API base path and auth request shape follow that plan but have not been verified against a running service.
+- The API client and login response shape follow that planning document and are not verified against a running service.
 - No production API integration is claimed.
-- Tokens are not written to localStorage or sessionStorage.
-- The login role control is a UI selection only; backend authorization remains authoritative and must be finalized with Account A.
-- Password recovery and persistent “remember me” behavior remain unavailable until agreed API/session support exists.
+- Access tokens are not written to localStorage or sessionStorage.
+- Session persistence, refresh strategy, exact role enum, and notification APIs need confirmation from Account A.
+- Password recovery is not wired because no recovery endpoint is documented.
+- Dashboard metrics and reservation data are not mocked; the UI identifies their unavailable API state.
+
+## Verification and blockers
+- GitHub repository, branch refs, PR #1, compare status, frontend source, README, API contract, ownership and project documentation inspected.
+- Before Phase 1.1, branch comparison showed one feature commit ahead of `develop` and no commits behind; no new Munggar changes were observed on `develop`.
+- Runtime Node version is `v22.16.0`; Vite 8's Node requirement is satisfied. React Router 8's Node 22.22 minimum is not satisfied, so the dependency is moved to React Router 7.
+- Git clone and npm registry access failed because this environment could not resolve `github.com`; dependency installation, lockfile generation, build, unit test execution, browser testing, and responsive QA could not be run.
+- GitHub tree and commit verification are available, but runtime correctness remains unverified until commands above are run in a network-enabled development environment.
+- No backend source, database schema, migration, cloud configuration, or secret file was modified.
 
 ## Next dependencies and tasks
-1. Account A to implement backend endpoints and publish tested OpenAPI.
-2. Account A and Account B to finalize token/session/refresh behavior and exact role enum.
-3. Export/provide approved campus photography and logo artwork.
-4. Implement Student dashboard, room catalogue/details, availability, booking, and reservation tracking after contracts are available.
-5. Implement TU/Admin workflows, notifications, schedule UI, and AI presentation after corresponding endpoints are verified.
-6. Confirm desktop/tablet layout requirements and complete responsive QA.
-
-## Verification status
-- GitHub branches, tree, bootstrap commit, README, Master Brief, Architecture, Feature Ownership, API Contract, and environment example were inspected.
-- Figma Student and Administrator Login frame metadata was rechecked.
-- Dependency installation, build, test execution, browser testing, and end-to-end integration have not been executed in this environment.
-- This status file is updated on the frontend feature branch for coordination; merge requires review under the repository workflow.
+1. Run `npm install`, commit generated `package-lock.json`, and run build/tests in a network-enabled local environment.
+2. Perform browser QA for login, Student/TU application shell, navigation, profile menu, theme toggle, mobile, tablet, and desktop.
+3. Account A to publish tested OpenAPI and confirm token/session behavior and exact role enum.
+4. Provide approved campus photograph and official logo assets.
+5. Once Phase 1.1 passes QA, begin Phase 2 — Student Room Catalogue & Room Discovery.

@@ -6,6 +6,8 @@ import "./styles/tokens.css";
 import "./styles/global.css";
 import "./styles/components.css";
 import "./styles/auth.css";
+import "./styles/app-shell.css";
+import "./styles/dashboard.css";
 
 const rootElement = document.getElementById("root");
 

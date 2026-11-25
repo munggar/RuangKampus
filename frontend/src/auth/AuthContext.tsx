@@ -7,12 +7,14 @@ import {
   type PropsWithChildren,
 } from "react";
 import { authApi, type AuthUser } from "../api/auth";
-import { setAccessToken } from "../api/http";
+import { ApiError, setAccessToken } from "../api/http";
+
+export type AppRole = "Student" | "TU/Admin";
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (email: string, password: string, expectedRole: AppRole) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -21,8 +23,20 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, expectedRole: AppRole) => {
     const response = await authApi.login(email, password);
+
+    // This is a UX consistency check, not an authorization boundary.
+    // The backend must enforce roles on every protected API operation.
+    if (response.user.role !== expectedRole) {
+      setAccessToken(null);
+      throw new ApiError(
+        "Jenis akun yang dipilih tidak sesuai dengan role akun pada server.",
+        403,
+        "ROLE_MISMATCH",
+      );
+    }
+
     setAccessToken(response.access_token);
     setUser(response.user);
     return response.user;

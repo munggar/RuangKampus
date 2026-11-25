@@ -1,35 +1,30 @@
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ApiError } from "../api/http";
 import { BrandWordmark } from "../components/BrandWordmark";
 import { Button } from "../components/ui/Button";
 import { TextField } from "../components/ui/TextField";
-import { useAuth } from "../auth/AuthContext";
-
-type LoginRole = "Student" | "TU/Admin";
+import { useAuth, type AppRole } from "../auth/AuthContext";
 
 export function LoginPage() {
-  const [role, setRole] = useState<LoginRole>("Student");
+  const [role, setRole] = useState<AppRole>("Student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setSuccess("");
     setIsSubmitting(true);
 
     try {
-      const user = await login(email.trim(), password);
-      setSuccess(
-        `Login berhasil sebagai ${user.role}. Halaman dashboard role akan dihubungkan pada tahap berikutnya.`,
-      );
+      const user = await login(email.trim(), password, role);
+      navigate(user.role === "Student" ? "/student/dashboard" : "/admin/dashboard", { replace: true });
     } catch (cause) {
       setError(
         cause instanceof ApiError
@@ -57,9 +52,7 @@ export function LoginPage() {
         <div className="auth-panel__content">
           <div className="auth-welcome">
             <p className="eyebrow">SELAMAT DATANG</p>
-            <h2 id="login-heading">
-              Masuk sebagai {role === "Student" ? "Mahasiswa" : "TU / Admin"}
-            </h2>
+            <h2 id="login-heading">Masuk sebagai {role === "Student" ? "Mahasiswa" : "TU / Admin"}</h2>
             <p>Gunakan akun yang terdaftar untuk melanjutkan.</p>
           </div>
 
@@ -73,7 +66,6 @@ export function LoginPage() {
                 onClick={() => {
                   setRole(option);
                   setError("");
-                  setSuccess("");
                 }}
               >
                 {option === "Student" ? "Mahasiswa" : "TU / Admin"}
@@ -124,7 +116,6 @@ export function LoginPage() {
             </div>
 
             {error ? <div className="form-alert form-alert--error" role="alert">{error}</div> : null}
-            {success ? <div className="form-alert form-alert--success" role="status">{success}</div> : null}
 
             <Button
               className="login-submit"
