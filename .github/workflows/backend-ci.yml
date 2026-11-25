@@ -85,6 +85,8 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: sqlite:///./ci_unit_tests.db
+          EMAIL_BACKEND: console
+          LOCAL_MAILBOX_DIR: ./.ci_mailbox
         run: pytest -m 'not postgres' -q -ra
       - name: Validate PostgreSQL Alembic upgrade, drift, downgrade, and re-upgrade
         working-directory: backend
