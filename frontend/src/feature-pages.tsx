@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import {
-  ArrowRight, Bot, Building2, CalendarDays, CheckCircle2, Clock3, MapPin,
+  ArrowRight, Bot, Building2, CalendarDays, CheckCircle2, Clock3,
   MessageCircle, Search, Send, Sparkles, Users, WandSparkles,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
