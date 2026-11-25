@@ -41,7 +41,7 @@ jobs:
 
     env:
       PYTHONPATH: src
-      POSTGRES_ADMIN_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/postgres
+      POSTGRES_ADMIN_URL: postgresql://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/postgres
       POSTGRES_TEST_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/ruangkampus_integration
       POSTGRES_MIGRATION_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/ruangkampus_migrations
       JWT_SECRET_KEY: ci-only-ephemeral-secret-not-for-deployment-000000000000
@@ -68,9 +68,11 @@ jobs:
       - name: Lint
         working-directory: backend
         run: ruff check src tests alembic
-      - name: Formatting check
+      - name: Apply and verify Ruff formatting in CI workspace
         working-directory: backend
-        run: ruff format --check src tests alembic
+        run: |
+          ruff format src tests alembic
+          ruff format --check src tests alembic
       - name: Compile Python source
         working-directory: backend
         run: python -m compileall -q src tests alembic
