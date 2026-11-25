@@ -19,10 +19,10 @@ def create_admin():
         raise SystemExit("Passwords do not match or are too short")
     db = SessionLocal()
     try:
-        existing = db.scalar(select(User.id).where(User.email == email))
+        existing = db.scalar(select(User.id).where((User.email == email) | (User.student_identifier == "admin.uhamka")))
         if existing:
-            raise SystemExit("An account with that email already exists")
-        user = User(name=name, email=email, password_hash=hash_password(password), role="TU_ADMIN", account_status="ACTIVE")
+            raise SystemExit("An account with that email or administrator username already exists")
+        user = User(name=name, email=email, student_identifier="admin.uhamka", password_hash=hash_password(password), role="TU_ADMIN", account_status="ACTIVE")
         db.add(user)
         db.commit()
         print(f"Administrator created: {email} (id={user.id})")
@@ -32,11 +32,14 @@ def create_admin():
 
 def create_admin_from_env():
     """One-time bootstrap for an empty installation; never exposed through HTTP."""
-    email_value = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
-    name = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME", "").strip()
+    # Email stays required by the user record, but authentication uses the
+    # reserved username. The .invalid address is deliberately non-deliverable.
+    email_value = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL", "admin.uhamka@ruangkampus.invalid").strip().lower()
+    name = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME", "Admin UHAMKA").strip()
     password = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD", "")
-    if not email_value or not name or len(password) < 16:
-        raise SystemExit("Bootstrap requires email, name, and a password of at least 16 characters")
+    username = "admin.uhamka"
+    if not name or len(password) < 16:
+        raise SystemExit("Bootstrap requires a name and a password of at least 16 characters")
     if len(name) < 2 or len(name) > 160:
         raise SystemExit("Bootstrap administrator name must contain 2 to 160 characters")
     try:
@@ -46,12 +49,19 @@ def create_admin_from_env():
 
     db = SessionLocal()
     try:
-        existing = db.scalar(select(User).where(func.lower(User.email) == email.lower()))
+        existing_by_username = db.scalar(select(User).where(func.lower(User.student_identifier) == username))
+        existing_by_email = db.scalar(select(User).where(func.lower(User.email) == email.lower()))
+        existing = existing_by_username or existing_by_email
         if existing is not None:
             if existing.role == "TU_ADMIN" and existing.account_status == "ACTIVE" and existing.deleted_at is None:
-                print(f"Bootstrap administrator already exists: {email}")
+                if existing.student_identifier not in (None, username):
+                    raise SystemExit("An active administrator already uses a different login username")
+                if existing.student_identifier is None:
+                    existing.student_identifier = username
+                    db.commit()
+                print(f"Bootstrap administrator already exists: {username}")
                 return
-            raise SystemExit("The bootstrap email is already assigned to a non-administrator account")
+            raise SystemExit("The bootstrap email or username is already assigned to a non-administrator account")
 
         admin_count = db.scalar(select(func.count()).select_from(User).where(
             User.role == "TU_ADMIN",
@@ -64,6 +74,7 @@ def create_admin_from_env():
         user = User(
             name=name,
             email=email,
+            student_identifier=username,
             password_hash=hash_password(password),
             role="TU_ADMIN",
             account_status="ACTIVE",
@@ -72,7 +83,7 @@ def create_admin_from_env():
         db.commit()
         db.refresh(user)
         # Never print or log the bootstrap password.
-        print(f"Bootstrap administrator created: {email} (id={user.id})")
+        print(f"Bootstrap administrator created: {username} (id={user.id})")
     except Exception:
         db.rollback()
         raise
