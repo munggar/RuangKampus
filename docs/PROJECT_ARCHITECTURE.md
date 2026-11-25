@@ -1,98 +1,108 @@
 # RuangKampus — Project Architecture
 
-## 1. Architecture status
-This is the intended architecture for the initial monorepo. The GitHub repository was empty before bootstrap; there was no existing application architecture to preserve or claim as implemented.
+## Selected technology
 
-## 2. Technology decision
+| Layer | Choice | Current status |
+|---|---|---|
+| Frontend | React + TypeScript | Scaffolded on separate `feat/frontend-foundation` branch; Account B owns implementation |
+| Backend | Python + FastAPI | Core API implemented on `backend/core-api` |
+| ORM | SQLAlchemy 2 | Models and DB access layer implemented |
+| Migrations | Alembic | Initial migration included; SQLite validation only |
+| Database | PostgreSQL | Selected; no RuangKampus cloud project or connection confirmed |
+| API | REST `/api/v1` | Implemented; FastAPI OpenAPI/Swagger available |
 
-| Layer | Baseline | Why it fits | Status |
-|---|---|---|---|
-| Frontend | React + TypeScript | Reusable component UI and typed client code | Selected; app not scaffolded |
-| Backend | Python + FastAPI | Typed request/response validation and generated OpenAPI | Selected; app not scaffolded |
-| Database | PostgreSQL | Relational integrity, transactions, indexes, concurrency primitives | Selected; no RuangKampus instance identified |
-| API | Versioned REST under `/api/v1` | Clear frontend/backend integration boundary | Planned |
-| Migrations | Alembic proposed if SQLAlchemy is adopted | Versioned, reviewable, repeatable schema changes | Proposed; not configured |
-| Frontend build tool | Account B to confirm | Avoid imposing tooling before frontend owner sets up app | Open |
+The alternate Node/Express/Prisma stack is not used because the existing project documents already selected FastAPI. A frontend foundation branch was created separately during this task; Account A inspected it read-only and did not modify it.
 
-No evidence justifies replacing React + TypeScript, FastAPI, or PostgreSQL. PostgreSQL provider and deployment topology remain unconfirmed; existing projects in other applications must not be repurposed by assumption.
-
-## 3. Monorepo layout
+## Monorepo and ownership boundaries
 
 ```text
 RuangKampus/
-├── frontend/       # Account B: React + TypeScript
-├── backend/        # Account A: FastAPI
-├── docs/           # Shared project and integration documents
-└── tests/          # Automated test suites
+├── frontend/       # Account B — React + TypeScript and UI/UX
+├── backend/        # Account A — FastAPI, SQLAlchemy, Alembic, services, tests
+├── docs/           # Shared architecture, API, ownership, schema, status
+└── tests/          # Shared/end-to-end tests may be added later
 ```
 
-Initial bootstrap has tracked placeholders only in frontend, backend, and tests. No executable application code is included.
+Account A changes only `backend/` and Account A-owned documentation. No frontend component, style, layout, route, animation, or Figma file was changed. The `feat/frontend-foundation` branch remains separate and unmerged.
 
-## 4. Target logical flow
+## Backend modules
 
 ```text
-Student / TU Admin browser
-          |
-          v
-React + TypeScript frontend
-          |
-          | HTTPS / JSON — versioned REST
-          v
-FastAPI application
-  |       |        |
-  |       |        +--> Authentication / role authorization
-  |       +-----------> Reservation / availability services
-  +-------------------> Room / schedule / notification services
-          |
-          v
-PostgreSQL
+backend/
+├── alembic/versions/       # Versioned schema migrations
+├── src/ruangkampus/
+│   ├── routers/            # auth, users, rooms, reservations, schedules, notifications, dashboard
+│   ├── services/           # availability and email delivery
+│   ├── config.py           # environment configuration and production guards
+│   ├── database.py         # SQLAlchemy engine/session
+│   ├── dependencies.py     # authenticated user and role dependencies
+│   ├── models.py           # ORM models
+│   ├── schemas.py          # Pydantic request/response schemas
+│   ├── security.py         # Argon2id, JWT, opaque token hashing
+│   ├── rate_limit.py       # per-process auth endpoint rate limiter
+│   └── main.py             # FastAPI app, middleware, error handlers, OpenAPI
+└── tests/                  # isolated SQLite API tests
 ```
 
-This is a target logical architecture. Hosting, network topology, and production deployment have not been configured.
+## Logical request flow
 
-## 5. Planned backend boundaries
-- API layer: routing, validation, response schemas, dependencies.
-- Identity/access: credential verification, session/token validation, role checks, user scoping.
-- Room domain: room data, facilities, hours, status, maintenance.
-- Schedule domain: lecture schedules and source provenance.
-- Availability domain: authoritative evaluation of schedules, reservations, capacity, hours, and status.
-- Reservation domain: request creation, transitions, cancellation, and approval transaction.
-- Notification domain: in-app records and actual provider-backed email delivery.
-- Audit domain: administrator actions and room/schedule changes.
+```text
+Browser (Student / TU Admin)
+          |
+          v
+React + TypeScript (Account B)
+          | HTTPS JSON + bearer access token; HttpOnly refresh cookie
+          v
+FastAPI /api/v1 (Account A)
+  |         |          |
+  |         |          +--> auth / RBAC / user scope
+  |         +-------------> availability / reservation transactions
+  +-----------------------> rooms / schedules / notifications / dashboard
+          |
+          v
+SQLAlchemy 2 + Alembic
+          |
+          v
+PostgreSQL (provider not yet confirmed)
+```
 
-Refine module/file names after implementation starts; do not duplicate existing domain entities if future work adds them.
+## Frontend authentication contract
 
-## 6. Availability and approval integrity
-Absence of a lecture schedule is not enough to mark a room available. Evaluate every applicable blocker. Use a clearly documented interval-overlap policy; half-open intervals may allow adjacent reservations such as 09:00–10:00 and 10:00–11:00 without conflict.
+The existing frontend auth client expects direct JSON bodies for login/register/refresh (`access_token`, `token_type`, `expires_in`, `user`), direct safe user data from `/auth/me`, and `{ success: true }` for logout. The browser uses `Authorization: Bearer` and `credentials: include`. Public role labels are `Student` / `TU/Admin`; internal DB/RBAC values remain `STUDENT` / `TU_ADMIN`. Backend auth serializers follow this contract without editing frontend source.
 
-Approval must run in a transaction and re-check:
-- the request is still Pending;
-- the room is active and usable;
-- requested time fits operating hours;
-- capacity is sufficient;
-- lecture schedule, approved reservations, maintenance, and policy-defined blockers do not overlap;
-- concurrency protection prevents competing approvals from both succeeding.
+## Availability and reservation integrity
 
-Choose appropriate row locking, isolation, or PostgreSQL constraints after the final data model and policy are confirmed.
+- No schedule row does not automatically mean available; operating hours, active room status, capacity, lecture schedules, maintenance blocks, and pending/approved reservation overlaps are evaluated.
+- `PENDING` and `APPROVED` reservations both block a room. `REJECTED`, `CANCELLED`, and `COMPLETED` do not block future availability.
+- Create and approval flows re-check availability. The room row is locked inside the database transaction to serialize writes for a specific room on PostgreSQL.
+- The current test suite uses SQLite for portable rules/API tests; it does not prove PostgreSQL lock concurrency.
 
-## 7. Authentication and data access
-- Enforce access on the backend, not only in frontend navigation.
-- A Student reads/cancels only their own requests, subject to policy.
-- Only TU/Admin can maintain rooms/schedules and approve/reject requests.
-- Hash local passwords with a modern password-hashing implementation or use an approved external identity provider.
-- Keep tokens/session secrets in local ignored environment files or deployment secret storage.
-- Do not log passwords, tokens, or unnecessary personal data.
+## Authentication and access
 
-Token/session approach remains an implementation decision to be documented before auth code is written.
+- Local passwords use Argon2id.
+- Access JWT is short-lived; refresh token is long-lived, stored as a hash in `auth_sessions`, and delivered as an HttpOnly cookie.
+- Every protected request checks the session row and the user's current database role/status.
+- Registration creates `STUDENT` only. Admin creation uses a local CLI command.
+- Student data queries are scoped by authenticated user ID; non-owned reservation detail returns 404.
 
-## 8. Database/environment strategy
-PostgreSQL is the engine baseline. Provider, project, region, and RuangKampus connection are not confirmed. Use separate development, test, staging, and production resources. Run schema changes only through reviewed migrations. Never test against production or copy credentials from unrelated projects.
+## Notifications and external services
 
-## 9. API integration
-FastAPI OpenAPI becomes the implementation source of truth once routes exist. `docs/API_CONTRACT.md` is the cross-team planning contract. Account A notifies Account B before breaking changes to responses already consumed by the frontend.
+- In-app notifications are persisted in PostgreSQL. Email is attempted after the associated business transaction commits; email delivery state is recorded separately.
+- Email delivery is attempted only through a configured SMTP provider. Local development `console` writes to ignored `.local_mailbox/`; status is `LOCAL_MAILBOX_WRITTEN`, never reported as real email send.
+- No AI provider, academic-system integration, or cloud storage is configured.
 
-## 10. Deployment
-Frontend and backend may be deployed separately. Provider, service names, domains, CI/CD, secrets, and database networking remain open. Do not configure or mutate existing cloud resources until a RuangKampus-specific target is confirmed.
+## Deployment and environment strategy
 
-## 11. Security and quality baseline
-Validate untrusted input server-side; apply least-privilege authorization; enforce critical invariants with transactions/constraints; configure explicit CORS origins; use secure transport and suitable rate limits at deployment; keep secrets and real personal/campus data out of source control; test normal, boundary, invalid, conflict, unauthorized, and concurrency cases.
+- Use separate local/development, test, staging, and production databases/secrets.
+- Production requires PostgreSQL, strong JWT key, secure cookies, explicit CORS origins, and a configured real email backend.
+- Rate limiting is per process. Multi-worker/multi-instance deployments must add shared rate limiting at API gateway/WAF.
+- Never commit populated `.env` files or secrets.
+
+## Remaining work
+
+- Confirm cloud PostgreSQL and SMTP resources.
+- Validate initial migration against disposable PostgreSQL and run concurrency tests.
+- Reconcile API fields and flows with the full frontend as Account B implements pages beyond the current shell.
+- Wire session restoration/refresh and the password-recovery page in frontend.
+- Implement schedule import after the authorized data source/file format is provided.
+- Consider AI only after core backend/availability integration and a confirmed functional requirement.

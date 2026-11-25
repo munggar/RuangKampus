@@ -1,106 +1,171 @@
-# RuangKampus — API Contract (Planning Baseline)
+# RuangKampus — API Contract
 
-## Status and rules
-**Every route below is planned, not implemented.** These contracts give Account B an initial integration reference and must be reconciled with FastAPI OpenAPI after endpoint implementation and tests.
+**Backend:** FastAPI under `backend/`. **Base path:** `/api/v1`. Generated OpenAPI is available at `/api/v1/openapi.json`; Swagger UI is at `/api/v1/docs`.
 
-- Base path: `/api/v1`.
-- Transport: HTTPS in deployed environments.
-- Content type: `application/json`, except file uploads.
-- Date: ISO calendar date `YYYY-MM-DD`.
-- Time: local campus wall-clock time `HH:MM`; Asia/Jakarta is the working assumption pending institutional confirmation.
-- IDs: opaque; clients must not assume database integer sequences.
-- Protected endpoints require the agreed session/token credential.
-- Roles: Student and TU/Admin; exact enum string will be finalized with the identity model.
-- Backend is authoritative for data ownership, availability, and state transitions.
+## Response conventions
 
-## Proposed common error shape
+Most business endpoints use this success envelope:
 
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "The request could not be processed.",
-    "details": []
+  "success": true,
+  "message": "Rooms retrieved",
+  "data": [],
+  "meta": { "page": 1, "limit": 20, "total": 0, "total_pages": 0 }
+}
+```
+
+Most errors use:
+
+```json
+{
+  "success": false,
+  "message": "Request validation failed",
+  "errors": [{ "code": "VALIDATION_ERROR", "field": "capacity", "message": "Invalid value" }]
+}
+```
+
+**Frontend compatibility exception:** the active frontend branch's auth client expects direct JSON for auth success responses, so auth responses are not wrapped in `data`. The public API role labels are `Student` and `TU/Admin`, while internal database/RBAC role values remain `STUDENT` and `TU_ADMIN`. Error responses expose a top-level `message`, which the current client helper already reads.
+
+## Conventions
+
+- Send `Authorization: Bearer <access_token>` for protected endpoints.
+- Access token lifetime defaults to 15 minutes.
+- Refresh token is stored as a hash and delivered only in an HttpOnly cookie scoped to `/api/v1/auth`; default 14-day lifetime and rotation on refresh.
+- Campus date and wall-clock time use `Asia/Jakarta` by default. Dates are `YYYY-MM-DD`; times are `HH:MM:SS` or `HH:MM`.
+- Overnight reservations are not supported.
+- IDs are UUIDs and must be treated as opaque strings.
+- Pagination defaults to `page=1`, `limit=20`; max limit is 100.
+
+## Authentication
+
+| Method | Path | Request | Access |
+|---|---|---|---|
+| POST | `/auth/register` | `{ "name", "email", "password", "phone"?, "student_identifier"? }` | Public; role is assigned as Student |
+| POST | `/auth/login` | `{ "email", "password" }` | Public |
+| POST | `/auth/logout` | Bearer access token; clears refresh cookie | Authenticated |
+| POST | `/auth/refresh` | Refresh HttpOnly cookie, no JSON body | Refresh cookie |
+| GET | `/auth/me` | None | Authenticated |
+| POST | `/auth/forgot-password` | `{ "email" }` | Public, rate-limited |
+| POST | `/auth/reset-password` | `{ "token", "new_password" }` | Public, rate-limited |
+
+Register/login/refresh return the direct object:
+
+```json
+{
+  "access_token": "<short-lived-access-token>",
+  "token_type": "bearer",
+  "expires_in": 900,
+  "user": {
+    "id": "uuid",
+    "name": "Student Name",
+    "email": "student@example.com",
+    "student_identifier": null,
+    "phone": null,
+    "profile_image_url": null,
+    "role": "Student",
+    "account_status": "ACTIVE",
+    "created_at": "2026-11-25T09:00:00Z"
   }
 }
 ```
 
-Use suitable HTTP status codes: 400/422 invalid input, 401 missing/invalid authentication, 403 insufficient role/access, 404 unavailable/non-visible resource, 409 state/conflict error, 5xx unexpected failure. Do not expose stack traces or secrets.
+This is an illustrative payload, not live user data. `GET /auth/me` returns the direct safe user object. `POST /auth/logout` returns `{ "success": true }`. Refresh tokens and password hashes are never returned in JSON. Unknown registration fields (including role) are rejected.
 
-## Authentication
+Forgot-password returns a non-enumerating 202 response regardless of whether an active account matches. In development, `EMAIL_BACKEND=console` writes to a gitignored local mailbox; it is not actual delivery. Production requires configured SMTP. Reset token hashes are stored, tokens expire, and each token is single-use.
 
-| Method | Path | Request | Response | Access |
-|---|---|---|---|---|
-| POST | `/auth/login` | `{ "email": "...", "password": "..." }` | `{ "access_token": "...", "token_type": "bearer", "expires_in": 1800, "user": { "id": "...", "name": "...", "role": "Student" } }` | Public |
-| POST | `/auth/logout` | Credential/session context | `{ "success": true }` | Authenticated |
-| GET | `/auth/me` | None | Current profile; never include password/hash | Authenticated |
+## User profile and administration
 
-Token/session shape and refresh strategy must be finalized during auth design. Example values are illustrative.
+| Method | Path | Request/query | Access |
+|---|---|---|---|
+| GET | `/users/me` | None | Authenticated |
+| PATCH | `/users/me` | `name`?, `phone`?, `profile_image_url`? | Authenticated; own profile |
+| PATCH | `/users/me/password` | `current_password`, `new_password` | Authenticated; own account |
+| GET | `/users` | `search`, `role`, `account_status`, `page`, `limit` | TU/Admin |
+| PATCH | `/users/{user_id}/status` | `{ "account_status": "ACTIVE" | "DISABLED" }` | TU/Admin |
+| PATCH | `/users/{user_id}/role` | `{ "role": "STUDENT" | "TU_ADMIN" }` | TU/Admin |
+| DELETE | `/users/{user_id}` | None; soft delete | TU/Admin |
+
+The user object role returned to browser clients is `Student` or `TU/Admin`; role-update request values remain `STUDENT` or `TU_ADMIN`. Disabling, changing role, or soft-deleting an account revokes active sessions. Admins cannot demote/disable/delete themselves or remove the last active TU/Admin.
 
 ## Rooms
 
-| Method | Path | Request/query | Response | Access |
-|---|---|---|---|---|
-| GET | `/rooms` | Optional q, building, min_capacity, max_capacity, facilities, status, pagination | `{ "items": [Room], "page": 1, "page_size": 20, "total": 0 }` | Authenticated or public-by-policy |
-| GET | `/rooms/{room_id}` | None | Room | Authenticated or public-by-policy |
-| POST | `/rooms` | Room creation payload | Created Room | TU/Admin |
-| PATCH | `/rooms/{room_id}` | Partial Room payload | Updated Room | TU/Admin |
-| POST | `/rooms/{room_id}/deactivate` | Optional reason | Updated room status | TU/Admin |
+| Method | Path | Request/query | Access |
+|---|---|---|---|
+| GET | `/rooms` | `search`, `building`, `capacity` (minimum), `min_capacity`, `max_capacity`, repeated `facilities`, `status`, `sortBy`, `sortOrder`, `page`, `limit` | Public for active rooms; TU/Admin can filter status |
+| GET | `/rooms/{room_id}` | None | Public active room; TU/Admin can read inactive/maintenance |
+| GET | `/rooms/{room_id}/availability` | `date`, `startTime`, `endTime`, `participantCount` | Public |
+| POST | `/rooms` | Room create payload | TU/Admin |
+| PATCH | `/rooms/{room_id}` | Partial Room payload | TU/Admin |
+| DELETE | `/rooms/{room_id}` | Soft delete | TU/Admin |
 
-Proposed Room fields: id, room_name, building, floor, capacity, facilities, location, operating_hours, room_status, description, last_updated_at.
+Create/update fields: `room_name`, `room_code`?, `building`, `floor`?, `capacity`, `description`?, `facilities: string[]`, `operating_hours`, `room_status`, `photo_url`?. Valid statuses: `ACTIVE`, `INACTIVE`, `MAINTENANCE`. Operating-hours keys are weekdays `monday`–`sunday`, each with one or more `{ start, end }` windows. Empty/unconfigured hours do not imply availability. Future pending/approved reservations prevent room deactivation/deletion; capacity cannot be reduced below booked participant count.
 
-## Availability
+Availability blocker codes include `PAST_OR_CURRENT_START_TIME`, `ROOM_NOT_ACTIVE`, `CAPACITY_EXCEEDED`, `OUTSIDE_OPERATING_HOURS_OR_NOT_CONFIGURED`, `LECTURE_SCHEDULE_CONFLICT`, `ROOM_UNAVAILABLE`, and `RESERVATION_CONFLICT`.
 
-| Method | Path | Request/query | Response | Access |
-|---|---|---|---|---|
-| GET | `/rooms/{room_id}/availability` | date, start_time, end_time, participant_count | `{ "room_id": "...", "available": false, "reasons": [], "checked_at": "..." }` | Authenticated |
+## Reservations
 
-This response is advisory for selection only. Creation and TU/Admin approval must independently revalidate. Reasons should identify blocker categories without disclosing another student's private reservation details.
+| Method | Path | Request/query | Access |
+|---|---|---|---|
+| POST | `/reservations` | `room_id`, `purpose`, `date`, `start_time`, `end_time`, `participant_count`, `notes`? | Student |
+| GET | `/reservations` | `status`, `dateFrom`, `dateTo`, `page`, `limit` | Student own records; TU/Admin all |
+| GET | `/reservations/{reservation_id}` | None | Owner Student or TU/Admin |
+| PATCH | `/reservations/{reservation_id}/cancel` | `reason`? | Owner or TU/Admin, policy permitting |
+| PATCH | `/reservations/{reservation_id}/approve` | No body | TU/Admin |
+| PATCH | `/reservations/{reservation_id}/reject` | `{ "rejection_reason": "..." }` | TU/Admin |
+| PATCH | `/reservations/{reservation_id}/complete` | No body | TU/Admin; after end time |
 
-## Reservations — Student
+Statuses: `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`, `COMPLETED`. Pending/approved overlaps block a room; rejected/cancelled/completed do not. Create and approval re-check room state, capacity, hours, lecture schedules, maintenance, and reservations. Room row locks serialize conflicting write/approval flows on PostgreSQL. Conflict/state responses use HTTP 409. Cancellation is only allowed for pending/approved reservations before the start time.
 
-| Method | Path | Request | Response | Access |
-|---|---|---|---|---|
-| POST | `/reservations` | room_id, reservation_date, start_time, end_time, purpose, participant_count | Created Reservation with Pending status | Student |
-| GET | `/reservations/me` | Optional status/date filters and pagination | Own reservation list | Student |
-| GET | `/reservations/{reservation_id}` | None | Own detail | Owner Student or TU/Admin |
-| POST | `/reservations/{reservation_id}/cancel` | Optional cancellation reason | Updated Cancelled reservation | Owner Student subject to policy |
+## Schedules and room unavailability
 
-A Student must never read another student's request by changing the identifier.
+| Method | Path | Request/query | Access |
+|---|---|---|---|
+| GET | `/admin/schedules` | `room_id`?, `date`? | TU/Admin |
+| POST | `/admin/schedules` | room, course, times, exactly one of `schedule_date` or `day_of_week`, `data_source`? | TU/Admin |
+| DELETE | `/admin/schedules/{schedule_id}` | None; marks CANCELLED | TU/Admin |
+| GET | `/admin/room-unavailability` | `room_id`?, `date`? | TU/Admin |
+| POST | `/admin/room-unavailability` | room, date, times, reason | TU/Admin |
+| PATCH | `/admin/room-unavailability/{block_id}/deactivate` | No body | TU/Admin |
+| GET | `/admin/activity` | `entity_type`, `action`, `page`, `limit` | TU/Admin |
 
-## Reservations — TU/Admin
+Recurring schedule `day_of_week` uses Monday=0 through Sunday=6. Overlapping schedule/maintenance blocks are rejected where detected.
 
-| Method | Path | Request | Response | Access |
-|---|---|---|---|---|
-| GET | `/admin/reservations` | Optional status/date/building filters and pagination | Filtered list | TU/Admin |
-| GET | `/admin/reservations/{reservation_id}` | None | Request, applicant summary, conflict review data | TU/Admin |
-| POST | `/admin/reservations/{reservation_id}/approve` | Optional administrative note | Approved reservation if transaction succeeds | TU/Admin |
-| POST | `/admin/reservations/{reservation_id}/reject` | `{ "rejection_reason": "..." }` | Rejected reservation | TU/Admin |
+## Notifications and dashboard
 
-Approval atomically re-checks authorization, Pending state, room status, hours, capacity, lecture schedule, maintenance, and reservation conflicts. Return 409 if the request is no longer approvable or a conflict exists. Rejection requires a non-empty reason.
+| Method | Path | Request/query | Access |
+|---|---|---|---|
+| GET | `/notifications` | `unreadOnly`, `page`, `limit` | Authenticated; own |
+| PATCH | `/notifications/{notification_id}/read` | No body | Recipient only |
+| GET | `/dashboard/summary` | None | Role-scoped |
+| GET | `/dashboard/recent-reservations` | `limit` (1–50) | Student own; TU/Admin all |
+| GET | `/dashboard/room-statistics` | `dateFrom`, `dateTo` | TU/Admin |
 
-## Academic schedules
+Email delivery state is recorded separately from in-app notification creation: `NOT_CONFIGURED`, `LOCAL_MAILBOX_WRITTEN`, `SENT`, or `FAILED`. Console mode is not actual email delivery. Dashboard figures are calculated from database queries, not hard-coded.
 
-| Method | Path | Request | Response | Access |
-|---|---|---|---|---|
-| GET | `/admin/schedules` | Date/building/room filters | Schedule list | TU/Admin |
-| POST | `/admin/schedules/import/preview` | CSV/XLSX multipart file | Row preview and validation report; no persistence | TU/Admin |
-| POST | `/admin/schedules/import/commit` | Validated preview reference | Import summary and row-level result | TU/Admin |
+## HTTP status codes
 
-Validate room references, date/time, duplicates, and source metadata. Do not assume direct academic-system integration exists.
+- `200` success.
+- `201` created.
+- `202` forgot-password accepted without account enumeration.
+- `401` unauthenticated/invalid session.
+- `403` insufficient role.
+- `404` missing or non-visible record.
+- `409` state/uniqueness/reservation conflict.
+- `413` request too large.
+- `422` input validation.
+- `429` rate-limited.
+- `500` unexpected failure; `503` database unavailable for health.
 
-## Notifications
+## Frontend compatibility and known gaps
 
-| Method | Path | Request | Response | Access |
-|---|---|---|---|---|
-| GET | `/notifications` | Optional unread_only and pagination | Own notification list | Authenticated |
-| PATCH | `/notifications/{notification_id}/read` | `{ "read_status": true }` | Updated notification | Recipient only |
+The current separate `feat/frontend-foundation` branch calls login and expects the direct auth payload above, reads public role labels as `Student` / `TU/Admin`, and expects direct `/auth/me` data. Its HTTP helper sends bearer tokens and `credentials: include`. Backend auth serialization is aligned with this contract; no frontend file has been modified.
 
-Delivery status must distinguish queued, sent, failed, and not configured based on actual provider results.
+The frontend currently does not call refresh/session restoration after a hard reload. Its password recovery view is still a placeholder and does not yet submit to the implemented endpoints. Dashboard and feature pages beyond login remain scaffolds/placeholders and are not yet end-to-end wired.
 
-## Proposed response concepts
-- **Reservation:** id, user_id, room_id, reservation_date, start_time, end_time, purpose, participant_count, status, admin_id, rejection_reason, submitted_at, approved_at, updated_at.
-- **Notification:** id, recipient_id, notification_type, title, message, read_status, delivery_status, created_at.
+## Not implemented in this API slice
 
-## Contract change process
-Account A maintains the backend/OpenAPI contract. Before changing a response already consumed by Account B, notify Account B, document compatibility impact, and agree on the migration path. Update this document with implementation status only after endpoint tests pass.
+- CSV/XLSX schedule import preview/commit.
+- AI recommendation provider/endpoint.
+- Media upload/storage.
+- Push/WebSocket notifications.

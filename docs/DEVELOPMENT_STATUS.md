@@ -3,48 +3,66 @@
 Last updated: 2026-11-25
 
 ## Current phase
-**Project initialization / repository bootstrap.**
 
-## Verified baseline
-- [x] GitHub repository `munggar/RuangKampus` exists and is public.
-- [x] Repository was empty before bootstrap: size 0, no branches, no commits, and no contents.
-- [x] Default branch metadata is `main`.
-- [x] Figma account connection is available.
-- [ ] RuangKampus Figma file identified and inspected; file URL/file key is required.
-- [ ] RuangKampus-specific PostgreSQL project identified; none found in connected Neon/Supabase project lists.
-- [ ] Cloud database schema inspected; not performed because no RuangKampus DB was identified.
-- [ ] Frontend application scaffolded.
-- [ ] Backend application scaffolded.
-- [ ] Authentication implemented.
-- [ ] Room management implemented.
-- [ ] Availability engine implemented.
-- [ ] Reservation/approval workflows implemented.
-- [ ] Notifications implemented.
-- [ ] Schedule import implemented.
-- [ ] AI recommendations implemented.
+**Backend core API implementation — `backend/core-api`.**
 
-## Connected cloud resource check
-The readable connected Neon project list returned `CekLulus` and `CourseRecom`. The readable Supabase project list returned `warungpintar-staging` and `CodeMu`. None is identified as RuangKampus. These unrelated resources were not modified.
+## Repository and branch audit
 
-No migration, schema write, database configuration change, or new database project creation was performed during bootstrap.
+- Repository: `munggar/RuangKampus`.
+- `main` and `develop` remain at bootstrap commit `86c2fa77480a268a08e86d5d080684d9c731349c` during this backend implementation.
+- Account A created `backend/core-api` from `develop`.
+- A separate `feat/frontend-foundation` branch appeared during this task. Its current head is `2534066161e19f823bfc29db1691d185a5fa4cb5`; it includes React/TypeScript/Vite student and TU/Admin shells, navigation, login UI, API HTTP/auth clients, and dashboard placeholders. This branch was inspected read-only and was not merged or modified.
+- Existing project decision remains React + TypeScript, FastAPI, and PostgreSQL. The Node/Express fallback is not applicable because FastAPI was already selected in project documentation.
 
-## Figma check
-The Figma account connection is available and has an active team seat. No RuangKampus file URL/file key was supplied; no design file was read or modified. File-level pages, components, variables, typography, colors, and user flows remain unverified.
+## Implemented in `backend/`
 
-## Implemented vs planned
-The repository structure and documents are bootstrap artifacts. API paths and database entities in the planning documents are proposed contracts/conceptual schema, not implemented endpoints or tables.
+- FastAPI app, modular routers, OpenAPI/Swagger, health check, CORS, security headers, request-size guard, centralized error handling, and per-process auth endpoint rate limits.
+- SQLAlchemy models and Alembic initial migration for users, auth sessions, password reset tokens, rooms, reservations, lecture schedules, room unavailability, notifications, and room update logs.
+- Argon2id password hashing, short-lived access JWT, hashed/rotating HttpOnly refresh cookie, logout revocation, protected dependencies, and Student/TU_Admin RBAC.
+- Student registration with server-assigned role, login/logout/refresh/me, profile update, password change, forgot/reset password, and CLI bootstrap for first TU/Admin.
+- Admin user listing, role/status updates, and soft deactivation. Last active TU/Admin cannot be removed/demoted through management routes.
+- Room list/detail/create/update/soft-delete, search/building/capacity/facility/status filters, pagination/sort, room constraints, and audit snapshots.
+- Availability checks for operating hours, capacity, room state, one-time/recurring lecture schedules, maintenance blocks, and overlapping `PENDING`/`APPROVED` reservations.
+- Reservation create/list/detail/cancel/approve/reject/complete, owner scoping, transaction-bound room row locks for writes/approvals, and decision notifications/audit.
+- Admin lecture schedule and room-unavailability endpoints; in-app notifications and read tracking; SMTP/local-mailbox status; role-scoped dashboard; room statistics; admin activity log.
 
-## Open dependencies
-1. Confirm the RuangKampus Figma file and read access.
-2. Identify or approve a dedicated RuangKampus PostgreSQL provider/project.
-3. Account B confirms frontend tooling and scaffolds `frontend/`.
-4. Account A begins backend scaffolding after database target and integration boundaries are confirmed.
-5. Both accounts review the first end-to-end slice: authentication, room directory, availability, reservation request.
+## Frontend compatibility review
 
-## Next safe work
-1. Account B: inspect the monorepo and add React + TypeScript app under `frontend/` on a `frontend/*` branch.
-2. Account A: after DB target is confirmed, plan backend configuration and migration strategy without using production.
-3. Both: review the proposed API contract before integration.
+The `feat/frontend-foundation` branch was inspected without modification. Its existing `frontend/src/api/auth.ts` expects direct login payloads (`access_token`, `token_type`, `expires_in`, `user`), public role labels `Student` / `TU/Admin`, direct `/auth/me` user data, and `{ success: true }` from logout. Its HTTP client sends bearer access tokens and `credentials: include`. Backend auth serialization was adjusted to these expectations while database/RBAC role values remain `STUDENT` and `TU_ADMIN`. Other business endpoints continue using the general success envelope.
+
+The frontend currently does not call `/auth/refresh` or restore sessions after a full page reload. Its password-recovery page is a placeholder and is not yet wired to the backend reset endpoints. Dashboard and other feature pages remain scaffolds, not verified end-to-end integrations.
+
+## Tests and validation
+
+- `python -m compileall -q src tests alembic`: passed.
+- `PYTHONPATH=src pytest -q`: **24 tests passed** using a fresh in-memory SQLite database per test.
+- Initial Alembic migration upgrade, model/migration drift check, and downgrade: validated against a disposable SQLite database; no cloud DB used.
+- Local Uvicorn smoke check: health endpoint and generated OpenAPI were checked; OpenAPI exposed 33 paths.
+- Credential scan of generated source/config/docs: no populated API key, password, database credential, or populated `.env` was included.
+- No RuangKampus PostgreSQL provider/connection was available; PostgreSQL driver connectivity and lock concurrency have not been integration-tested.
+
+## Not implemented / not verified
+
+- No RuangKampus cloud PostgreSQL project, SMTP provider, or deployment service has been configured.
+- No Figma file URL/file key was available for direct design inspection. The frontend branch README refers to mobile-sized Figma artboards, but the design resource itself was not opened.
+- CSV/XLSX academic schedule import preview/commit is not implemented.
+- AI recommendation is not implemented; no verified frontend specification or provider configuration exists.
+- Media upload/storage is not implemented; room/profile image attributes accept URLs only.
+- Full historical refresh-token replay-family detection is not implemented; the current refresh token hash is rotated and stored.
+- Rate limiting is per-process; production multi-worker deployment requires shared API gateway/WAF rate limiting.
+- PostgreSQL row-lock concurrency has not been proven by a dedicated concurrent integration test.
+
+## Open dependencies before staging/production
+
+1. Confirm/provision a dedicated RuangKampus PostgreSQL project and credentials.
+2. Run the initial Alembic migration against a disposable PostgreSQL integration database, not production.
+3. Test two concurrent same-room/time create requests and approval races on PostgreSQL.
+4. Coordinate with Account B to test auth payloads, refresh cookie behavior, error handling, CORS origin, and page-level API contracts against the actual frontend branch.
+5. Wire frontend password recovery and session restoration to the implemented endpoints.
+6. Configure SMTP and validate delivery with a controlled mailbox.
+7. Configure shared rate limiting at the API gateway/WAF.
+8. Implement schedule import after the authorized campus schedule source and actual file format are confirmed.
 
 ## Release readiness
-Not production-ready. There is no executable app, verified RuangKampus database, deployment configuration, end-to-end test evidence, or verified Figma specification in this repository.
+
+**Not production-ready yet.** Core backend APIs and automated tests exist, but production PostgreSQL connection, concurrency test evidence, full frontend integration, real email provider, deployment, and security/operational review remain outstanding.
