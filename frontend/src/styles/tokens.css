@@ -1,0 +1,74 @@
+:root {
+  color-scheme: light;
+
+  /* Figma Light variables */
+  --color-brand-wordmark: #1b365d;
+  --color-brand-primary: #005a9c;
+  --color-brand-primary-soft: #eaf4fa;
+  --color-brand-red-accent: #8e1523;
+  --color-surface-background: #f5f8fc;
+  --color-surface-navigation: #ffffff;
+  --color-surface-card: #ffffff;
+  --color-border-default: #d7e2ea;
+  --color-navigation-border: #d3e4ee;
+  --color-text-on-brand: #ffffff;
+  --color-text-secondary: #536a80;
+  --color-status-success: #167a57;
+  --color-status-success-surface: #e8f5ef;
+  --color-status-warning: #8a5700;
+  --color-status-warning-surface: #fff4de;
+  --color-text-primary: var(--color-brand-wordmark);
+
+  /* Measured in representative Figma frames */
+  --space-page-inline: 20px;
+  --space-section-min: 12px;
+  --space-section-max: 24px;
+  --height-button: 44px;
+  --height-input: 46px;
+  --radius-button: 8px;
+  --radius-card: 14px;
+  --radius-field: 8px;
+
+  --font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-body: 14px;
+  --font-size-small: 12px;
+  --line-height-body: 1.5;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-brand-wordmark: #e6f0fa;
+  --color-brand-primary: #2878f0;
+  --color-brand-primary-soft: #1d2430;
+  --color-surface-background: #090b10;
+  --color-surface-navigation: #0d1017;
+  --color-surface-card: #151922;
+  --color-border-default: #293242;
+  --color-navigation-border: #293242;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a5adba;
+  --color-status-success: #62c69c;
+  --color-status-success-surface: #17372b;
+  --color-status-warning: #ffc36d;
+  --color-status-warning-surface: #3d301b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --color-brand-wordmark: #e6f0fa;
+    --color-brand-primary: #2878f0;
+    --color-brand-primary-soft: #1d2430;
+    --color-surface-background: #090b10;
+    --color-surface-navigation: #0d1017;
+    --color-surface-card: #151922;
+    --color-border-default: #293242;
+    --color-navigation-border: #293242;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #a5adba;
+    --color-status-success: #62c69c;
+    --color-status-success-surface: #17372b;
+    --color-status-warning: #ffc36d;
+    --color-status-warning-surface: #3d301b;
+  }
+}
