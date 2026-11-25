@@ -41,7 +41,7 @@ jobs:
 
     env:
       PYTHONPATH: src
-      POSTGRES_ADMIN_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/postgres
+      POSTGRES_ADMIN_URL: postgresql://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/postgres
       POSTGRES_TEST_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/ruangkampus_integration
       POSTGRES_MIGRATION_URL: postgresql+psycopg://ruangkampus_ci:ruangkampus_ci_only@127.0.0.1:5432/ruangkampus_migrations
       JWT_SECRET_KEY: ci-only-ephemeral-secret-not-for-deployment-000000000000
