@@ -58,19 +58,19 @@ def pg_client():
 def pg_users(pg_session):
     admin = User(
         name="Postgres Admin",
-        email="pg-admin@example.test",
+        email="pg-admin@example.com",
         password_hash=hash_password("StrongPass123!"),
         role="TU_ADMIN",
     )
     student_a = User(
         name="Postgres Student A",
-        email="pg-a@example.test",
+        email="pg-a@example.com",
         password_hash=hash_password("StrongPass123!"),
         role="STUDENT",
     )
     student_b = User(
         name="Postgres Student B",
-        email="pg-b@example.test",
+        email="pg-b@example.com",
         password_hash=hash_password("StrongPass123!"),
         role="STUDENT",
     )
