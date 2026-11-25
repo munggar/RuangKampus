@@ -116,10 +116,10 @@ export async function apiPage<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 export const authApi = {
-  register: (payload: { name: string; email: string; password: string; phone?: string; student_identifier?: string }) =>
+  register: (payload: { name: string; email: string; password: string; student_identifier: string; phone?: string }) =>
     apiRequest<TokenResponse>("/auth/register", { method: "POST", noRefresh: true, body: payload }),
-  login: (email: string, password: string) => apiRequest<TokenResponse>("/auth/login", {
-    method: "POST", noRefresh: true, body: { email, password },
+  login: (identifier: string, password: string) => apiRequest<TokenResponse>("/auth/login", {
+    method: "POST", noRefresh: true, body: { identifier, password },
   }),
   refresh: () => refreshAccessToken(),
   logout: () => apiRequest<{ success: boolean }>("/auth/logout", { method: "POST", noRefresh: true }),
