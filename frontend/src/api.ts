@@ -1,4 +1,4 @@
-import type { AppNotification, AuthUser, AvailabilityResult, PageMeta, PageResult, Reservation, Room, RoomUnavailability, Schedule, TokenResponse } from "./types";
+import type { AppNotification, AssistantChatRequest, AssistantChatResult, AuthUser, AvailabilityResult, AlternativeSlotSearch, AlternativeSlotsResult, PageMeta, PageResult, Reservation, Room, RoomUnavailability, Schedule, TokenResponse } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -146,6 +146,13 @@ export const roomApi = {
   update: (id: string, payload: Partial<Room>) =>
     apiRequest<Room>("/rooms/" + encodeURIComponent(id), { method: "PATCH", body: payload }),
   remove: (id: string) => apiRequest<unknown>("/rooms/" + encodeURIComponent(id), { method: "DELETE" }),
+};
+
+export const discoveryApi = {
+  alternatives: (payload: AlternativeSlotSearch) =>
+    apiRequest<AlternativeSlotsResult>("/rooms/alternative-slots", { method: "POST", body: payload }),
+  chat: (payload: AssistantChatRequest) =>
+    apiRequest<AssistantChatResult>("/assistant/chat", { method: "POST", body: payload }),
 };
 
 export const reservationApi = {
