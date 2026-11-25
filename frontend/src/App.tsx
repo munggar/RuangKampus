@@ -4,7 +4,7 @@ import { useAuth } from "./auth";
 import { AppShell } from "./layout";
 import {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
-  AssistantUnavailablePage, ForgotPasswordPage, LoginPage, NotificationsPage, ProfilePage,
+  ForgotPasswordPage, LoginPage, NotificationsPage, ProfilePage,
   ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
   StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
   AlternativeSlotsPage, RoomAssistantPage,
