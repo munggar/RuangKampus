@@ -11,7 +11,7 @@ def next_weekday(weekday: int) -> date:
 
 
 def test_refresh_token_rotation_and_logout(client, student):
-    login = client.post("/api/v1/auth/login", json={"email": "student@example.com", "password": "StrongPass123!"})
+    login = client.post("/api/v1/auth/login", json={"identifier": "2403045007", "password": "StrongPass123!"})
     assert login.status_code == 200
     old_refresh = client.cookies.get("ruangkampus_refresh")
     refreshed = client.post("/api/v1/auth/refresh")
@@ -26,7 +26,7 @@ def test_refresh_token_rotation_and_logout(client, student):
 
 
 def test_password_reset_token_is_one_time_and_revokes_sessions(client, student):
-    old_headers_response = client.post("/api/v1/auth/login", json={"email": "student@example.com", "password": "StrongPass123!"})
+    old_headers_response = client.post("/api/v1/auth/login", json={"identifier": "2403045007", "password": "StrongPass123!"})
     old_headers = {"Authorization": f"Bearer {old_headers_response.json()['access_token']}"}
 
     mailbox = Path(os.environ.get("LOCAL_MAILBOX_DIR", ".local_mailbox"))
@@ -48,7 +48,7 @@ def test_password_reset_token_is_one_time_and_revokes_sessions(client, student):
 
     replay = client.post("/api/v1/auth/reset-password", json={"token": token, "new_password": "ThirdStrongPass789!"})
     assert replay.status_code == 400
-    new_login = client.post("/api/v1/auth/login", json={"email": "student@example.com", "password": "AnotherStrongPass456!"})
+    new_login = client.post("/api/v1/auth/login", json={"identifier": "2403045007", "password": "AnotherStrongPass456!"})
     assert new_login.status_code == 200
     assert new_login.json()["user"]["role"] == "Student"
 
@@ -68,7 +68,7 @@ def test_dashboard_counts_from_database(client, auth_headers, student, admin, cr
     student_summary = client.get("/api/v1/dashboard/summary", headers=auth_headers())
     assert student_summary.status_code == 200
     assert student_summary.json()["data"]["total_reservations"] == 1
-    admin_summary = client.get("/api/v1/dashboard/summary", headers=auth_headers("admin@example.com"))
+    admin_summary = client.get("/api/v1/dashboard/summary", headers=auth_headers("admin.uhamka"))
     assert admin_summary.status_code == 200
     assert admin_summary.json()["data"]["total_rooms"] == 1
     assert admin_summary.json()["data"]["pending"] == 1
