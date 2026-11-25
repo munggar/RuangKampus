@@ -109,3 +109,16 @@ GitHub Actions run #19 completed with conclusion SUCCESS for commit 3959f51d0740
 - Workflow: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
 
 These checks ran against ephemeral GitHub Actions PostgreSQL 18 databases. They do not mean a production database was migrated or a backend hosting provider was deployed.
+
+## Primary 15-feature backend implementation update
+
+Backend implementation now maps each of the 15 primary features to an API/data flow. Added in this update:
+- Room metadata: nullable `faculty` and `location_description` fields, output schemas, audit snapshots, faculty/location search filters, and migration `d4e8b71c2f90`.
+- Room search: exact date/time search parameters invoke the same availability service before pagination.
+- Alternative slots: Student-only `POST /api/v1/rooms/alternative-slots` enumerates slots inside operating hours and returns only candidates passing the availability engine.
+- Room assistant: Student-only `POST /api/v1/assistant/chat` returns records from the database, parsed filters, alternatives, and clarifying questions. It is explicitly `RULE_BASED` at this stage, does not create reservations, does not persist chat messages, and does not transmit chat messages to an external AI provider.
+- API rate limiting was added to assistant and alternative-slot endpoints.
+
+The core flows for features 1–10 and 12–14 already exist in the Phase 1/2 routers and services. Feature 11 has a functioning backend chat/search contract but does not yet use a generative LLM provider. Feature 15 now has a deterministic availability-based recommendation endpoint. All candidate recommendations are revalidated when a student actually submits a reservation.
+
+The frontend branch was not modified. Frontend work should be based on these final request/response contracts after backend review and CI passes.
