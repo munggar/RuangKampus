@@ -162,6 +162,10 @@ export const scheduleApi = {
   create: (payload: { room_id: string; course_name: string; schedule_date?: string; day_of_week?: number; start_time: string; end_time: string; data_source?: string }) =>
     apiRequest<Schedule>("/admin/schedules", { method: "POST", body: payload }),
   cancel: (id: string) => apiRequest<unknown>("/admin/schedules/" + encodeURIComponent(id), { method: "DELETE" }),
+  listUnavailability: (params = new URLSearchParams()) => apiRequest<RoomUnavailability[]>("/admin/room-unavailability?" + params.toString()),
+  createUnavailability: (payload: { room_id: string; unavailable_date: string; start_time: string; end_time: string; reason: string }) =>
+    apiRequest<RoomUnavailability>("/admin/room-unavailability", { method: "POST", body: payload }),
+  deactivateUnavailability: (id: string) => apiRequest<RoomUnavailability>("/admin/room-unavailability/" + encodeURIComponent(id) + "/deactivate", { method: "PATCH" }),
 };
 
 export const adminApi = {

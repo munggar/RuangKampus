@@ -36,5 +36,6 @@ export interface Schedule {
   id: string; room_id: string; course_name: string; schedule_date: string | null; day_of_week: number | null;
   start_time: string; end_time: string; schedule_status: string; data_source: string; last_updated_at: string;
 }
-export interface RoomUnavailability { id: string; room_id: string; unavailable_date: string; start_time: string; end_time: string; reason: string; is_active: boolean; }\nexport interface PageMeta { page: number; limit: number; total: number; total_pages: number; }
+export interface RoomUnavailability { id: string; room_id: string; unavailable_date: string; start_time: string; end_time: string; reason: string; is_active: boolean; }
+export interface PageMeta { page: number; limit: number; total: number; total_pages: number; }
 export interface PageResult<T> { items: T[]; meta?: PageMeta; }
