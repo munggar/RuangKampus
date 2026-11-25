@@ -41,8 +41,8 @@ Most errors use:
 
 | Method | Path | Request | Access |
 |---|---|---|---|
-| POST | `/auth/register` | `{ "name", "email", "password", "phone"?, "student_identifier"? }` | Public; role is assigned as Student |
-| POST | `/auth/login` | `{ "email", "password" }` | Public |
+| POST | `/auth/register` | `{ "name", "email", "password", "student_identifier", "phone"? }` | Public; NIM required and role is assigned as Student |
+| POST | `/auth/login` | `{ "identifier", "password" }` | Public; Student uses NIM, TU/Admin uses reserved username `admin.uhamka` |
 | POST | `/auth/logout` | Bearer access token; clears refresh cookie | Authenticated |
 | POST | `/auth/refresh` | Refresh HttpOnly cookie, no JSON body | Refresh cookie |
 | GET | `/auth/me` | None | Authenticated |
@@ -60,7 +60,7 @@ Register/login/refresh return the direct object:
     "id": "uuid",
     "name": "Student Name",
     "email": "student@example.com",
-    "student_identifier": null,
+    "student_identifier": "2403045007",
     "phone": null,
     "profile_image_url": null,
     "role": "Student",
@@ -70,7 +70,7 @@ Register/login/refresh return the direct object:
 }
 ```
 
-This is an illustrative payload, not live user data. `GET /auth/me` returns the direct safe user object. `POST /auth/logout` returns `{ "success": true }`. Refresh tokens and password hashes are never returned in JSON. Unknown registration fields (including role) are rejected.
+This is an illustrative payload, not live user data. `GET /auth/me` returns the direct safe user object. `POST /auth/logout` returns `{ "success": true }`. Refresh tokens and password hashes are never returned in JSON. Unknown registration fields (including role) are rejected. Student registration requires a unique NIM; the NIM is the Student login identifier. The first administrator is provisioned out of band with the reserved username `admin.uhamka`; public registration cannot claim that username. The administrator authenticates with that username rather than an email address.
 
 Forgot-password returns a non-enumerating 202 response regardless of whether an active account matches. In development, `EMAIL_BACKEND=console` writes to a gitignored local mailbox; it is not actual delivery. Production requires configured SMTP. Reset token hashes are stored, tokens expire, and each token is single-use.
 
