@@ -9,7 +9,7 @@ import { Breadcrumbs } from "./Breadcrumbs";
 interface AppShellProps { role: AppRole; }
 
 function initialsFromName(name: string) {
-  return name.trim().split(/\\s+/).slice(0, 2).map((part) => part[0] ?? "").join("").toUpperCase() || "RK";
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0] ?? "").join("").toUpperCase() || "RK";
 }
 
 function NavigationLinks({ items, compact = false }: { items: NavigationItem[]; compact?: boolean }) {
