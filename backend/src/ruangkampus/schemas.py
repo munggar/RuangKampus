@@ -117,7 +117,9 @@ class RoomCreateIn(BaseModel):
     room_name: str = Field(min_length=2, max_length=160)
     room_code: str | None = Field(default=None, max_length=80)
     building: str = Field(min_length=1, max_length=160)
+    faculty: str | None = Field(default=None, max_length=160)
     floor: str | None = Field(default=None, max_length=40)
+    location_description: str | None = Field(default=None, max_length=500)
     capacity: int = Field(gt=0, le=10000)
     description: str | None = Field(default=None, max_length=5000)
     facilities: list[str] = Field(default_factory=list, max_length=100)
@@ -147,7 +149,9 @@ class RoomUpdateIn(BaseModel):
     room_name: str | None = Field(default=None, min_length=2, max_length=160)
     room_code: str | None = Field(default=None, max_length=80)
     building: str | None = Field(default=None, min_length=1, max_length=160)
+    faculty: str | None = Field(default=None, max_length=160)
     floor: str | None = Field(default=None, max_length=40)
+    location_description: str | None = Field(default=None, max_length=500)
     capacity: int | None = Field(default=None, gt=0, le=10000)
     description: str | None = Field(default=None, max_length=5000)
     facilities: list[str] | None = Field(default=None, max_length=100)
@@ -168,7 +172,9 @@ class RoomOut(BaseOut):
     room_name: str
     room_code: str | None
     building: str
+    faculty: str | None
     floor: str | None
+    location_description: str | None
     capacity: int
     description: str | None
     facilities: list[str]
@@ -308,3 +314,38 @@ def serialize_reservation(reservation) -> dict:
 
 class ScheduleImportCommitIn(BaseModel):
     batch_id: UUID
+
+
+class AlternativeSlotsIn(BaseModel):
+    date: date
+    duration_minutes: int = Field(ge=15, le=480)
+    participant_count: int = Field(gt=0, le=10000)
+    room_id: UUID | None = None
+    faculty: str | None = Field(default=None, max_length=160)
+    building: str | None = Field(default=None, max_length=160)
+    facilities: list[str] = Field(default_factory=list, max_length=25)
+    preferred_start_time: time | None = None
+    search_days: int = Field(default=7, ge=0, le=14)
+    slot_step_minutes: int = Field(default=30, ge=5, le=120)
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class AssistantChatIn(BaseModel):
+    message: str = Field(min_length=3, max_length=1000)
+    faculty: str | None = Field(default=None, max_length=160)
+    building: str | None = Field(default=None, max_length=160)
+    min_capacity: int | None = Field(default=None, ge=1, le=10000)
+    facilities: list[str] = Field(default_factory=list, max_length=25)
+    date: date | None = None
+    start_time: time | None = None
+    end_time: time | None = None
+    participant_count: int = Field(default=1, ge=1, le=10000)
+
+    @model_validator(mode="after")
+    def validate_optional_time_filter(self):
+        has_any_time = self.date is not None or self.start_time is not None or self.end_time is not None
+        if has_any_time and not (self.date is not None and self.start_time is not None and self.end_time is not None):
+            raise ValueError("date, start_time, and end_time must be supplied together")
+        if self.start_time is not None and self.end_time is not None and self.end_time <= self.start_time:
+            raise ValueError("end_time must be later than start_time")
+        return self
