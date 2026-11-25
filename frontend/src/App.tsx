@@ -6,7 +6,8 @@ import {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
   AssistantUnavailablePage, ForgotPasswordPage, LoginPage, NotificationsPage, ProfilePage,
   ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
-  StudentReservationsPage, BookingPage, NotFoundPage,
+  StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
+  AlternativeSlotsPage, RoomAssistantPage,
 } from "./pages";
 
 function FullScreenLoading() {
@@ -41,13 +42,15 @@ export function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<StudentDashboardPage />} />
         <Route path="rooms" element={<RoomDirectoryPage role="Student" />} />
+        <Route path="availability" element={<StudentRoomAvailabilityPage />} />
+        <Route path="alternatives" element={<AlternativeSlotsPage />} />
         <Route path="rooms/:roomId" element={<RoomDetailPage role="Student" />} />
         <Route path="rooms/:roomId/book" element={<BookingPage />} />
         <Route path="reservations" element={<StudentReservationsPage />} />
         <Route path="reservations/:reservationId" element={<ReservationDetailPage role="Student" />} />
         <Route path="notifications" element={<NotificationsPage role="Student" />} />
         <Route path="profile" element={<ProfilePage role="Student" />} />
-        <Route path="assistant" element={<AssistantUnavailablePage role="Student" />} />
+        <Route path="assistant" element={<RoomAssistantPage role="Student" />} />
       </Route>
 
       <Route path="/admin" element={<RequireRole role="TU/Admin"><AppShell role="TU/Admin" /></RequireRole>}>
@@ -61,7 +64,7 @@ export function App() {
         <Route path="schedules" element={<AdminSchedulesPage />} />
         <Route path="notifications" element={<NotificationsPage role="TU/Admin" />} />
         <Route path="profile" element={<ProfilePage role="TU/Admin" />} />
-        <Route path="assistant" element={<AssistantUnavailablePage role="TU/Admin" />} />
+        <Route path="assistant" element={<RoomAssistantPage role="TU/Admin" />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
