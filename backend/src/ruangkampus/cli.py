@@ -33,7 +33,7 @@ def create_admin():
 def create_admin_from_env():
     """One-time bootstrap for an empty installation; never exposed through HTTP."""
     # Email stays required by the user record, but authentication uses the
-    # reserved username. The .invalid address is deliberately non-deliverable.
+    # reserved username. The default example.com address is a reserved example alias.
     email_value = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL", "admin.uhamka@example.com").strip().lower()
     name = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME", "Admin UHAMKA").strip()
     password = os.environ.get("RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD", "")
