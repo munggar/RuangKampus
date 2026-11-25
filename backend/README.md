@@ -228,3 +228,16 @@ docker compose exec api alembic upgrade head
 ```
 
 API readiness: http://localhost:8000/ready. Stop services with docker compose down. Use docker compose down -v only when intentionally deleting the disposable local database volume. Example passwords are local-only.
+
+## Primary 15-feature backend contract
+
+The backend contract now explicitly covers all 15 primary features: Student/TU_Admin auth and role enforcement; role-scoped Student and TU dashboards; room CRUD; a single shared availability engine; faculty/building/location/capacity/facility/time-aware search; online reservation; TU approval/rejection; transactional conflict detection; reservation tracking; the Student room-assistant endpoint; recipient-scoped notifications; faculty/building/floor/location metadata; facility/capacity data; and alternative-slot recommendations.
+
+Key new endpoints:
+- `POST /api/v1/assistant/chat` — Student-only, grounded, stateless room-assistant flow. Current `engine=RULE_BASED`; it is not represented as a generative LLM and does not transmit chat data to an external provider.
+- `POST /api/v1/rooms/alternative-slots` — Student-only availability-based candidate slots; results are suggestions, not reservations.
+- `GET /api/v1/rooms` — faculty/location and exact date/time availability filters.
+
+Room records now support `faculty` and `location_description` in addition to building/floor. Migration `d4e8b71c2f90` adds these nullable fields without invalidating existing room rows.
+
+Frontend implementation must follow `docs/API_CONTRACT.md`. Client-side availability checks are advisory only; the backend remains authoritative at reservation creation and approval.
