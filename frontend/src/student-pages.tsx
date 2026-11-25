@@ -68,7 +68,7 @@ export function StudentDashboardPage() {
     <PageTitle eyebrow={new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date()).toUpperCase()}
       title={welcome + ", " + (user?.name?.split(" ")[0] || "Mahasiswa")}
       description="Sedikit ruang untuk mewujudkan ide besar Anda."
-      action={<Link className="button button--primary" to="/student/rooms"><Search size={17} />Temukan ruangan</Link>} />
+      action={<Link className="button button--primary" to="/student/availability"><CalendarCheck size={17} />Cek ketersediaan</Link>} />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat ringkasan reservasi…" /> : <>
       <div className="stat-grid stat-grid--two">
