@@ -1,12 +1,9 @@
 import re
 from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
-
 from fastapi import APIRouter, Depends
-from sqlalchemy import String, and_, func, or_, select
+from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session
 
-from ruangkampus.config import get_settings
 from ruangkampus.database import get_db
 from ruangkampus.dependencies import require_student
 from ruangkampus.models import Room, User
@@ -22,7 +19,7 @@ WEEKDAYS = {
     "selasa": 1, "tuesday": 1,
     "rabu": 2, "wednesday": 2,
     "kamis": 3, "thursday": 3,
-    "jumat": 4, "jumat": 4, "friday": 4,
+    "jumat": 4, "friday": 4,
     "sabtu": 5, "saturday": 5,
     "minggu": 6, "sunday": 6,
 }
@@ -89,7 +86,6 @@ def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dic
         min_capacity=request.participant_count,
         facilities=request.facilities,
     )
-    settings = get_settings()
     ranked: list[tuple[tuple[int, int, int, int], dict]] = []
     preferred_minutes = (
         request.preferred_start_time.hour * 60 + request.preferred_start_time.minute
