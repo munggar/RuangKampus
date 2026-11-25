@@ -8,6 +8,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string, expectedRole: AppRole) => Promise<AuthUser>;
+  register: (payload: { name: string; email: string; password: string; phone?: string; student_identifier?: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   replaceUser: (user: AuthUser) => void;
 }
@@ -45,6 +46,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return session.user;
   }, []);
 
+  const register = useCallback(async (payload: { name: string; email: string; password: string; phone?: string; student_identifier?: string }) => {
+    const session = await authApi.register(payload);
+    if (session.user.role !== "Student") {
+      setAccessToken(null);
+      throw new ApiError("Pendaftaran publik hanya dapat membuat akun Student.", 403, "ROLE_MISMATCH");
+    }
+    setAccessToken(session.access_token);
+    setUser(session.user);
+    return session.user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       if (user) await authApi.logout();
@@ -58,7 +70,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [user]);
 
   const replaceUser = useCallback((nextUser: AuthUser) => setUser(nextUser), []);
-  const value = useMemo(() => ({ user, loading, login, logout, replaceUser }), [user, loading, login, logout, replaceUser]);
+  const value = useMemo(() => ({ user, loading, login, register, logout, replaceUser }), [user, loading, login, register, logout, replaceUser]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
