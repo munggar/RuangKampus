@@ -7,3 +7,4 @@ export {
 export {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
 } from "./admin-pages";
+export { StudentRoomAvailabilityPage, AlternativeSlotsPage, RoomAssistantPage } from "./feature-pages";
