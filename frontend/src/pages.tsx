@@ -1,4 +1,4 @@
-export { LoginPage, ForgotPasswordPage } from "./auth-pages";
+export { LoginPage, RegisterPage, ForgotPasswordPage } from "./auth-pages";
 export {
   StudentDashboardPage, RoomDirectoryPage, RoomDetailPage, BookingPage,
   StudentReservationsPage, ReservationDetailPage, NotificationsPage,
