@@ -7,7 +7,7 @@ from ruangkampus.security import verify_password
 
 def set_bootstrap_env(monkeypatch, **overrides):
     values = {
-        "RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL": "first-admin@example.test",
+        "RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL": "first-admin@example.com",
         "RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME": "First Administrator",
         "RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD": "VeryStrongTemporaryPassword-123!",
     }
@@ -22,7 +22,7 @@ def test_bootstrap_creates_first_active_admin_without_printing_password(db_sessi
 
     cli.create_admin_from_env()
 
-    admin = db_session.scalar(select(User).where(User.email == "first-admin@example.test"))
+    admin = db_session.scalar(select(User).where(User.email == "first-admin@example.com"))
     assert admin is not None
     assert admin.role == "TU_ADMIN"
     assert admin.student_identifier == "admin.uhamka"
