@@ -38,7 +38,7 @@ def client(db_session):
 
 @pytest.fixture()
 def student(db_session):
-    user = User(name="Student Test", email="student@example.com", password_hash=hash_password("StrongPass123!"), role="STUDENT")
+    user = User(name="Student Test", email="student@example.com", student_identifier="2403045007", password_hash=hash_password("StrongPass123!"), role="STUDENT")
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
@@ -47,7 +47,7 @@ def student(db_session):
 
 @pytest.fixture()
 def admin(db_session):
-    user = User(name="Admin Test", email="admin@example.com", password_hash=hash_password("StrongPass123!"), role="TU_ADMIN")
+    user = User(name="Admin Test", email="admin@example.com", student_identifier="admin.uhamka", password_hash=hash_password("StrongPass123!"), role="TU_ADMIN")
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
@@ -56,8 +56,8 @@ def admin(db_session):
 
 @pytest.fixture()
 def auth_headers(client):
-    def login(email="student@example.com", password="StrongPass123!"):
-        response = client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    def login(identifier="2403045007", password="StrongPass123!"):
+        response = client.post("/api/v1/auth/login", json={"identifier": identifier, "password": password})
         assert response.status_code == 200, response.text
         return {"Authorization": f"Bearer {response.json()['access_token']}"}
     return login
@@ -79,7 +79,7 @@ def room_payload():
 @pytest.fixture()
 def create_room(client, auth_headers, room_payload):
     def create():
-        admin_headers = auth_headers("admin@example.com")
+        admin_headers = auth_headers("admin.uhamka")
         response = client.post("/api/v1/rooms", json=room_payload, headers=admin_headers)
         assert response.status_code == 201, response.text
         return response.json()["data"]
