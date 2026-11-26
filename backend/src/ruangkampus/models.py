@@ -240,6 +240,41 @@ class RoomUpdateLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
+
+
+class AssistantLearningFeedback(Base):
+    """Allowlisted feedback signals only; raw user or assistant messages are never stored."""
+
+    __tablename__ = "assistant_learning_feedback"
+    __table_args__ = (
+        CheckConstraint(
+            "rating IN ('HELPFUL', 'NOT_HELPFUL')",
+            name="ck_assistant_learning_feedback_rating",
+        ),
+        CheckConstraint(
+            "reason_code IS NULL OR reason_code IN "
+            "('TOO_FORMAL', 'TOO_LONG', 'TOO_SHORT', 'WRONG_INTENT', "
+            "'WRONG_NORMALIZATION', 'RESULTS_NOT_RELEVANT', 'OTHER')",
+            name="ck_assistant_learning_feedback_reason",
+        ),
+        CheckConstraint(
+            "(rating = 'HELPFUL' AND reason_code IS NULL) OR "
+            "(rating = 'NOT_HELPFUL' AND reason_code IS NOT NULL)",
+            name="ck_assistant_learning_feedback_rating_reason",
+        ),
+        Index("ix_assistant_learning_feedback_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    intent: Mapped[str] = mapped_column(String(40), nullable=False)
+    rating: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 class AssistantConversation(Base):
     """Short-lived, user-owned conversational state; raw messages are never stored."""
 
