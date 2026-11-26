@@ -353,9 +353,16 @@ def test_air_conditioner_in_a_negated_phrase_is_not_a_positive_filter():
     ) == []
 
 
-def test_facility_alias_not_observed_in_catalog_is_not_promoted_to_canonical():
+def test_known_facility_alias_remains_a_required_filter_without_catalog_matches():
     assert find_positive_facility_filters(
         "butuh proyektor",
+        {"facilities": []},
+    ) == ["projector"]
+
+
+def test_negated_known_facility_alias_is_not_added_without_catalog_matches():
+    assert find_positive_facility_filters(
+        "tidak butuh proyektor",
         {"facilities": []},
     ) == []
 
