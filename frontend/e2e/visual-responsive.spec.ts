@@ -51,7 +51,7 @@ test("responsive layout: every protected route at all six target viewports", asy
       ["Student", STUDENT_PATHS],
       ["TU/Admin", ADMIN_PATHS],
     ] as const) {
-      const page = await context.newPage();
+      await page.unroute("**/api/v1/**");
       const api = await installMockApi(page, role);
       for (const screen of routeScreens) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
