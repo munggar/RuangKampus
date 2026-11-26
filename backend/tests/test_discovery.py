@@ -834,3 +834,95 @@ def test_student_can_submit_explicit_rukka_feedback_and_negative_feedback_requir
         headers=auth_headers(),
     )
     assert invalid.status_code == 422
+
+
+
+def test_rukka_greeting_is_not_misused_as_a_room_search_keyword(
+    client, auth_headers, student
+):
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Woy RUKKA, lu bisa bantu gua nyari ruangan kaga?"},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["intent"] == "ROOM_SEARCH"
+    assert data["rooms"] == []
+    assert data["filters"]["search_terms"] == []
+    assert data["requires_clarification"] is True
+    assert "belum ada ruangan yang cocok" not in data["message"].lower()
+
+
+def test_room_assistant_parses_forty_org_and_heat_avoidance_as_ac(
+    client, auth_headers, student, admin, room_payload
+):
+    payload = {
+        **room_payload,
+        "room_name": "Meeting Room AC 101",
+        "room_code": "RK-AC-101",
+        "capacity": 55,
+        "facilities": ["AC", "Projector"],
+    }
+    room = create_located_room(client, auth_headers, payload)
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Min, cariin ruang yg muat 40 org dong, jgn yg panas ya."},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["intent"] == "ROOM_SEARCH"
+    assert data["slots"]["min_capacity"] == 40
+    assert data["slots"]["facilities"] == ["air conditioner"]
+    assert data["slots"]["search_terms"] == []
+    assert room["id"] in {item["id"] for item in data["rooms"]}
+    assert data["requires_clarification"] is True
+    assert "tanggal" in data["follow_up_questions"][0].lower()
+
+
+def test_room_assistant_only_asks_for_time_when_date_was_already_parsed(
+    client, auth_headers, student, admin
+):
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Gw mw pinjem rgn buat rapat besok, msh ad yg ksong g?"},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["slots"]["date"]
+    assert data["missing_fields"] == ["start_time", "end_time"]
+    assert "tanggalnya sudah aku catat" in data["message"].lower()
+    assert "jam mulai dan selesai" in data["follow_up_questions"][0].lower()
+
+
+def test_room_assistant_understands_availability_follow_up_from_same_conversation(
+    client, auth_headers, student
+):
+    first = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan untuk diskusi."},
+        headers=auth_headers(),
+    )
+    assert first.status_code == 200, first.text
+    conversation_id = first.json()["data"]["conversation_id"]
+
+    second = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "Masih ada yang kosong?",
+            "conversation_id": conversation_id,
+        },
+        headers=auth_headers(),
+    )
+
+    assert second.status_code == 200, second.text
+    data = second.json()["data"]
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["missing_fields"] == ["date", "start_time", "end_time"]
+    assert "tanggal dan jam" in data["follow_up_questions"][0].lower()
