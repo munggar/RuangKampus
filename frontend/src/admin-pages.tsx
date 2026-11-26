@@ -522,7 +522,7 @@ export function AdminActivityPage() {
       <table className="data-table">
         <thead><tr><th>Waktu</th><th>Admin</th><th>Aksi</th><th>Data</th><th>Perubahan</th></tr></thead>
         <tbody>{items.map((item) => <tr key={item.id}>
-          <td>{item.created_at ? formatDate(item.created_at, { dateStyle: "medium", timeStyle: "short" }) : "—"}</td>
+          <td>{item.created_at ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(item.created_at)) : "—"}</td>
           <td>{item.admin?.name || "Admin"}</td>
           <td><b>{item.action || "—"}</b><small>{item.entity_type || "—"}</small></td>
           <td><span className="mono">{item.entity_id?.slice(0, 12) || "—"}</span></td>
@@ -653,7 +653,9 @@ export function AdminUsersPage() {
       setName(""); setEmail(""); setNim(""); setPhone(""); setPassword("");
       setMessage("Akun berhasil dibuat. Berikan password awal melalui saluran aman.");
       setPage(1); setQuery("");
-      await reload();
+      const firstPage = await userApi.list(new URLSearchParams({ page: "1", limit: "20" }));
+      setUsers(firstPage.items);
+      setTotalPages(firstPage.meta?.total_pages || 1);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Akun mahasiswa belum berhasil dibuat.");
     } finally { setSaving(false); }
