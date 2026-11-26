@@ -11,7 +11,7 @@ import {
 import { useAuth } from "./auth";
 import type { AppNotification, AppRole, AuthUser, AvailabilityResult, Reservation, Room } from "./types";
 import { PageTitle } from "./layout";
-import { Button, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
+import { Button, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
 
 function usePageError() {
   const [error, setError] = useState("");
@@ -261,7 +261,7 @@ export function BookingPage() {
   const [date, setDate] = useState(searchParams.get("date") || localToday());
   const [start, setStart] = useState(searchParams.get("startTime") || "");
   const [end, setEnd] = useState(searchParams.get("endTime") || "");
-  const [participants, setParticipants] = useState("1");
+  const [participants, setParticipants] = useState(searchParams.get("participantCount") || "1");
   const [purpose, setPurpose] = useState("");
   const [notes, setNotes] = useState("");
   const [availability, setAvailability] = useState<AvailabilityResult | null>(null);
@@ -499,6 +499,11 @@ export function ProfilePage({ role }: { role: AppRole }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [theme, setTheme] = useState<"light" | "dark">(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+  useEffect(() => {
+    const syncTheme = () => setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+    window.addEventListener("rk-theme-change", syncTheme);
+    return () => window.removeEventListener("rk-theme-change", syncTheme);
+  }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -530,10 +535,12 @@ export function ProfilePage({ role }: { role: AppRole }) {
   }
 
   function changeTheme(next: "light" | "dark") {
-    setTheme(next); document.documentElement.dataset.theme = next;
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
     localStorage.setItem("rk-theme", next);
+    window.dispatchEvent(new Event("rk-theme-change"));
   }
-  const initials = (profile?.name || "RK").split(/\\s+/).slice(0, 2).map((p) => p[0] || "").join("").toUpperCase();
+  const initials = initialsFromName(profile?.name);
 
   return <div className="page-stack">
     <PageTitle eyebrow="YOUR ACCOUNT" title="Profil" description="Kelola informasi akun dan preferensi tampilan Anda." />
@@ -551,10 +558,10 @@ export function ProfilePage({ role }: { role: AppRole }) {
       </form>
       <div className="stack-form">
         <section className="panel">
-          <h2>Appearance</h2><p className="muted">Pilih Light atau Dark mode.</p>
+          <h2>Tampilan</h2><p className="muted">Pilih mode terang atau gelap.</p>
           <div className="segmented-tabs theme-selector">
-            <button type="button" className={theme === "light" ? "is-active" : ""} onClick={() => changeTheme("light")}>☀ Light</button>
-            <button type="button" className={theme === "dark" ? "is-active" : ""} onClick={() => changeTheme("dark")}>◐ Dark</button>
+            <button type="button" className={theme === "light" ? "is-active" : ""} aria-pressed={theme === "light"} onClick={() => changeTheme("light")}>☀ Terang</button>
+            <button type="button" className={theme === "dark" ? "is-active" : ""} aria-pressed={theme === "dark"} onClick={() => changeTheme("dark")}>◐ Gelap</button>
           </div>
         </section>
         <form className="panel stack-form" onSubmit={savePassword}>

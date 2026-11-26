@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Bell, Building2, CalendarDays, CalendarCheck, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
   LogOut, Moon, Sparkles, Sun, UserRound,
@@ -6,6 +6,7 @@ import {
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth";
 import type { AppRole } from "./types";
+import { initialsFromName } from "./ui";
 
 interface NavigationItem {
   label: string; shortLabel: string; path: string; icon: typeof LayoutDashboard; ai?: boolean;
@@ -37,7 +38,20 @@ function useTheme() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     if (typeof localStorage !== "undefined") localStorage.setItem("rk-theme", theme);
+    window.dispatchEvent(new Event("rk-theme-change"));
   }, [theme]);
+  useEffect(() => {
+    const syncTheme = () => setThemeState(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+    const syncStorage = (event: StorageEvent) => {
+      if (event.key === "rk-theme") setThemeState(event.newValue === "dark" ? "dark" : "light");
+    };
+    window.addEventListener("rk-theme-change", syncTheme);
+    window.addEventListener("storage", syncStorage);
+    return () => {
+      window.removeEventListener("rk-theme-change", syncTheme);
+      window.removeEventListener("storage", syncStorage);
+    };
+  }, []);
   return { theme, setTheme: setThemeState };
 }
 function ThemeButton({ theme, toggle }: { theme: "light" | "dark"; toggle: () => void }) {
@@ -46,9 +60,10 @@ function ThemeButton({ theme, toggle }: { theme: "light" | "dark"; toggle: () =>
 }
 function pageLabel(path: string, role: AppRole) {
   const root = role === "Student" ? "/student" : "/admin";
-  if (path.includes("/rooms/new")) return "Tambah ruangan";
-  if (path.includes("/rooms/") && path.endsWith("/edit")) return "Edit ruangan";
-  if (path.includes("/rooms/") && !path.endsWith("/edit")) return "Detail ruangan";
+  if (/^\/student\/rooms\/[^/]+\/book$/.test(path)) return "Ajukan reservasi";
+  if (path === "/admin/rooms/new") return "Tambah ruangan";
+  if (/^\/admin\/rooms\/[^/]+\/edit$/.test(path)) return "Edit ruangan";
+  if (/^\/(student|admin)\/rooms\/[^/]+$/.test(path)) return "Detail ruangan";
   if (path.includes("/reservations/") && path !== root + "/reservations") return "Detail reservasi";
   const items: Array<[string, string]> = [
     [root + "/dashboard", "Dashboard"], [root + "/rooms", "Ruang kampus"],
@@ -63,7 +78,7 @@ function Navigation({ items, mobile = false }: { items: NavigationItem[]; mobile
   return <nav className={mobile ? "mobile-nav__items" : "sidebar-nav"} aria-label="Navigasi utama">
     {items.map((item) => {
       const Icon = item.icon;
-      return <NavLink key={item.path} to={item.path} end={item.path.endsWith("/dashboard") || item.path.endsWith("/rooms") || item.path.endsWith("/reservations")}
+      return <NavLink key={item.path} to={item.path} end={item.path.endsWith("/dashboard")}
         className={({ isActive }) => "nav-link" + (isActive ? " is-active" : "") + (item.ai ? " nav-link--ai" : "")} title={item.label}>
         <span className="nav-link__icon"><Icon size={mobile ? 19 : 18} strokeWidth={1.8} /></span>
         <span className="nav-link__label">{mobile ? item.shortLabel : item.label}</span>
@@ -79,9 +94,30 @@ export function AppShell({ role }: { role: AppRole }) {
   const location = useLocation();
   const items = useMemo(() => navigationFor(role), [role]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const name = user?.name || (role === "Student" ? "Mahasiswa" : "Administrator");
-  const initials = name.trim().split(/\\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "RK";
+  const initials = initialsFromName(name);
   const root = role === "Student" ? "/student" : "/admin";
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !accountMenuRef.current?.contains(event.target)) setMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        accountTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
 
   async function handleLogout() {
     try { await logout(); } finally { navigate("/login", { replace: true }); }
@@ -102,11 +138,11 @@ export function AppShell({ role }: { role: AppRole }) {
         <div className="topbar-actions">
           <ThemeButton theme={theme} toggle={() => setTheme(theme === "dark" ? "light" : "dark")} />
           <Link className="icon-button notification-link" to={root + "/notifications"} aria-label="Buka notifikasi"><Bell size={18} /></Link>
-          <div className="account-menu">
-            <button className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>
+          <div className="account-menu" ref={accountMenuRef}>
+            <button ref={accountTriggerRef} className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="account-menu-dropdown">
               <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "TU / Administrator"}</small></span><ChevronDown size={15} />
             </button>
-            {menuOpen ? <div className="account-dropdown"><Link to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
+            {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown"><Link to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
           </div>
         </div>
       </header>
