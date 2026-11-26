@@ -301,8 +301,8 @@ def cancel_reservation(reservation_id: UUID, payload: ReservationCancelIn | None
         if user.role == "TU_ADMIN":
             _deliver_notification_email(
                 db, notification, recipient, reservation=reservation,
-                email_subject=f"⚠️ Reservasi dibatalkan · {reservation.room.room_name}",
-                email_intro="Administrator membatalkan reservasi kamu. Buka detail untuk melihat status dan informasi terbaru.",
+                email_subject=f"📌 Info perubahan reservasi · {reservation.room.room_name}",
+                email_intro=f"Hai {reservation.user.name}, ada perubahan pada reservasi kamu. Reservasi ini dibatalkan oleh Staff Sekretariat. Cek detail dan alasan pembatalan di bawah, ya.",
                 eyebrow="RESERVASI DIBATALKAN",
                 accent_color="#ea8a32",
                 extra_details=[("Alasan pembatalan", reservation.cancellation_reason or "Tidak ada alasan yang dicantumkan")],
@@ -346,8 +346,8 @@ def approve_reservation(reservation_id: UUID, admin: User = Depends(require_admi
     if is_new:
         _deliver_notification_email(
             db, notification, reservation.user, reservation=reservation,
-            email_subject=f"🎉 Reservasi disetujui · {room.room_name}",
-            email_intro="Kabar baik! Pengajuan reservasi kamu telah disetujui. Ruangan sudah tercatat untuk jadwal berikut.",
+            email_subject=f"🎉 Yeay! Reservasimu disetujui · {room.room_name}",
+            email_intro=f"Yeay, {reservation.user.name}! 🎉 Reservasi ruanganmu sudah disetujui. Siapkan kegiatanmu, lalu cek kembali detail jadwal di bawah ini agar semuanya berjalan lancar, ya.",
             eyebrow="RESERVASI DISETUJUI",
             accent_color="#159b70",
         )
@@ -375,8 +375,8 @@ def reject_reservation(reservation_id: UUID, payload: ReservationRejectIn, admin
     if is_new:
         _deliver_notification_email(
             db, notification, reservation.user, reservation=reservation,
-            email_subject=f"Pembaruan pengajuan · {reservation.room.room_name}",
-            email_intro="Pengajuan reservasi kamu belum dapat disetujui. Silakan baca alasan berikut dan hubungi pengelola jika perlu klarifikasi.",
+            email_subject=f"📣 Update reservasi kamu · {reservation.room.room_name}",
+            email_intro=f"Hai {reservation.user.name}, terima kasih sudah mengajukan reservasi. Untuk saat ini pengajuanmu belum dapat disetujui. Cek alasan dan detailnya di bawah, ya. Hubungi Staff Sekretariat bila perlu klarifikasi atau ingin mencari jadwal lain.",
             eyebrow="RESERVASI BELUM DISETUJUI",
             accent_color="#dc5b62",
             extra_details=[("Alasan penolakan", reservation.rejection_reason or "Tidak ada alasan yang dicantumkan")],
