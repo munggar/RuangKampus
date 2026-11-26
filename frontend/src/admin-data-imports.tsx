@@ -29,7 +29,7 @@ export function AdminDataImportsPage() {
   async function loadHistory() {
     try { setHistory(await roomImportApi.list()); } catch { /* history is supplementary */ }
   }
-  useEffect(() => { void loadHistory(); }, []);
+  useEffect(() => { void roomImportApi.list().then(setHistory).catch(() => undefined); }, []);
 
   function selectFile(next?: File) {
     setError(""); setMessage(""); setBatch(null);
