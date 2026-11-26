@@ -36,6 +36,11 @@ if (!response.ok) {
   throw new Error(`Unable to download official brand archive: HTTP ${response.status}`);
 }
 const archive = Buffer.from(await response.arrayBuffer());
+if (archive.length !== 760176) throw new Error(`Unexpected brand archive size: ${archive.length}`);
+const archiveSha256 = createHash("sha256").update(archive).digest("hex");
+if (archiveSha256 !== "567cc38d1b6725d1797173cbdd6429ced2b6570170778acd26f213abc2205fa3") {
+  throw new Error("Official brand archive checksum does not match the repository source.");
+}
 if (archive.length < 22) throw new Error("Brand archive is empty or truncated.");
 
 const eocdSignature = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
