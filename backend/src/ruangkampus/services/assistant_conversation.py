@@ -65,7 +65,7 @@ def load_or_create_conversation(
     if conversation is None:
         conversation_values = {
             "user_id": user_id,
-            state={"version": _STATE_VERSION, "slots": {}},
+            "state": {"version": _STATE_VERSION, "slots": {}},
             "expires_at": now + timedelta(minutes=CONVERSATION_TTL_MINUTES),
         }
         if requested_id is not None and not rotate_id:
