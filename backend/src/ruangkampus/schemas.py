@@ -32,6 +32,15 @@ class RegisterIn(BaseModel):
     student_identifier: str = Field(min_length=3, max_length=50)
 
 
+class AdminStudentCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=160)
+    email: EmailStr
+    password: str = Field(min_length=10, max_length=128)
+    phone: str | None = Field(default=None, max_length=40)
+    student_identifier: str = Field(min_length=3, max_length=50)
+
+
 class LoginIn(BaseModel):
     identifier: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=128)
@@ -330,9 +339,9 @@ class AlternativeSlotsIn(BaseModel):
     building: str | None = Field(default=None, max_length=160)
     facilities: list[str] = Field(default_factory=list, max_length=25)
     preferred_start_time: time | None = None
-    search_days: int = Field(default=7, ge=0, le=14)
-    slot_step_minutes: int = Field(default=30, ge=5, le=120)
-    limit: int = Field(default=10, ge=1, le=50)
+    search_days: int = Field(default=7, ge=0, le=7)
+    slot_step_minutes: int = Field(default=30, ge=15, le=60)
+    limit: int = Field(default=10, ge=1, le=10)
 
 
 class AssistantChatIn(BaseModel):
