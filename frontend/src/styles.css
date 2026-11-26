@@ -366,8 +366,6 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
   .account-trigger { min-height: 36px; padding-left: 0; }
   .account-trigger__name, .account-trigger > svg { display: none; }
   .avatar { width: 32px; height: 32px; }
-  .mobile-brand .brand-mark__copy strong { font-size: 17px; }
-  .mobile-brand .brand-mark__copy small { font-size: 6px; }
   .main-content { padding: 20px 18px 122px; }
   .page-stack { gap: 19px; }
   .page-title { align-items: flex-start; flex-direction: column; gap: 12px; }
