@@ -180,11 +180,13 @@ def test_branded_email_includes_details_button_and_fallback_link():
         eyebrow="RESERVASI DISETUJUI",
         details=[("Ruangan", "Lab Komputer"), ("Tanggal", "30/11/2026")],
         accent_color="#159b70",
+        footer_note="Jangan bagikan tautan reset ini kepada siapa pun.",
     )
     assert "RuangKampus" in result
     assert "Universitas Muhammadiyah Prof Dr Hamka" in result
     assert "BERSAMA TIM CODEMU" in result
     assert "EMAIL RESMI KAMPUS" in result
+    assert "Jangan bagikan tautan reset ini kepada siapa pun." in result
     assert "RESERVASI DISETUJUI" in result
     assert "Lab Komputer" in result
     assert "30/11/2026" in result
