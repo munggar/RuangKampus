@@ -619,9 +619,8 @@ def _intent_only_response(
     engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
-        "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
-        if ai_response_used else
-        "Pesan saat ini dan maksimal sepuluh pesan terakhir dari tab percakapan dikirim ke penyedia AI yang dikonfigurasi; konteks ini tidak disimpan sebagai isi chat oleh backend. Identitas akun dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
+        "Maksimal sepuluh pesan terakhir dari tab percakapan dapat ikut dikirim sebagai konteks dan tidak disimpan sebagai isi chat oleh backend. "
+        "Identitas akun dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_response_used else
         "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
         "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
@@ -719,7 +718,11 @@ def room_assistant_chat(
         contextual_followup_used = True
 
     ai_fallback_used = False
-    if detection.intent == "OUT_OF_SCOPE" and is_room_operation_candidate(normalization.parser_text):
+    if (
+        detection.intent == "OUT_OF_SCOPE"
+        and detection.matched_rule != "GENERAL_REASONING_REQUEST"
+        and is_room_operation_candidate(normalization.parser_text)
+    ):
         interpretation = interpret_with_ai_fallback(payload.message, catalog, get_settings())
         if interpretation is not None:
             ai_fallback_used = True
