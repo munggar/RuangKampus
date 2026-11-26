@@ -16,6 +16,17 @@
     <meta name="apple-mobile-web-app-title" content="RuangKampus" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>RuangKampus</title>
+    <script>
+      // Apply the saved theme before the first paint, including public auth pages.
+      (function () {
+        try {
+          document.documentElement.dataset.theme =
+            window.localStorage.getItem("rk-theme") === "dark" ? "dark" : "light";
+        } catch {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
@@ -32,6 +43,9 @@
       .boot-splash__brand img { display: block; width: 100%; height: auto; max-width: 100%; object-fit: contain; }
       .boot-splash__spinner { width: 30px; height: 30px; border: 3px solid #dce7f2; border-top-color: #005a9c; border-radius: 50%; animation: boot-spin .85s linear infinite; }
       #boot-splash p { margin: 0; }
+      html[data-theme="dark"] #boot-splash { background: #111a20; color: #b7c5c8; }
+      html[data-theme="dark"] .boot-splash__brand { border-color: #33434a; background: #18242c; }
+      html[data-theme="dark"] .boot-splash__spinner { border-color: #33434a; border-top-color: #a9c7d4; }
       @keyframes boot-spin { to { transform: rotate(360deg); } }
       @media (prefers-reduced-motion: reduce) { .boot-splash__spinner { animation-duration: 2.5s; } }
     </style>

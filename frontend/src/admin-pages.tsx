@@ -125,7 +125,7 @@ export function AdminDashboardPage() {
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="STAFF SEKRETARIAT DASHBOARD" title="Selamat datang, Administrator" description="Pantau pengajuan reservasi dan pengelolaan fasilitas kampus." action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruang</Link>} />
+    <PageTitle eyebrow="DASHBOARD STAFF SEKRETARIAT" title="Selamat datang, Administrator" description="Pantau pengajuan reservasi dan pengelolaan fasilitas kampus." action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruang</Link>} />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat ringkasan administrasi…" /> : <>
       <div className="stat-grid stat-grid--four">
@@ -252,7 +252,7 @@ export function AdminRequestsPage() {
 
   const tabs = [{ key: "PENDING", text: "Menunggu" }, { key: "APPROVED", text: "Disetujui" }, { key: "REJECTED", text: "Ditolak" }, { key: "", text: "Semua" }];
   return <div className="page-stack">
-    <PageTitle eyebrow="RESERVATION REVIEW" title="Permohonan reservasi" description="Tinjau detail pengajuan sebelum menetapkan keputusan." />
+    <PageTitle eyebrow="TINJAUAN RESERVASI" title="Permohonan reservasi" description="Tinjau detail pengajuan sebelum menetapkan keputusan." />
     <div className="panel request-filter-panel">
       <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.key || "all"} type="button" className={status === tab.key ? "is-active" : ""} onClick={() => setStatus(tab.key)}>{tab.text}</button>)}</div>
       <Field label="Cari nama, ruang, atau ID"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama mahasiswa atau ruangan" /></span></Field>
@@ -408,7 +408,7 @@ export function AdminRoomsPage() {
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="ROOM MANAGEMENT" title="Kelola ruangan" description={rooms.length + " ruangan dalam inventaris kampus."} action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruangan</Link>} />
+    <PageTitle eyebrow="PENGELOLAAN RUANG" title="Kelola ruangan" description={rooms.length + " ruangan dalam inventaris kampus."} action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruangan</Link>} />
     <div className="panel list-toolbar">
       <Field label="Cari ruangan"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nama ruangan, gedung, atau kode" /></span></Field>
       <Field label="Status"><select value={status} onChange={(event) => { setSelectedIds([]); setBulkStatus(""); setStatus(event.target.value); }}><option value="">Semua status</option><option value="ACTIVE">Aktif</option><option value="INACTIVE">Nonaktif</option><option value="MAINTENANCE">Pemeliharaan</option></select></Field>
@@ -571,7 +571,7 @@ export function AdminRoomEditorPage() {
   if (loading) return <Loading label="Memuat data ruangan…" />;
   return <div className="page-stack">
     <Link className="back-link" to="/admin/rooms">← Kembali ke kelola ruangan</Link>
-    <PageTitle eyebrow="ROOM MANAGEMENT" title={editMode ? "Edit ruangan" : "Tambah ruangan"} description="Lengkapi informasi ruangan dan jam operasional yang berlaku." />
+    <PageTitle eyebrow="PENGELOLAAN RUANG" title={editMode ? "Edit ruangan" : "Tambah ruangan"} description="Lengkapi informasi ruangan dan jam operasional yang berlaku." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     <form className="panel stack-form room-editor-form" onSubmit={save}>
       <h2>Informasi ruangan</h2>
@@ -693,7 +693,7 @@ export function AdminSchedulesPage() {
 
   const dayNames = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
   return <div className="page-stack">
-    <PageTitle eyebrow="ROOM SCHEDULES" title="Jadwal & pemeliharaan" description="Catat jadwal akademik dan periode ruangan tidak tersedia agar backend dapat memeriksa benturan reservasi." />
+    <PageTitle eyebrow="JADWAL RUANG KAMPUS" title="Jadwal & pemeliharaan" description="Catat jadwal akademik dan periode ruangan tidak tersedia agar backend dapat memeriksa benturan reservasi." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {success ? <Notice tone="success">{success}</Notice> : null}
     <form className="panel stack-form" onSubmit={create}>

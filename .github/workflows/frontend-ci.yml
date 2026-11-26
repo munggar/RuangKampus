@@ -16,7 +16,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: frontend-ci-${{ github.ref }}
+  # Push and pull_request events for the same head branch share a group,
+  # preventing duplicate full browser suites for an identical commit.
+  group: frontend-ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -49,3 +51,41 @@ jobs:
           path: frontend/dist
           if-no-files-found: error
           retention-days: 7
+
+  browser-qa:
+    name: Chromium visual, responsive, accessibility and UI E2E
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Playwright Chromium and OS dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Build production preview with local mock API base
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:4173/api/v1
+        run: npm run build
+      - name: Run browser QA against Vite preview
+        env:
+          CI: "true"
+        run: npm run test:e2e
+      - name: Upload screenshots, reports, diagnostics and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruangkampus-browser-qa-${{ github.run_number }}
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
