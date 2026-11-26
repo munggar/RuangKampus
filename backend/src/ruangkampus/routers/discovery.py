@@ -226,7 +226,11 @@ def _parse_message_filters(
             for value in values:
                 if isinstance(value, str):
                     metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
-    tokens = [token for token in tokens if token not in metadata_tokens]
+    tokens = [
+        token for token in tokens
+        if token not in metadata_tokens
+        and not any(part in metadata_tokens for part in re.split(r"[-._/]", token))
+    ]
     if building:
         tokens = [token for token in tokens if token not in re.findall(r"[a-z0-9-]+", building.casefold())]
     if faculty:
