@@ -114,7 +114,7 @@ test("reduced motion preference is respected by the application styles", async (
   const transitionDuration = await page.locator(".nav-link").first().evaluate((element) =>
     getComputedStyle(element).transitionDuration,
   );
-  expect(transitionDuration).toMatch(/0s|0\.01ms/);
+  expect(Number.parseFloat(transitionDuration)).toBeLessThanOrEqual(0.00001);
 });
 
 test("performance: records repeatable navigation, paint and asset transfer measurements", async ({ page }, testInfo) => {
