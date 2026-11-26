@@ -135,18 +135,7 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
   });
 
   test("approved reservation card starts its loan countdown at the scheduled start time", async ({ page }) => {
-    const dateParts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit",
-    }).formatToParts(new Date());
-    const part = (name: string) => dateParts.find((entry) => entry.type === name)?.value || "00";
-    const today = part("year") + "-" + part("month") + "-" + part("day");
-    const reservationDay = new Date(today + "T00:00:00+07:00");
-    reservationDay.setUTCDate(reservationDay.getUTCDate() + 2);
-    const reservationDate = [
-      reservationDay.getUTCFullYear(),
-      String(reservationDay.getUTCMonth() + 1).padStart(2, "0"),
-      String(reservationDay.getUTCDate()).padStart(2, "0"),
-    ].join("-");
+    const reservationDate = futureDate(2);
 
     await page.clock.install({ time: new Date(reservationDate + "T09:59:58+07:00") });
     await installMockApi(page, "Student");
@@ -227,7 +216,7 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     await waitForPageReady(page);
 
     const currentPassword = page.locator('input[autocomplete="current-password"]');
-    const newPassword = page.locator('input[autocomplete="new-password"]');
+    const newPassword = page.locator("#profile-new-password");
     await currentPassword.fill("current-secret-123");
     await newPassword.fill("new-secret-123");
 
