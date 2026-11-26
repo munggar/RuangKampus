@@ -174,7 +174,7 @@ export function StudentRoomAvailabilityPage() {
         <span className="muted">Halaman {page} dari {totalPages}</span>
         <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
       </div> : null}
-      <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat TU menyetujui.</Notice>
+      <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat Staff Sekretariat menyetujui.</Notice>
     </PageSection> : null}
     {searched && !available.length ? <section className="panel stack-form">
       <EmptyState title="Belum ada ruangan yang tersedia" description="Tidak ditemukan ruang yang memenuhi kriteria pada waktu tersebut. Periksa penyebab bentrok atau cari jadwal alternatif." icon={<CalendarDays size={23} />} />
