@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Bell, Building2, CalendarDays, CalendarCheck, ChevronDown, ClipboardList, LayoutDashboard,
+  Bell, Building2, CalendarDays, CalendarCheck, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
   LogOut, Moon, Sparkles, Sun, UserRound,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
@@ -55,7 +55,7 @@ function pageLabel(path: string, role: AppRole) {
     [root + "/reservations", role === "Student" ? "Reservasi saya" : "Permohonan reservasi"],
     [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"],
     [root + "/assistant", "AI Assistant"], [root + "/availability", "Ketersediaan ruangan"],
-    [root + "/alternatives", "Slot alternatif"], [root + "/schedules", "Jadwal ruang"],
+    [root + "/alternatives", "Slot alternatif"], [root + "/schedules", "Jadwal ruang"], ["/admin/data-imports", "Impor data kampus"],
   ];
   return items.find(([route]) => path === route)?.[1] || "RuangKampus";
 }
@@ -92,7 +92,7 @@ export function AppShell({ role }: { role: AppRole }) {
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
       <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "TU / ADMIN WORKSPACE"}</p>
       <Navigation items={items} />
-      {role === "TU/Admin" ? <Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link> : null}
+      {role === "TU/Admin" ? <><Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link><Link className="sidebar-secondary-link" to="/admin/data-imports"><FileSpreadsheet size={17} />Impor data kampus</Link></> : null}
       <div className="sidebar-footer"><span className="online-dot" />RuangKampus <span>Web</span></div>
     </aside>
     <div className="app-main">
