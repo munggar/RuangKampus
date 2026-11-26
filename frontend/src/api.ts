@@ -28,8 +28,8 @@ export function buildApiUrl(path: string) {
 
 export function apiAssetUrl(path: string): string {
   const value = path.trim();
-  if (/^https?:\\/\\//i.test(value)) return value;
-  const normalizedPath = "/" + value.replace(/^\\/+/, "");
+  if (/^https?:\/\//i.test(value)) return value;
+  const normalizedPath = "/" + value.replace(/^\/+/, "");
   if (!API_ORIGIN) return normalizedPath;
   try {
     return new URL(normalizedPath, API_ORIGIN + "/").toString();
