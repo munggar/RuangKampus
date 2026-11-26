@@ -7,7 +7,7 @@ import {
   ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
   ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
   StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
-  AlternativeSlotsPage, RoomAssistantPage, AdminDataImportsPage,
+  AlternativeSlotsPage, AdminDataImportsPage,
 } from "./pages";
 
 function FullScreenLoading() {
@@ -21,7 +21,7 @@ function FullScreenLoading() {
   </main>;
 }
 
-function RequireRole({ role, children }: { role: "Student" | "TU/Admin"; children: ReactNode }) {
+function RequireRole({ role, children }: { role: "Student" | "Staff Sekretariat"; children: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <FullScreenLoading />;
@@ -80,7 +80,6 @@ export function App() {
         <Route path="schedules" element={<AdminSchedulesPage />} />
         <Route path="notifications" element={<NotificationsPage role="TU/Admin" />} />
         <Route path="profile" element={<ProfilePage role="TU/Admin" />} />
-        <Route path="assistant" element={<RoomAssistantPage role="TU/Admin" />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
