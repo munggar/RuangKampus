@@ -297,6 +297,14 @@ class ReservationCancelIn(BaseModel):
     reason: str | None = Field(default=None, max_length=2000)
 
 
+class ReservationRoomOut(BaseOut):
+    id: UUID
+    room_name: str
+    building: str
+    capacity: int
+    photo_url: str | None
+
+
 class ReservationOut(BaseOut):
     id: UUID
     user_id: UUID
@@ -316,6 +324,7 @@ class ReservationOut(BaseOut):
     cancellation_reason: str | None
     cancelled_by_id: UUID | None
     updated_at: datetime
+    room: ReservationRoomOut | None = None
 
 
 class ScheduleCreateIn(BaseModel):
