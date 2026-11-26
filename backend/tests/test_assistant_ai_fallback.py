@@ -96,6 +96,8 @@ def test_ai_fallback_accepts_schema_and_resolves_only_catalog_values(monkeypatch
     assert "conversation_id" not in user_message
     assert "user_id" not in user_message
     assert "reservation" not in user_message.lower()
+    assert "2403045007" not in user_message
+    assert "test@example.com" not in user_message
 
 
 def test_ai_fallback_rejects_unobserved_faculty_and_facility(monkeypatch):
