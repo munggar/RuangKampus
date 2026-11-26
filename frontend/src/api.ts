@@ -238,7 +238,7 @@ export function availabilityReasonLabel(reason: string): string {
 
 export interface RoomImportRow {
   row_number: number; room_name: string; room_code: string; capacity_estimate: string;
-  status: "VALID" | "INVALID"; errors: string[]; has_photo: boolean;
+  status: "VALID" | "INVALID"; errors: string[]; has_photo: boolean; floor: string | null;
 }
 export interface RoomImportBatch {
   batch_id: string; status: string; source_filename: string; row_count: number;
