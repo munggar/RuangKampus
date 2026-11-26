@@ -16,8 +16,14 @@ from ruangkampus.schemas import (
     AssistantChatStructuredData,
     serialize_room,
 )
-from ruangkampus.services.assistant_catalog import FACILITY_TERMS
+from ruangkampus.services.assistant_catalog import build_assistant_data_catalog
 from ruangkampus.services.availability import check_room_availability, campus_today
+from ruangkampus.services.indonesian_normalizer import (
+    PARSER_STOP_WORDS,
+    find_positive_catalog_values,
+    find_positive_facility_filters,
+    normalize_indonesian_message,
+)
 
 
 router = APIRouter(tags=["Room discovery and assistant"])
@@ -37,6 +43,7 @@ STOP_WORDS = {
     "dengan", "yang", "ada", "buat", "booking", "reservasi", "peminjaman",
     "gedung", "fakultas", "dan", "atau", "butuh", "bisa", "apakah",
 }
+STOP_WORDS.update(PARSER_STOP_WORDS)
 def _parse_time(value: str | time) -> time:
     return value if isinstance(value, time) else time.fromisoformat(value)
 
@@ -137,8 +144,13 @@ def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dic
     return [item for _, item in ranked[:request.limit]]
 
 
-def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
-    message = payload.message.lower()
+def _parse_message_filters(
+    db: Session,
+    payload: AssistantChatIn,
+    catalog: dict | None = None,
+) -> dict:
+    message = payload.message.casefold()
+    catalog = catalog if catalog is not None else build_assistant_data_catalog(db)
     min_capacity = payload.min_capacity
     if min_capacity is None:
         capacity_match = re.search(r"\b(\d{1,4})\s*(?:orang|peserta|pax|people|person)\b", message)
@@ -147,22 +159,21 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
 
     building = payload.building
     if building is None:
-        building_match = re.search(r"\b(?:gedung|building)\s+([a-z0-9][a-z0-9._-]*)", message)
-        if building_match:
-            building = building_match.group(1)
+        building_matches = find_positive_catalog_values(message, catalog.get("buildings", []))
+        if len(building_matches) == 1:
+            building = building_matches[0]
 
     faculty = payload.faculty
     if faculty is None:
-        faculty_names = db.scalars(
-            select(Room.faculty).where(Room.faculty.is_not(None)).distinct()
-        ).all()
-        faculty = next((name for name in faculty_names if name and name.lower() in message), None)
+        faculty_matches = find_positive_catalog_values(message, catalog.get("faculties", []))
+        if len(faculty_matches) == 1:
+            faculty = faculty_matches[0]
 
+    # Only facilities observed in active room data can become canonical filters.
+    # A facility mentioned in a negated clause is retained in text but not treated as required.
     facilities = list(payload.facilities)
     if not facilities:
-        for canonical, aliases in FACILITY_TERMS.items():
-            if any(alias in message for alias in aliases):
-                facilities.append(canonical)
+        facilities = find_positive_facility_filters(message, catalog)
 
     requested_date = payload.requested_date
     if requested_date is None:
@@ -172,7 +183,7 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
                 requested_date = date.fromisoformat(date_match.group(1))
             except ValueError:
                 requested_date = None
-        elif "besok" in message:
+        elif re.search(r"\bbesok\b", message):
             requested_date = campus_today() + timedelta(days=1)
         else:
             for label, weekday in WEEKDAYS.items():
@@ -196,11 +207,44 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
         token for token in re.findall(r"[a-z0-9-]+", message)
         if len(token) >= 3 and token not in STOP_WORDS and not token.isdigit()
     ]
-    # Facility and room metadata terms are handled by their own structured filters.
-    for aliases in FACILITY_TERMS.values():
-        tokens = [token for token in tokens if token not in aliases]
+
+    # Remove all catalogue facility and faculty/building labels from free-text terms.
+    # This is especially important for negated clauses: "jangan pakai proyektor"
+    # must not become a positive room-description search for "proyektor".
+    metadata_tokens: set[str] = set()
+    for entry in [*catalog.get("faculties", []), *catalog.get("buildings", [])]:
+        for value in [entry.get("value"), *entry.get("source_values", [])]:
+            if isinstance(value, str):
+                metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
+    for entry in catalog.get("facilities", []):
+        if entry.get("canonical_name"):
+            values = [
+                entry.get("canonical_name"),
+                *entry.get("source_values", []),
+                *entry.get("aliases", []),
+            ]
+            for value in values:
+                if isinstance(value, str):
+                    metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
+    tokens = [token for token in tokens if token not in metadata_tokens]
     if building:
-        tokens = [token for token in tokens if token != building.lower()]
+        tokens = [token for token in tokens if token not in re.findall(r"[a-z0-9-]+", building.casefold())]
+    if faculty:
+        tokens = [token for token in tokens if token not in re.findall(r"[a-z0-9-]+", faculty.casefold())]
+
+    explicit_filter = any((
+        payload.faculty,
+        payload.building,
+        payload.min_capacity,
+        payload.facilities,
+        payload.requested_date,
+        payload.start_time,
+        payload.end_time,
+        payload.participant_count != 1,
+    ))
+    if not message.strip() and not explicit_filter:
+        tokens = ["__empty_assistant_message__"]
+
     return {
         "faculty": faculty,
         "building": building,
@@ -241,7 +285,11 @@ def room_assistant_chat(
     user: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
-    filters = _parse_message_filters(db, payload)
+    # Normalize deterministically before the existing ROOM_SEARCH parser.
+    catalog = build_assistant_data_catalog(db)
+    normalization = normalize_indonesian_message(payload.message, catalog)
+    normalized_payload = payload.model_copy(update={"message": normalization.parser_text})
+    filters = _parse_message_filters(db, normalized_payload, catalog)
     rooms = _room_candidates(
         db,
         faculty=filters["faculty"],
@@ -346,6 +394,7 @@ def room_assistant_chat(
             alternative_slots=alternatives,
             filters=slots,
         ),
+        normalization=normalization,
         engine="RULE_BASED",
         filters=legacy_filters,
         rooms=room_data,
