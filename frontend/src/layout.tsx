@@ -61,9 +61,11 @@ function CampusClock() {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  const time = new Intl.DateTimeFormat("id-ID", {
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
-  }).format(now);
+  }).formatToParts(now);
+  const timePart = (type: string) => timeParts.find((part) => part.type === type)?.value || "00";
+  const time = timePart("hour") + ":" + timePart("minute") + ":" + timePart("second");
   const date = new Intl.DateTimeFormat("id-ID", {
     timeZone: "Asia/Jakarta", weekday: "short", day: "2-digit", month: "short",
   }).format(now);
