@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Bell, Building2, CalendarDays, CalendarCheck, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
+  Bell, Building2, CalendarDays, CalendarCheck, Clock3, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
   LogOut, Moon, Sparkles, Sun, UserRound,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth";
+import { notificationApi } from "./api";
 import type { AppRole } from "./types";
 import { initialsFromName } from "./ui";
 
@@ -22,13 +23,12 @@ function navigationFor(role: AppRole): NavigationItem[] {
   ] : [
     { label: "Dashboard", shortLabel: "Home", path: base + "/dashboard", icon: LayoutDashboard },
     { label: "Reservation requests", shortLabel: "Requests", path: base + "/reservations", icon: ClipboardList },
-    { label: "AI Assistant", shortLabel: "AI", path: base + "/assistant", icon: Sparkles, ai: true },
     { label: "Manage rooms", shortLabel: "Rooms", path: base + "/rooms", icon: Building2 },
     { label: "Profile", shortLabel: "Profile", path: base + "/profile", icon: UserRound },
   ];
 }
 function Brand() {
-  return <span className="brand-mark"><span className="brand-mark__symbol" aria-hidden="true"><span /></span><span className="brand-mark__copy"><strong>RuangKampus</strong><small>Find the Room. Book the Space.</small></span></span>;
+  return <img className="brand-logo brand-logo--navigation" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />;
 }
 function useTheme() {
   const [theme, setThemeState] = useState<"light" | "dark">(() => {
@@ -54,6 +54,25 @@ function useTheme() {
   }, []);
   return { theme, setTheme: setThemeState };
 }
+function CampusClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(now);
+  const timePart = (type: string) => timeParts.find((part) => part.type === type)?.value || "00";
+  const time = timePart("hour") + ":" + timePart("minute") + ":" + timePart("second");
+  const date = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta", weekday: "short", day: "2-digit", month: "short",
+  }).format(now);
+  return <div className="campus-clock" aria-label={"Waktu kampus WIB " + time}>
+    <Clock3 size={17} aria-hidden="true" />
+    <span><small>Waktu kampus · WIB · {date}</small><strong>{time}</strong></span>
+  </div>;
+}
 function ThemeButton({ theme, toggle }: { theme: "light" | "dark"; toggle: () => void }) {
   const dark = theme === "dark";
   return <button className="icon-button" type="button" onClick={toggle} aria-label={dark ? "Aktifkan mode terang" : "Aktifkan mode gelap"} aria-pressed={dark}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>;
@@ -69,14 +88,20 @@ function pageLabel(path: string, role: AppRole) {
     [root + "/dashboard", "Dashboard"], [root + "/rooms", "Ruang kampus"],
     [root + "/reservations", role === "Student" ? "Reservasi saya" : "Permohonan reservasi"],
     [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"],
-    [root + "/assistant", "AI Assistant"], [root + "/availability", "Ketersediaan ruangan"],
+    [root + "/availability", "Ketersediaan ruangan"],
     [root + "/alternatives", "Slot alternatif"], [root + "/schedules", "Jadwal ruang"], ["/admin/data-imports", "Impor data kampus"],
   ];
   return items.find(([route]) => path === route)?.[1] || "RuangKampus";
 }
 function Navigation({ items, mobile = false }: { items: NavigationItem[]; mobile?: boolean }) {
-  return <nav className={mobile ? "mobile-nav__items" : "sidebar-nav"} aria-label="Navigasi utama">
-    {items.map((item) => {
+  const isStaff = items.some((item) => item.path === "/admin/dashboard");
+  const visibleItems = mobile && isStaff ? [
+    ...items,
+    { label: "Jadwal & pemeliharaan", shortLabel: "Jadwal", path: "/admin/schedules", icon: CalendarDays },
+    { label: "Impor data kampus", shortLabel: "Impor", path: "/admin/data-imports", icon: FileSpreadsheet },
+  ] : items;
+  return <nav className={mobile ? "mobile-nav__items" : "sidebar-nav"} aria-label={mobile ? "Navigasi mobile" : "Navigasi utama"} data-item-count={visibleItems.length}>
+    {visibleItems.map((item) => {
       const Icon = item.icon;
       return <NavLink key={item.path} to={item.path} end={item.path.endsWith("/dashboard")}
         className={({ isActive }) => "nav-link" + (isActive ? " is-active" : "") + (item.ai ? " nav-link--ai" : "")} title={item.label}>
@@ -85,6 +110,45 @@ function Navigation({ items, mobile = false }: { items: NavigationItem[]; mobile
       </NavLink>;
     })}
   </nav>;
+}
+
+function useUnreadNotificationCount() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      void notificationApi.list(new URLSearchParams({
+        unreadOnly: "true",
+        page: "1",
+        limit: "1",
+      })).then((result) => {
+        if (!active) return;
+        setUnreadCount(result.meta?.total ?? result.items.filter((item) => !item.read_at).length);
+      }).catch(() => {
+        // Preserve the last known count when the API is temporarily unavailable.
+      });
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("rk-notifications-updated", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("rk-notifications-updated", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, []);
+
+  return unreadCount;
 }
 
 export function AppShell({ role }: { role: AppRole }) {
@@ -99,6 +163,7 @@ export function AppShell({ role }: { role: AppRole }) {
   const name = user?.name || (role === "Student" ? "Mahasiswa" : "Administrator");
   const initials = initialsFromName(name);
   const root = role === "Student" ? "/student" : "/admin";
+  const unreadCount = useUnreadNotificationCount();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -123,12 +188,35 @@ export function AppShell({ role }: { role: AppRole }) {
     try { await logout(); } finally { navigate("/login", { replace: true }); }
   }
 
-  return <div className="app-shell">
+  return <div className="app-shell">\n    <a className="skip-link" href="#main-content">Lewati ke konten utama</a>
+    <svg className="brand-filter-defs" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="rk-dark-wordmark-filter" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
+          <feColorMatrix in="SourceGraphic" type="matrix" values="
+            0 1 0 0 0
+            0 1 0 0 0
+            0 1 0 0 0
+            0 1 0 0 0
+          " result="green-channel" />
+          <feComponentTransfer in="green-channel" result="dark-wordmark-mask">
+            <feFuncA type="linear" slope="-10" intercept="2.8" />
+          </feComponentTransfer>
+          <feComposite in="dark-wordmark-mask" in2="SourceAlpha" operator="in" result="wordmark-mask" />
+          <feFlood floodColor="#E7F0FF" result="bright-wordmark" />
+          <feComposite in="bright-wordmark" in2="wordmark-mask" operator="in" result="bright-text" />
+          <feComposite in="SourceGraphic" in2="wordmark-mask" operator="out" result="original-blue-mark" />
+          <feMerge>
+            <feMergeNode in="original-blue-mark" />
+            <feMergeNode in="bright-text" />
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
     <aside className="desktop-sidebar">
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
-      <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "TU / ADMIN WORKSPACE"}</p>
+      <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "STAFF SEKRETARIAT WORKSPACE"}</p>
       <Navigation items={items} />
-      {role === "TU/Admin" ? <><Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link><Link className="sidebar-secondary-link" to="/admin/data-imports"><FileSpreadsheet size={17} />Impor data kampus</Link></> : null}
+      {role === "Staff Sekretariat" ? <><Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link><Link className="sidebar-secondary-link" to="/admin/data-imports"><FileSpreadsheet size={17} />Impor data kampus</Link></> : null}
       <div className="sidebar-footer"><span className="online-dot" />RuangKampus <span>Web</span></div>
     </aside>
     <div className="app-main">
@@ -137,16 +225,24 @@ export function AppShell({ role }: { role: AppRole }) {
         <div className="topbar-page"><span>{role === "Student" ? "STUDENT PORTAL" : "ADMINISTRATION"}</span><strong>{pageLabel(location.pathname, role)}</strong></div>
         <div className="topbar-actions">
           <ThemeButton theme={theme} toggle={() => setTheme(theme === "dark" ? "light" : "dark")} />
-          <Link className="icon-button notification-link" to={root + "/notifications"} aria-label="Buka notifikasi"><Bell size={18} /></Link>
+          <Link
+            className="icon-button notification-link"
+            to={root + "/notifications"}
+            aria-label={unreadCount > 0 ? `Notifikasi, ${unreadCount} belum dibaca` : "Buka notifikasi"}
+            title={unreadCount > 0 ? `${unreadCount} notifikasi belum dibaca` : "Notifikasi"}
+          >
+            <Bell size={18} />
+            {unreadCount > 0 ? <span className="notification-badge" aria-hidden="true">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
+          </Link>
           <div className="account-menu" ref={accountMenuRef}>
             <button ref={accountTriggerRef} className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="account-menu-dropdown">
-              <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "TU / Administrator"}</small></span><ChevronDown size={15} />
+              <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "Staff Sekretariat"}</small></span><ChevronDown size={15} />
             </button>
-            {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown"><Link to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
+            {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown" role="menu"><Link role="menuitem" to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
           </div>
         </div>
       </header>
-      <main className="main-content"><Outlet /></main>
+      <main id="main-content" className="main-content" tabIndex={-1}><Outlet /></main>
       <footer className="desktop-footer">© {new Date().getFullYear()} RuangKampus · Campus facilities</footer>
     </div>
     <div className="mobile-nav-shell"><Navigation items={items} mobile /></div>

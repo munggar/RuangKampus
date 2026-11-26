@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle, Check, Info, LoaderCircle, X } from "lucide-react";
 import { statusLabel } from "./api";
 import type { ReservationStatus } from "./types";
@@ -33,19 +34,23 @@ export function EmptyState({ title, description, action, icon }: { title: string
   return <div className="empty-state"><span className="empty-state__icon">{icon || <Info size={22} />}</span><strong>{title}</strong><p>{description}</p>{action ? <div className="empty-state__action">{action}</div> : null}</div>;
 }
 
-export function Modal({ open, title, description, children, onClose }: {
-  open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void;
+export function Modal({ open, title, description, children, onClose, closeDisabled = false }: {
+  open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; closeDisabled?: boolean;
 }) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement>(null);
   const closeRef = useRef(onClose);
+  const closeDisabledRef = useRef(closeDisabled);
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => { closeDisabledRef.current = closeDisabled; }, [closeDisabled]);
 
   useEffect(() => {
     if (!open) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const selector = [
       "a[href]", "button:not([disabled])", "input:not([disabled])",
       "select:not([disabled])", "textarea:not([disabled])",
@@ -58,7 +63,7 @@ export function Modal({ open, title, description, children, onClose }: {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeRef.current();
+        if (!closeDisabledRef.current) closeRef.current();
         return;
       }
       if (event.key !== "Tab" || !dialog) return;
@@ -80,21 +85,24 @@ export function Modal({ open, title, description, children, onClose }: {
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
       previousFocus?.focus();
     };
   }, [open]);
 
   if (!open) return null;
-  return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+  return createPortal(
+    <div className="modal-backdrop" role="presentation"
+      onMouseDown={(event) => { if (!closeDisabled && event.target === event.currentTarget) onClose(); }}>
       <section ref={dialogRef} className="modal-card" role="dialog" aria-modal="true"
         aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} tabIndex={-1}>
-        <button className="modal-close" type="button" onClick={onClose} aria-label="Tutup dialog"><X size={18} /></button>
+        <button className="modal-close" type="button" onClick={onClose} disabled={closeDisabled} aria-label="Tutup dialog"><X size={18} /></button>
         <h2 id={titleId}>{title}</h2>
         {description ? <p id={descriptionId}>{description}</p> : null}
         <div className="modal-card__body">{children}</div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -110,7 +118,7 @@ export function ConfirmModal({ open, title, description, confirmText = "Ya, lanj
   open: boolean; title: string; description: string; confirmText?: string; destructive?: boolean;
   loading?: boolean; onConfirm: () => void; onClose: () => void;
 }) {
-  return <Modal open={open} title={title} description={description} onClose={onClose}>
+  return <Modal open={open} title={title} description={description} onClose={onClose} closeDisabled={loading}>
     <div className="modal-actions">
       <Button variant="secondary" onClick={onClose} disabled={loading}>Batal</Button>
       <Button variant={destructive ? "danger" : "primary"} onClick={onConfirm} disabled={loading}>
