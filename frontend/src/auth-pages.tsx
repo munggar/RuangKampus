@@ -31,7 +31,7 @@ export function LoginPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setSubmitting(true);
     try {
-      const user = await login(role === "TU/Admin" ? "admin.uhamka" : identifier.trim(), password, role);
+      const user = await login(role === "Staff Sekretariat" ? "admin.uhamka" : identifier.trim(), password, role);
       navigate(user.role === "Student" ? "/student/dashboard" : "/admin/dashboard", { replace: true });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Login belum berhasil. Periksa kembali data masuk Anda.");
@@ -48,7 +48,7 @@ export function LoginPage() {
         {!isApiConfigured() ? <Notice tone="warning">Mode preview: tampilan tersedia, tetapi backend belum di-host atau URL API belum diatur. Login dan pemuatan data belum aktif.</Notice> : null}
         <div className="role-switch" aria-label="Pilih jenis akun">
           <button type="button" aria-pressed={role === "Student"} className={role === "Student" ? "is-active" : ""} onClick={() => { setRole("Student"); setIdentifier(""); setError(""); }}>Student</button>
-          <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setIdentifier("admin.uhamka"); setError(""); }}>Administrator</button>
+          <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setIdentifier("admin.uhamka"); setError(""); }}>Staff Sekretariat</button>
         </div>
         <form className="stack-form" onSubmit={submit}>
           <Field label={role === "Student" ? "NIM" : "Username Administrator"}>
@@ -208,7 +208,7 @@ export function RegisterPage() {
             {busy ? "Membuat akun…" : <>Buat akun Student <ArrowRight size={17} /></>}
           </Button>
         </form>
-        <div className="secure-note"><ShieldCheck size={18} /><span>Pendaftaran publik otomatis membuat role Student. Akun TU/Admin dibuat secara terpisah oleh operator.</span></div>
+        <div className="secure-note"><ShieldCheck size={18} /><span>Pendaftaran publik otomatis membuat role Student. Akun Staff Sekretariat dibuat secara terpisah oleh operator.</span></div>
         <p className="auth-support">Sudah punya akun? <Link to="/login">Masuk di sini</Link></p>
       </div>
     </section>
