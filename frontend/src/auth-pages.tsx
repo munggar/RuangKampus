@@ -8,7 +8,7 @@ import { Button, Field, Notice } from "./ui";
 
 function BrandHero() {
   return <aside className="auth-hero">
-    <div className="auth-brand"><span className="brand-mark__symbol"><span /></span><span><b>RuangKampus</b><small>Find the Room. Book the Space.</small></span></div>
+    <div className="auth-brand"><img className="brand-logo brand-logo--auth" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." /></div>
     <div className="auth-hero__text">
       <p className="eyebrow">CAMPUS FACILITY RESERVATIONS</p>
       <h1>Make room for great ideas.</h1>
