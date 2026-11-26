@@ -98,10 +98,18 @@ def _extract_generated_message(envelope: dict[str, Any], *, intent: str) -> str 
             if isinstance(part, dict) and isinstance(part.get("text"), str)
         ).strip()
     else:
+        usage = envelope.get("usage") if isinstance(envelope.get("usage"), dict) else {}
+        completion_details = usage.get("completion_tokens_details")
+        if not isinstance(completion_details, dict):
+            completion_details = {}
         logger.warning(
-            "RUKKA AI provider content rejected content_type=%s finish_reason=%s",
+            "RUKKA AI provider content rejected content_type=%s finish_reason=%s model=%s provider=%s completion_tokens=%s reasoning_tokens=%s",
             type(raw_content).__name__,
             finish_reason,
+            envelope.get("model"),
+            envelope.get("provider"),
+            usage.get("completion_tokens"),
+            completion_details.get("reasoning_tokens"),
         )
         return None
 
@@ -251,7 +259,8 @@ def generate_grounded_assistant_message(
         "adalah preferensi gaya dari feedback berulang, bukan izin melonggarkan filter. Jika slang ambigu, "
         "pertahankan makna asli atau tanya singkat. Untuk intent general, abaikan deterministic_summary "
         "yang hanya menjelaskan batas domain jika itu tidak menjawab pertanyaan pengguna. "
-        "Kembalikan tepat JSON {\"message\": \"jawaban\"}, tanpa markdown."
+        "Untuk intent OUT_OF_SCOPE dan FAQ, jawab sebagai teks biasa tanpa pembungkus JSON. "
+        "Untuk intent lain, kembalikan tepat JSON {\"message\": \"jawaban\"}, tanpa markdown."
     )
     headers = {
         "Accept": "application/json",
@@ -290,23 +299,30 @@ def generate_grounded_assistant_message(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": contextual_user_prompt},
     ]
+    # Reasoning-capable free models can spend the entire completion budget on hidden
+    # reasoning before emitting visible text. General discussion therefore receives a
+    # larger output budget and low reasoning effort, without forcing JSON mode.
     response_token_budget = (
-        120 if intent == "SMALLTALK"
-        else 650 if intent in general_intents
+        2048 if intent in general_intents
+        else 120 if intent == "SMALLTALK"
         else 320
     )
+    provider_payload: dict[str, Any] = {
+        "model": model,
+        "temperature": 0.35,
+        "max_tokens": response_token_budget,
+        "messages": provider_messages,
+    }
+    if intent in general_intents:
+        provider_payload["reasoning_effort"] = "low"
+    else:
+        provider_payload["response_format"] = {"type": "json_object"}
 
     try:
         response = httpx.post(
             endpoint,
             headers=headers,
-            json={
-                "model": model,
-                "temperature": 0.35,
-                "max_tokens": response_token_budget,
-                "response_format": {"type": "json_object"},
-                "messages": provider_messages,
-            },
+            json=provider_payload,
             timeout=max(settings.assistant_ai_timeout_seconds, 30.0),
             follow_redirects=False,
         )

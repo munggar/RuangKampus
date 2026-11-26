@@ -240,7 +240,9 @@ def test_general_reasoning_response_uses_context_and_variable_length(
     assert "Ruang 301" in sent_context
     assert "test@example.com" not in sent_context
     assert "2403045007" not in sent_context
-    assert captured["body"]["max_tokens"] == 650
+    assert captured["body"]["max_tokens"] == 2048
+    assert captured["body"]["reasoning_effort"] == "low"
+    assert "response_format" not in captured["body"]
     assert captured["headers"]["Authorization"] == "Bearer test-only-secret"
 
     # The browser-supplied raw turns are transient and are not copied into conversation state.
