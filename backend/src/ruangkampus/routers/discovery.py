@@ -188,7 +188,7 @@ def _parse_time(value: str | time) -> time:
 def _parse_time_only_follow_up(message: str) -> time | None:
     """Parse a short time-only reply such as 'sampai jam 12 siang'."""
     match = re.fullmatch(
-        r"\s*(?:(?:sampai|hingga|sd|s/d|jam|pukul)\s*)?"
+        r"\s*(?:(?:sampai|hingga|sd|s/d)\s*)?(?:(?:jam|pukul)\s*)?"
         r"([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*"
         r"(pagi|siang|sore|malam)?[.!?\s]*",
         message.casefold(),
