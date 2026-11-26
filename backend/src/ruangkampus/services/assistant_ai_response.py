@@ -97,10 +97,10 @@ def generate_grounded_assistant_message(
     reservation records, database query, and mutation capability are never sent to the provider.
     The deterministic response remains the fallback whenever the provider is disabled or unavailable.
     """
-    if not settings.assistant_ai_enabled:
+    if not settings.is_assistant_ai_enabled:
         return None
     endpoint = settings.assistant_ai_endpoint_url
-    model = settings.assistant_ai_model
+    model = settings.resolved_assistant_ai_model
     if not endpoint or not model:
         return None
 
@@ -171,8 +171,10 @@ def generate_grounded_assistant_message(
         "HTTP-Referer": settings.public_app_url,
         "X-Title": "RuangKampus - RUKKA AI",
     }
-    if settings.assistant_ai_api_key:
-        headers["Authorization"] = f"Bearer {settings.assistant_ai_api_key}"
+    api_key = settings.resolved_assistant_ai_api_key
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    headers["X-OpenRouter-Title"] = "RuangKampus - RUKKA AI"
 
     safe_context_lines: list[str] = []
     for item in (context_messages or [])[-10:]:
