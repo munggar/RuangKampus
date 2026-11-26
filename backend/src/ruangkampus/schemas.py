@@ -172,6 +172,20 @@ class RoomUpdateIn(BaseModel):
         return self
 
 
+class RoomBulkStatusUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_ids: list[UUID] = Field(min_length=1, max_length=100)
+    room_status: str = Field(pattern="^(ACTIVE|INACTIVE|MAINTENANCE)$")
+
+    @field_validator("room_ids")
+    @classmethod
+    def room_ids_must_be_unique(cls, values):
+        if len(values) != len(set(values)):
+            raise ValueError("room_ids must not contain duplicates")
+        return values
+
+
 class RoomOut(BaseOut):
     id: UUID
     room_name: str
