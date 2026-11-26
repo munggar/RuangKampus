@@ -169,7 +169,7 @@ def test_forgot_password_sends_branded_email_with_reset_link(client, student, mo
     response = client.post("/api/v1/auth/forgot-password", json={"email": student.email})
     assert response.status_code == 202
     assert captured["to"] == student.email
-    assert "Atur ulang password" in captured["subject"]
+    assert "Yuk, amankan akun" in captured["subject"]
     assert "reset-password#token=" in captured["body"]
     assert "reset-password#token=" in captured["html"]
     assert "KEAMANAN AKUN" in captured["html"]
