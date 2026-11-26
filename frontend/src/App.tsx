@@ -65,7 +65,7 @@ export function App() {
         <Route path="reservations/:reservationId" element={<ReservationDetailPage role="Student" />} />
         <Route path="notifications" element={<NotificationsPage role="Student" />} />
         <Route path="profile" element={<ProfilePage role="Student" />} />
-        <Route path="assistant" element={<RoomAssistantPage role="Student" />} />
+        <Route path="assistant" element={<RoomAssistantPage />} />
       </Route>
 
       <Route path="/admin" element={<RequireRole role="Staff Sekretariat"><AppShell role="Staff Sekretariat" /></RequireRole>}>
@@ -80,7 +80,7 @@ export function App() {
         <Route path="schedules" element={<AdminSchedulesPage />} />
         <Route path="notifications" element={<NotificationsPage role="Staff Sekretariat" />} />
         <Route path="profile" element={<ProfilePage role="Staff Sekretariat" />} />
-        <Route path="assistant" element={<RoomAssistantPage role="Staff Sekretariat" />} />
+        <Route path="assistant" element={<Navigate to="dashboard" replace />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
