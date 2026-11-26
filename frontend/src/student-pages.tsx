@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  ApiError, apiAssetUrl, availabilityReasonLabel, dashboardApi, formatDate, formatDateTime, formatTime, localToday,
+  ApiError, apiAssetUrl, availabilityReasonLabel, canCancelReservation, dashboardApi, formatDate, formatDateTime, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
 } from "./api";
 import { useAuth } from "./auth";
@@ -20,21 +20,72 @@ function usePageError() {
 }
 
 function ReservationCard({ item }: { item: Reservation }) {
+  const [currentItem, setCurrentItem] = useState(item);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+
+  useEffect(() => { setCurrentItem(item); }, [item]);
+
+  const canCancel = canCancelReservation(currentItem.status, currentItem.reservation_date);
+
+  async function cancelReservation() {
+    setBusy(true);
+    setCancelError("");
+    try {
+      const updated = await reservationApi.cancel(currentItem.id, cancelReason.trim() || undefined);
+      setCurrentItem(updated);
+      setCancelReason("");
+      setCancelOpen(false);
+    } catch (cause) {
+      setCancelError(cause instanceof Error ? cause.message : "Pembatalan belum berhasil. Silakan coba kembali.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Link className="reservation-card" to={"/student/reservations/" + item.id}>
-      <div className="reservation-card__top">
-        <span className="reservation-card__id">RK-{item.id.slice(0, 8).toUpperCase()}</span>
-        <StatusBadge status={item.status} />
-      </div>
-      {item.room?.photo_url ? <RoomPhoto photoUrl={item.room.photo_url} roomName={item.room.room_name} className="reservation-card__image" /> : null}
-      <strong>{item.room?.room_name || "Ruangan"}</strong>
-      <span className="muted">{item.room?.building || "Lokasi kampus belum tersedia"}</span>
-      <div className="reservation-card__meta">
-        <span><CalendarDays size={15} />{formatDate(item.reservation_date)}</span>
-        <span><Clock3 size={15} />{formatTime(item.start_time)}–{formatTime(item.end_time)}</span>
-      </div>
-      <p>{item.purpose}</p>
-    </Link>
+    <article className="reservation-card">
+      <Link className="reservation-card__link" to={"/student/reservations/" + currentItem.id}>
+        <div className="reservation-card__top">
+          <span className="reservation-card__id">RK-{currentItem.id.slice(0, 8).toUpperCase()}</span>
+          <StatusBadge status={currentItem.status} />
+        </div>
+        {currentItem.room?.photo_url ? <RoomPhoto photoUrl={currentItem.room.photo_url} roomName={currentItem.room.room_name} className="reservation-card__image" /> : null}
+        <strong>{currentItem.room?.room_name || "Ruangan"}</strong>
+        <span className="muted">{currentItem.room?.building || "Lokasi kampus belum tersedia"}</span>
+        <div className="reservation-card__meta">
+          <span><CalendarDays size={15} />{formatDate(currentItem.reservation_date)}</span>
+          <span><Clock3 size={15} />{formatTime(currentItem.start_time)}–{formatTime(currentItem.end_time)}</span>
+        </div>
+        <p>{currentItem.purpose}</p>
+      </Link>
+      {cancelError ? <div className="reservation-card__feedback"><Notice tone="error">{cancelError}</Notice></div> : null}
+      {canCancel ? (
+        <div className="reservation-card__actions">
+          <Button variant="danger" onClick={() => { setCancelError(""); setCancelOpen(true); }}>
+            <XCircle size={15} />Batalkan reservasi
+          </Button>
+        </div>
+      ) : null}
+      <Modal
+        open={cancelOpen}
+        title="Batalkan reservasi?"
+        description="Reservasi ini akan berubah menjadi Dibatalkan dan slot ruangan dapat digunakan kembali sesuai validasi sistem."
+        onClose={() => { if (!busy) setCancelOpen(false); }}
+      >
+        <Field label="Alasan pembatalan (opsional)">
+          <textarea rows={3} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} maxLength={2000} />
+        </Field>
+        <div className="modal-actions">
+          <Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button>
+          <Button variant="danger" onClick={() => void cancelReservation()} disabled={busy}>
+            {busy ? "Memproses…" : "Ya, batalkan"}
+          </Button>
+        </div>
+      </Modal>
+    </article>
   );
 }
 
@@ -415,7 +466,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
 
   if (loading) return <Loading label="Memuat detail reservasi…" />;
   if (!item) return <Notice tone="error">{error || "Reservasi tidak ditemukan."}</Notice>;
-  const canCancel = (item.status === "PENDING" || item.status === "APPROVED") && item.reservation_date >= localToday();
+  const canCancel = canCancelReservation(item.status, item.reservation_date);
   const root = role === "Student" ? "/student" : "/admin";
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>

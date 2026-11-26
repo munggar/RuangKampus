@@ -232,6 +232,9 @@ export function localToday(): string {
   const get = (type: string) => parts.find((item) => item.type === type)?.value || "00";
   return get("year") + "-" + get("month") + "-" + get("day");
 }
+export function canCancelReservation(status: string, reservationDate: string, today = localToday()): boolean {
+  return (status === "PENDING" || status === "APPROVED") && reservationDate >= today;
+}
 export function formatDate(value: string | null | undefined, options?: Intl.DateTimeFormatOptions): string {
   if (!value) return "—";
   const date = new Date(value.length === 10 ? value + "T00:00:00+07:00" : value);
