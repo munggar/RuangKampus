@@ -102,6 +102,59 @@ def test_alternative_slot_endpoint_returns_only_available_slots(
     )
 
 
+def test_alternative_slot_search_excludes_the_exact_requested_time(
+    client, auth_headers, student, admin, create_room
+):
+    room = create_room()
+    booking_date = future_weekday(1)
+    result = client.post(
+        "/api/v1/rooms/alternative-slots",
+        json={
+            "date": booking_date.isoformat(),
+            "duration_minutes": 60,
+            "participant_count": 4,
+            "room_id": room["id"],
+            "preferred_start_time": "10:00:00",
+            "search_days": 0,
+            "slot_step_minutes": 30,
+            "limit": 10,
+        },
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    items = result.json()["data"]["items"]
+    assert items
+    assert all(
+        not (item["date"] == booking_date.isoformat() and item["start_time"] == "10:00:00")
+        for item in items
+    )
+
+
+def test_alternative_slot_search_preserves_free_text_constraints(
+    client, auth_headers, student, admin, create_room
+):
+    create_room()
+    booking_date = future_weekday(1)
+    result = client.post(
+        "/api/v1/rooms/alternative-slots",
+        json={
+            "date": booking_date.isoformat(),
+            "duration_minutes": 60,
+            "participant_count": 4,
+            "search_terms": ["criterion-that-does-not-exist"],
+            "preferred_start_time": "10:00:00",
+            "search_days": 0,
+            "slot_step_minutes": 30,
+            "limit": 10,
+        },
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    assert result.json()["data"]["items"] == []
+
+
 def test_student_room_assistant_uses_grounded_room_records(
     client, auth_headers, student, admin, room_payload
 ):
@@ -383,7 +436,10 @@ def test_assistant_parses_indonesian_month_date_and_en_dash_time_range(
     assert data["slots"]["start_time"] == "10:00:00"
     assert data["slots"]["end_time"] == "12:00:00"
     assert data["slots"]["min_capacity"] == 20
+    assert data["slots"]["participant_count"] == 20
     assert data["slots"]["faculty"] == "FTII"
+    assert data["slots"]["facilities"] == ["projector"]
+    assert data["slots"]["search_terms"] == []
     assert data["requires_clarification"] is False
     assert not {"date", "start_time", "end_time"}.intersection(data["missing_fields"])
 
