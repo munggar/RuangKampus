@@ -15,3 +15,8 @@
 **/dist/
 **/.room-media/
 **/.room-import-staging/
+
+# Frontend browser QA output (uploaded as CI artifacts)
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright/.cache/
