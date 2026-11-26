@@ -727,7 +727,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
         {items.map((item) => {
           const actionUrl = item.action_url?.startsWith("/") && !item.action_url.startsWith("//") ? item.action_url : null;
           const emailFailed = item.email_delivery_status === "FAILED";
-          const canRetryEmail = role === "Staff Sekretariat" && emailFailed && item.email_attempt_count < 3;
+          const canRetryEmail = emailFailed && item.email_attempt_count < 3;
           return <article className={"notification-card" + (!item.read_at ? " is-unread" : "")} key={item.id}>
             <div className="notification-card__icon"><Bell size={18} /></div>
             <div className="notification-card__content">
