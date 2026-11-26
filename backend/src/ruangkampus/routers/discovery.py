@@ -571,18 +571,13 @@ def room_assistant_chat(
     if detection.intent in {"MY_RESERVATIONS", "RESERVATION_STATUS"}:
         reservations = _owned_reservation_summaries(db, user, detection.intent)
         if reservations:
-            message = (
-                f"Ini {len(reservations)} reservasi terbaru yang tercatat di akunmu."
-                if detection.intent == "MY_RESERVATIONS"
-                else (
-                    f"Status reservasi terbarumu adalah {reservations[0]['status']} "
-                    f"untuk {reservations[0]['room_name']} pada {reservations[0]['date']}."
-                )
-            )
             result_type = "RESERVATIONS_FOUND"
         else:
-            message = "Belum ada reservasi yang tercatat pada akunmu."
             result_type = "NO_RESULTS"
+        message = compose_reservation_result(
+            reservations,
+            status_only=detection.intent == "RESERVATION_STATUS",
+        )
         response = _intent_only_response(
             payload, normalization, detection,
             conversation_id=conversation.id,
@@ -609,12 +604,7 @@ def room_assistant_chat(
             )
             if room is not None:
                 room_data = [serialize_room(room)]
-                facilities = ", ".join(room.facilities or []) or "Belum ada fasilitas yang tercatat"
-                message = (
-                    f"{room.room_name} berada di {room.building}"
-                    f"{', ' + room.faculty if room.faculty else ''}. "
-                    f"Kapasitasnya {room.capacity} orang. Fasilitas: {facilities}."
-                )
+                message = compose_room_detail(room_data[0])
                 response = _intent_only_response(
                     payload, normalization, detection,
                     conversation_id=conversation.id,
@@ -666,10 +656,13 @@ def room_assistant_chat(
             confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
             engine="HYBRID" if ai_fallback_used else "RULE_BASED",
             privacy_message=(
-            "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
-            "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
-            "sementara selama maksimal 30 menit."
-        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit.",
+                "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
+                "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
+                "sementara selama maksimal 30 menit."
+            ) if ai_fallback_used else (
+                "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit."
+            ),
+            ai_fallback_used=ai_fallback_used,
         )
         db.commit()
         return response
