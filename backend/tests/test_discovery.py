@@ -136,7 +136,7 @@ def test_room_assistant_shows_partial_room_candidates_before_asking_for_schedule
 
     assert result.status_code == 200, result.text
     data = result.json()["data"]
-    assert data["assistant_name"] == "RAKA"
+    assert data["assistant_name"] == "RUKKA AI"
     assert data["intent"] == "ROOM_AVAILABILITY"
     assert data["result_type"] == "ROOMS_FOUND"
     assert room["id"] in {item["id"] for item in data["rooms"]}
