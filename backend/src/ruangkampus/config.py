@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     assistant_ai_api_key: str | None = None
     openrouter_api_key: str | None = None
     openrouter_model: str | None = None
-    assistant_ai_timeout_seconds: float = Field(default=8.0, gt=0, le=8)
+    assistant_ai_timeout_seconds: float = Field(default=30.0, gt=0, le=45)
 
     @field_validator("email_backend", mode="before")
     @classmethod
@@ -110,8 +110,8 @@ class Settings(BaseSettings):
         parsed = urlsplit(self.assistant_ai_endpoint_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
             raise ValueError("ASSISTANT_AI_ENDPOINT_URL must be an absolute HTTP(S) URL without embedded credentials")
-        if self.assistant_ai_timeout_seconds > 8:
-            raise ValueError("ASSISTANT_AI_TIMEOUT_SECONDS must not exceed 8 seconds")
+        if self.assistant_ai_timeout_seconds > 45:
+            raise ValueError("ASSISTANT_AI_TIMEOUT_SECONDS must not exceed 45 seconds")
         return self
 
     @property
