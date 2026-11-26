@@ -35,7 +35,7 @@ class AssistantGeneratedMessage(BaseModel):
     message: str = Field(min_length=8, max_length=900)
 
 
-def _redact_user_text(value: str) -> str:
+def redact_assistant_user_text(value: str) -> str:
     """Remove common direct identifiers before forwarding the current turn to a provider."""
     value = _EMAIL_PATTERN.sub("[email disamarkan]", value)
     value = _PHONE_PATTERN.sub("[nomor telepon disamarkan]", value)
@@ -117,7 +117,7 @@ def generate_grounded_assistant_message(
     }
     user_prompt = json.dumps(
         {
-            "current_message": _redact_user_text(message),
+            "current_message": redact_assistant_user_text(message),
             "verified_backend_facts": evidence,
         },
         ensure_ascii=False,
@@ -132,8 +132,9 @@ def generate_grounded_assistant_message(
         "berikutnya yang konkret. Jangan mengajukan lebih dari satu pertanyaan. "
         "FAKTA: verified_backend_facts adalah satu-satunya sumber kebenaran. Jangan pernah "
         "mengarang nama/kode ruangan, kapasitas, fasilitas, lokasi, tanggal, jam, atau status kosong. "
-        "Gunakan hanya ruang yang ada di daftar rooms. Jika availability_checked=false, katakan "
-        "bahwa ketersediaan jadwal belum diverifikasi dan jangan menyebut ruang kosong/tersedia. "
+        "Gunakan hanya ruang yang ada di daftar rooms. Untuk intent pencarian/ketersediaan, jika "
+        "availability_checked=false, katakan bahwa jadwal belum diverifikasi dan jangan menyebut ruang tersedia. "
+        "Untuk ROOM_DETAIL, jawab detail ruang tanpa menambahkan catatan jadwal yang tidak relevan. "
         "Jika daftar rooms kosong, jelaskan tidak ada hasil yang cocok dan berikan satu saran "
         "penyempitan/perubahan kriteria berdasarkan filter yang tersedia. "
         "Jika ada hasil, sebutkan jumlahnya dan maksimal dua contoh nama ruangan yang benar-benar "
