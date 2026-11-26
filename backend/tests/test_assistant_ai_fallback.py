@@ -165,3 +165,35 @@ def test_ai_fallback_parses_iso_date_and_time_values(monkeypatch):
     assert result.date.isoformat() == "2026-12-01"
     assert result.start_time.isoformat() == "09:00:00"
     assert result.end_time.isoformat() == "10:30:00"
+
+
+def test_ai_fallback_uses_native_openrouter_key_and_default_model(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured["headers"] = kwargs["headers"]
+        captured["body"] = kwargs["json"]
+        return FakeResponse(provider_response(json.dumps({
+            "intent": "ROOM_SEARCH",
+            "faculty": "FTII",
+            "building": None,
+            "min_capacity": 20,
+            "facilities": ["projector"],
+            "date": None,
+            "start_time": None,
+            "end_time": None,
+            "participant_count": 20,
+        })))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    settings = Settings(_env_file=None, openrouter_api_key="sk-or-test-key")
+    result = interpret_with_ai_fallback("cari ruang 20 orang dan proyektor", CATALOG, settings)
+
+    assert result is not None
+    assert result.intent == "ROOM_SEARCH"
+    assert captured["url"] == "https://openrouter.ai/api/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer sk-or-test-key"
+    assert captured["headers"]["HTTP-Referer"] == settings.public_app_url
+    assert captured["headers"]["X-OpenRouter-Title"] == "RuangKampus - RUKKA AI"
+    assert captured["body"]["model"] == "google/gemma-4-26b-a4b-it:free"
