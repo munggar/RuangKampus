@@ -2,6 +2,8 @@ import html
 import logging
 import smtplib
 from email.message import EmailMessage
+
+import httpx
 from pathlib import Path
 from uuid import uuid4
 
@@ -44,7 +46,7 @@ def send_email(
     body: str,
     html_body: str | None = None,
 ) -> bool:
-    """Send through SMTP or write a local-only message file in development."""
+    """Send through Brevo API, SMTP, or the local-only development mailbox."""
     settings = get_settings()
     if settings.email_backend == "console":
         if settings.is_production:
@@ -66,6 +68,38 @@ def send_email(
     if settings.email_backend == "disabled":
         logger.info("Email delivery is disabled; no message was sent")
         return False
+
+    if settings.email_backend == "brevo":
+        if not settings.brevo_api_key or not settings.brevo_sender_email:
+            logger.warning("Brevo email provider is not configured; no email was sent")
+            return False
+        html_content = html_body or (
+            "<html><body><p>"
+            + "<br>".join(html.escape(line) for line in body.splitlines())
+            + "</p></body></html>"
+        )
+        response = httpx.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": settings.brevo_api_key,
+                "content-type": "application/json",
+            },
+            json={
+                "sender": {
+                    "name": settings.brevo_sender_name,
+                    "email": settings.brevo_sender_email,
+                },
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html_content,
+            },
+            timeout=settings.smtp_timeout_seconds,
+        )
+        response.raise_for_status()
+        logger.info("Transactional email accepted by Brevo")
+        return True
+
     if settings.email_backend != "smtp" or not settings.smtp_host:
         logger.warning("Email provider is not configured; no email was sent")
         return False
