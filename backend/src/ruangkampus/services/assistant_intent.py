@@ -96,6 +96,35 @@ FAQ_PHRASES = (
     "apa yang bisa dibantu", "bantuan ruangkampus",
 )
 
+# These are explicit signs that a student wants explanation, analysis, or planning,
+# not a database lookup. Domain-specific intents above retain precedence.
+GENERAL_REASONING_PHRASES = (
+    "menurutmu", "menurut kamu", "menurut pendapatmu", "bayangkan",
+    "analisis", "analisa", "jelaskan", "berikan argumen", "berikan contoh",
+    "dari beberapa sudut pandang", "apa perbedaan", "apa kemungkinan penyebab",
+    "bagaimana kamu mengatur", "bagaimana sistem", "rancang", "buat simulasi",
+    "simulasikan", "kalau semua mahasiswa", "jika semua mahasiswa",
+    "ada 3 kelompok", "ada tiga kelompok", "apa saja yang perlu aku",
+    "apa saja yang perlu saya", "buatkan rencana", "rencana acara",
+    "apakah selalu", "apa dampak", "apa solusi", "menyelesaikan masalah",
+    "kenapa", "mengapa",
+)
+
+ROOM_OPERATION_PATTERN = re.compile(
+    r"\\b(?:cari(?:kan)?|nyari|temukan|cek|periksa|booking|reservasi|"
+    r"pinjam|meminjam|pesan|butuh|perlu|mau|ingin|alternatif|slot)\\b"
+    r".{0,100}\\b(?:ruang(?:an)?|rgn|room|jadwal|slot)\\b"
+    r"|\\b(?:ruang(?:an)?|rgn|room)\\b.{0,90}"
+    r"\\b(?:kosong|tersedia|available|kapasitas|fasilitas|proyektor|"
+    r"\\bac\\b|\\bwi-?fi\\b|jadwal|alternatif|booking|reservasi)\\b",
+    flags=re.IGNORECASE,
+)
+
+
+def is_room_operation_candidate(message: str) -> bool:
+    """Return true only when the utterance plausibly asks the assistant to act on room data."""
+    return bool(ROOM_OPERATION_PATTERN.search(" ".join(message.casefold().split())))
+
 
 def _phrase_matches(text: str, phrase: str) -> list[re.Match[str]]:
     normalized = " ".join(phrase.casefold().split())
@@ -209,6 +238,12 @@ def detect_assistant_intent(
                 "mulai dan selesai dari jadwal yang ingin diganti."
                 if missing_window else None
             ),
+        )
+
+    if _has_phrase(text, GENERAL_REASONING_PHRASES):
+        return IntentDetection(
+            intent="OUT_OF_SCOPE",
+            matched_rule="GENERAL_REASONING_REQUEST",
         )
 
     if has_room and (
