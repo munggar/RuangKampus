@@ -365,6 +365,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(searchParams.get("created") === "1");
@@ -384,9 +385,18 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
     finally { setBusy(false); }
   }
 
+  async function complete() {
+    setBusy(true); setError("");
+    try { const updated = await reservationApi.complete(reservationId); setItem(updated); setCompleteOpen(false); setSuccess(true); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Reservasi belum dapat ditandai selesai."); }
+    finally { setBusy(false); }
+  }
+
   if (loading) return <Loading label="Memuat detail reservasi…" />;
   if (!item) return <Notice tone="error">{error || "Reservasi tidak ditemukan."}</Notice>;
   const canCancel = (item.status === "PENDING" || item.status === "APPROVED") && item.reservation_date >= localToday();
+  const endTimestamp = new Date(`${item.reservation_date}T${item.end_time.slice(0, 8)}+07:00`).getTime();
+  const canComplete = role === "TU/Admin" && item.status === "APPROVED" && Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
   const root = role === "Student" ? "/student" : "/admin";
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>
@@ -417,12 +427,14 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
           item.status === "REJECTED" ? "Permohonan ditolak oleh administrator." :
           item.status === "CANCELLED" ? "Permohonan telah dibatalkan." : "Sesi reservasi telah selesai."}</p>
         {canCancel ? <Button variant="danger" onClick={() => setCancelOpen(true)} className="button--wide">Batalkan reservasi</Button> : null}
+        {canComplete ? <Button onClick={() => setCompleteOpen(true)} className="button--wide">Tandai reservasi selesai</Button> : null}
       </aside>
     </div>
     <Modal open={cancelOpen} title="Batalkan reservasi?" description="Pembatalan akan diproses oleh layanan RuangKampus." onClose={() => setCancelOpen(false)}>
       <Field label="Alasan pembatalan (opsional)"><textarea rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={2000} /></Field>
       <div className="modal-actions"><Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button><Button variant="danger" onClick={() => void cancel()} disabled={busy}>{busy ? "Memproses…" : "Ya, batalkan"}</Button></div>
     </Modal>
+    <ConfirmModal open={completeOpen} title="Selesaikan reservasi?" description="Status reservasi akan berubah menjadi Selesai dan tercatat pada riwayat Admin." confirmText="Ya, tandai selesai" loading={busy} onClose={() => setCompleteOpen(false)} onConfirm={() => void complete()} />
   </div>;
 }
 
@@ -517,7 +529,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
         <Field label="Nama lengkap"><input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={160} required /></Field>
         <Field label="Email"><input type="email" value={profile?.email || ""} readOnly disabled /></Field>
         <Field label="Nomor telepon"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
-        {profile?.student_identifier ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field> : null}
+        {profile?.student_identifier ? <Field label={role === "Student" ? "Nomor Induk Mahasiswa (NIM)" : "Username Admin"}><input value={profile.student_identifier} disabled readOnly /></Field> : null}
         <Button type="submit" disabled={saving}>{saving ? "Menyimpan…" : "Simpan perubahan"}</Button>
       </form>
       <div className="stack-form">
