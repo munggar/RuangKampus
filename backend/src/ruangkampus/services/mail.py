@@ -70,7 +70,8 @@ def send_email(
         return False
 
     if settings.email_backend == "brevo":
-        if not settings.brevo_api_key or not settings.brevo_sender_email:
+        sender_email = settings.brevo_sender_address
+        if not settings.brevo_api_key or not sender_email:
             logger.warning("Brevo email provider is not configured; no email was sent")
             return False
         html_content = html_body or (
@@ -88,7 +89,7 @@ def send_email(
             json={
                 "sender": {
                     "name": settings.brevo_sender_name,
-                    "email": settings.brevo_sender_email,
+                    "email": sender_email,
                 },
                 "to": [{"email": to_email}],
                 "subject": subject,
