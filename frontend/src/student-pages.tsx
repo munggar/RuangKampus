@@ -455,18 +455,20 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
 
 export function NotificationsPage({ role }: { role: AppRole }) {
   const [items, setItems] = useState<AppNotification[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
   const root = role === "Student" ? "/student" : "/admin";
   useEffect(() => {
     let active = true; setLoading(true);
-    notificationApi.list(new URLSearchParams({ page: "1", limit: "100" }))
-      .then((result) => { if (active) setItems(result.items); })
+    notificationApi.list(new URLSearchParams({ page: String(page), limit: "20" }))
+      .then((result) => { if (active) { setItems(result.items); setTotalPages(result.meta?.total_pages || 1); } })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Notifikasi belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [page]);
   async function markRead(id: string) {
     setBusyId(id);
     try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); }
@@ -485,7 +487,12 @@ export function NotificationsPage({ role }: { role: AppRole }) {
         {!item.read_at ? <Button variant="secondary" disabled={busyId === item.id} onClick={() => void markRead(item.id)}>Tandai dibaca</Button> : <span className="read-mark"><Check size={15} />Dibaca</span>}
       </article>)}
     </div> : <EmptyState title="Belum ada notifikasi" description="Pembaruan permohonan dan informasi akun akan muncul di sini." icon={<Bell size={22} />} />}
-    <Link className="button button--primary" to={root + (role === "Student" ? "/reservations" : "/reservations")}>Lihat reservasi</Link>
+    <div className="form-actions">
+      <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {totalPages}</span>
+      <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
+    <Link className="button button--primary" to={root + "/reservations"}>Lihat reservasi</Link>
   </div>;
 }
 
