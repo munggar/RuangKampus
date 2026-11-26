@@ -383,6 +383,8 @@ class NotificationOut(BaseOut):
     delivery_status: str
     email_delivery_status: str
     email_sent_at: datetime | None
+    email_attempt_count: int
+    action_url: str | None
     created_at: datetime
 
 
