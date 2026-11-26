@@ -27,7 +27,7 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 .sidebar-secondary-link { display: flex; min-height: 43px; align-items: center; gap: 12px; padding: 0 12px; margin-top: 5px; border-radius: 10px; color: var(--text-secondary); font-size: 12px; text-decoration: none; }
 .sidebar-secondary-link:hover { color: var(--brand-primary); background: var(--brand-primary-soft); }
 .sidebar-footer { display: flex; align-items: center; gap: 8px; padding: 15px 12px 0; margin-top: auto; border-top: 1px solid var(--border-default); color: var(--text-secondary); font-size: 11px; }
-.sidebar-footer > span:last-child { margin-left: auto; opacity: .7; }
+.sidebar-footer > span:last-child { margin-left: auto; }
 .online-dot { width: 7px; height: 7px; border-radius: 99px; background: var(--status-success); }
 .app-main { min-width: 0; min-height: 100vh; margin-left: 252px; }
 .topbar { position: sticky; z-index: 20; top: 0; display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 38px; border-bottom: 1px solid var(--border-default); background: color-mix(in srgb, var(--surface-navigation) 94%, transparent); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); }
