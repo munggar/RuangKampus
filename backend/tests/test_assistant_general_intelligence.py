@@ -9,6 +9,7 @@ from sqlalchemy import select
 from ruangkampus.config import Settings
 from ruangkampus.models import AssistantConversation
 from ruangkampus.services.assistant_intent import detect_assistant_intent
+from ruangkampus.services.indonesian_normalizer import normalize_indonesian_message
 from ruangkampus.services.availability import campus_today
 
 
@@ -125,8 +126,12 @@ def test_explicit_room_tasks_keep_their_domain_intents():
         ("Woy RUKKA, lu bisa bantu gua nyari ruangan kaga?", "ROOM_SEARCH"),
         ("Gw mw pinjem rgn buat rapat besok, msh ad yg ksong g?", "ROOM_AVAILABILITY"),
     ]
-    for message, expected in cases:
+    for message, expected in cases[:-1]:
         assert detect_assistant_intent(message).intent == expected
+
+    slang_message = cases[-1][0]
+    normalized = normalize_indonesian_message(slang_message)
+    assert detect_assistant_intent(normalized.parser_text).intent == "ROOM_AVAILABILITY"
 
 
 def test_ai_mode_question_is_routed_to_faq():
