@@ -25,7 +25,7 @@ Last updated: 2026-11-26
 - Admin account creation, status changes, role changes, and deactivation are recorded in the existing activity log.
 - Assistant search carries participant count parsed from natural-language messages into alternative-slot search.
 - Alternative-slot search has stricter day/time/result bounds and a maximum of 500 availability checks per request.
-- Admin screens provide account management, schedule import preview/commit/history, activity history, and a reservation completion action after its booked end time.
+- Admin screens provide account management, schedule import preview/commit/history, activity history, and a reservation completion action after its booked end time. A separate frontend-only preparation screen is added for importing student, course, and room master data; it currently supports local file selection and downloadable CSV templates only, without uploading, parsing, validating, or saving records.
 - Student/Admin room, reservation, notification, and schedule lists now use 20-item pages with navigation controls rather than silently stopping at the first 100 records.
 - Admin login accepts more than one Admin username.
 - Frontend CI runs on pushes to `develop`, `main`, and `frontend/**`.
@@ -34,9 +34,9 @@ Last updated: 2026-11-26
 
 ## Remaining work requiring external data, credentials, or broader validation
 
-1. **Official student roster:** the campus data owner must provide a current, authorized NIM/contact list. Admin must manually compare records until an approved import or integration exists.
+1. **Official student roster:** the campus data owner is still preparing the authorized student list. The Admin import screen is currently a UI prototype only; roster storage, Excel parsing, validation, import history, and the registration-to-roster matching backend are not implemented. The intended registration rule is to match NIM, full name, and email against one active official roster record before creating a Student account.
 2. **Email recovery:** a real sender mailbox and SMTP credentials are required. Production email delivery was disabled during the audit; code changes cannot create valid provider credentials or an operational Admin mailbox.
-3. **Official room and timetable data:** the authorized campus unit must validate room codes, capacities, facilities, opening hours, lecture timetables, and maintenance windows.
+3. **Official room, course, and timetable data:** campus units are still preparing the source files. Student, course, and room master-data import currently has frontend screens only; no import backend or database schema has been added for these three datasets. The authorized unit must validate room codes, capacities, facilities, opening hours, course identifiers, and official lecture timetables before operational import.
 4. **Schedule import format:** the new screen uses the backend's existing CSV/XLSX parser. Validate the actual campus timetable file/template before importing operational data.
 5. **End-to-end and load tests:** cover login/refresh/logout, room search, booking, approval/completion, user management, schedule import, mobile layouts, and concurrent usage in staging.
 6. **Shared rate limiting:** current API limits are process-local. Use a trusted proxy setup and a shared gateway/WAF or Redis before increasing workers/replicas.
