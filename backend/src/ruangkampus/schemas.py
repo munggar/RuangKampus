@@ -472,7 +472,7 @@ class AssistantChatResponseData(BaseModel):
 
     message: str
     conversation_id: UUID | None = None
-    intent: Literal["ROOM_SEARCH"]
+    intent: Literal["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL", "RESERVATION_HELP", "MY_RESERVATIONS", "RESERVATION_STATUS", "RESERVATION_CREATE_PREVIEW", "RESERVATION_CANCEL_PREVIEW", "FAQ", "SMALLTALK", "OUT_OF_SCOPE"]
     slots: AssistantChatSlots
     confidence: float | None = Field(default=None, ge=0, le=1)
     missing_fields: list[str] = Field(default_factory=list)
