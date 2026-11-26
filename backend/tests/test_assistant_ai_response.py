@@ -74,6 +74,7 @@ def test_rukka_generates_only_from_grounded_room_facts_and_redacts_identifiers(m
         follow_up_questions=["Kapan tanggal dan jam pemakaiannya?"],
         availability_checked=False,
         settings=configured_settings(),
+        adaptive_preferences=["Use a casual tone and keep answers concise."],
     )
 
     assert answer is not None
@@ -86,6 +87,9 @@ def test_rukka_generates_only_from_grounded_room_facts_and_redacts_identifiers(m
     assert "test@example.com" not in prompt
     assert "private-internal-room-id" not in prompt
     assert '"availability_checked":false' in prompt
+    payload = json.loads(prompt)
+    assert len(payload["language_hints"]) <= 8
+    assert payload["response_preferences"] == ["Use a casual tone and keep answers concise."]
     assert captured["body"]["response_format"] == {"type": "json_object"}
 
 
