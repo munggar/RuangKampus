@@ -26,6 +26,7 @@ Last updated: 2026-11-26
 - Assistant search carries participant count parsed from natural-language messages into alternative-slot search.
 - Alternative-slot search has stricter day/time/result bounds and a maximum of 500 availability checks per request.
 - Admin screens provide account management, schedule import preview/commit/history, activity history, and a reservation completion action after its booked end time.
+- Student/Admin room, reservation, notification, and schedule lists now use 20-item pages with navigation controls rather than silently stopping at the first 100 records.
 - Admin login accepts more than one Admin username.
 - Frontend CI runs on pushes to `develop`, `main`, and `frontend/**`.
 - Profile identity labels, unavailable-room messages, and the inactive “Ingat saya” checkbox were corrected.
