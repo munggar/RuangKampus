@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell, Building2, CalendarDays, CalendarCheck, ChevronDown, ClipboardList, LayoutDashboard,
-  LogOut, Moon, Sparkles, Sun, UserRound,
+  LogOut, Moon, Sparkles, Sun, UserRound, Users,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth";
@@ -21,9 +21,9 @@ function navigationFor(role: AppRole): NavigationItem[] {
   ] : [
     { label: "Dashboard", shortLabel: "Home", path: base + "/dashboard", icon: LayoutDashboard },
     { label: "Reservation requests", shortLabel: "Requests", path: base + "/reservations", icon: ClipboardList },
-    { label: "AI Assistant", shortLabel: "AI", path: base + "/assistant", icon: Sparkles, ai: true },
     { label: "Manage rooms", shortLabel: "Rooms", path: base + "/rooms", icon: Building2 },
-    { label: "Profile", shortLabel: "Profile", path: base + "/profile", icon: UserRound },
+    { label: "Schedules", shortLabel: "Jadwal", path: base + "/schedules", icon: CalendarDays },
+    { label: "Manage users", shortLabel: "Users", path: base + "/users", icon: Users },
   ];
 }
 function Brand() {
@@ -56,6 +56,8 @@ function pageLabel(path: string, role: AppRole) {
     [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"],
     [root + "/assistant", "AI Assistant"], [root + "/availability", "Ketersediaan ruangan"],
     [root + "/alternatives", "Slot alternatif"], [root + "/schedules", "Jadwal ruang"],
+    [root + "/users", "Kelola pengguna"], [root + "/activity", "Riwayat aktivitas"],
+    [root + "/schedule-imports", "Impor jadwal"],
   ];
   return items.find(([route]) => path === route)?.[1] || "RuangKampus";
 }
@@ -92,7 +94,11 @@ export function AppShell({ role }: { role: AppRole }) {
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
       <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "TU / ADMIN WORKSPACE"}</p>
       <Navigation items={items} />
-      {role === "TU/Admin" ? <Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link> : null}
+      {role === "TU/Admin" ? <div className="sidebar-secondary-links">
+        <Link className="sidebar-secondary-link" to="/admin/schedule-imports"><CalendarDays size={17} />Impor jadwal</Link>
+        <Link className="sidebar-secondary-link" to="/admin/activity"><ClipboardList size={17} />Riwayat aktivitas</Link>
+        <Link className="sidebar-secondary-link" to="/admin/assistant"><Sparkles size={17} />Bantuan Admin</Link>
+      </div> : null}
       <div className="sidebar-footer"><span className="online-dot" />RuangKampus <span>Web</span></div>
     </aside>
     <div className="app-main">
