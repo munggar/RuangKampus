@@ -238,6 +238,19 @@ export function formatDate(value: string | null | undefined, options?: Intl.Date
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta", ...options }).format(date);
 }
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "00";
+  return formatDate(value) + " · " + part("hour") + ":" + part("minute") + " WIB";
+}
 export function formatTime(value: string | null | undefined): string { return value ? value.slice(0, 5) : "—"; }
 export function statusLabel(status: string): string {
   const labels: Record<string, string> = {
