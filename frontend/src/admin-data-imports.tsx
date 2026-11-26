@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent, type ChangeEvent } from "react";
 import {
-  AlertCircle, BookOpen, Building2, CheckCircle2, Database, FileDown,
+  AlertCircle, BookOpen, Building2, Database, FileDown,
   FileSpreadsheet, GraduationCap, Info, UploadCloud,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -157,7 +157,7 @@ export function AdminDataImportsPage() {
     />
 
     <Notice tone="warning">
-      **Tampilan tahap persiapan — belum terhubung ke backend.** File hanya dipilih di browser. Belum ada data yang dikirim, divalidasi, atau disimpan ke database RuangKampus.
+      <b>Tampilan tahap persiapan — belum terhubung ke backend.</b> File hanya dipilih di browser. Belum ada data yang dikirim, divalidasi, atau disimpan ke database RuangKampus.
     </Notice>
 
     <div className="data-import-overview">
