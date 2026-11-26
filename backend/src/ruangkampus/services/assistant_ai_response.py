@@ -33,7 +33,7 @@ class AssistantGeneratedMessage(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    message: str = Field(min_length=2, max_length=900)
+    message: str = Field(min_length=2, max_length=2400)
 
 
 def redact_assistant_user_text(value: str) -> str:
@@ -218,7 +218,7 @@ def generate_grounded_assistant_message(
             return None
         parsed = AssistantGeneratedMessage.model_validate(json.loads(raw_content))
         cleaned = " ".join(parsed.message.split()).strip()
-        return cleaned if 8 <= len(cleaned) <= 900 else None
+        return cleaned if 8 <= len(cleaned) <= 2400 else None
     except httpx.TimeoutException:
         logger.warning(
             "RUKKA AI response provider timed out after %.1f seconds",
