@@ -6,5 +6,6 @@ export {
 } from "./student-pages";
 export {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
+  AdminUsersPage, AdminActivityPage, AdminScheduleImportsPage,
 } from "./admin-pages";
 export { StudentRoomAvailabilityPage, AlternativeSlotsPage, RoomAssistantPage } from "./feature-pages";
