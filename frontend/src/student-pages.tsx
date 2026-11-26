@@ -481,7 +481,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
     {loading ? <Loading label="Memuat notifikasi…" /> : items.length ? <div className="card-list">
       {items.map((item) => <article className={"notification-card" + (!item.read_at ? " is-unread" : "")} key={item.id}>
         <div className="notification-card__icon"><Bell size={18} /></div>
-        <div className="notification-card__content"><div className="notification-card__heading"><strong>{item.title}</strong><span>{formatDate(item.created_at)}</span></div><p>{item.message}</p>
+        <div className="notification-card__content"><div className="notification-card__heading"><strong>{item.title}</strong><span>{item.notification_type === "RESERVATION_APPROVED" ? formatDateTime(item.created_at) : formatDate(item.created_at)}</span></div><p>{item.message}</p>
           <small>In-app: {item.delivery_status.replaceAll("_", " ").toLowerCase()} · Email: {item.email_delivery_status.replaceAll("_", " ").toLowerCase()}</small>
         </div>
         {!item.read_at ? <Button variant="secondary" disabled={busyId === item.id} onClick={() => void markRead(item.id)}>Tandai dibaca</Button> : <span className="read-mark"><Check size={15} />Dibaca</span>}
