@@ -134,6 +134,39 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     expect(api.calls).toContain("GET /reservations/reservation-created-e2e");
   });
 
+  test("approved reservation card starts its loan countdown at the scheduled start time", async ({ page }) => {
+    const dateParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date());
+    const part = (name: string) => dateParts.find((entry) => entry.type === name)?.value || "00";
+    const today = part("year") + "-" + part("month") + "-" + part("day");
+    const reservationDay = new Date(today + "T00:00:00+07:00");
+    reservationDay.setUTCDate(reservationDay.getUTCDate() + 2);
+    const reservationDate = [
+      reservationDay.getUTCFullYear(),
+      String(reservationDay.getUTCMonth() + 1).padStart(2, "0"),
+      String(reservationDay.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+
+    await page.clock.install({ time: new Date(reservationDate + "T09:59:58+07:00") });
+    await installMockApi(page, "Student");
+    await page.goto("/student/reservations");
+    await waitForPageReady(page);
+
+    const approvedCard = page.locator(".reservation-card").filter({
+      has: page.locator('a[href="/student/reservations/reservation-approved-e2e"]'),
+    });
+    await expect(approvedCard.getByText("Mulai pukul")).toBeVisible();
+    await expect(approvedCard.getByText("10:00 WIB")).toBeVisible();
+
+    await page.clock.fastForward(3000);
+    await expect(approvedCard.getByText("Sisa waktu peminjaman")).toBeVisible();
+    await expect(approvedCard.getByText("01:59:57")).toBeVisible();
+
+    await page.clock.fastForward(2 * 60 * 60 * 1000);
+    await expect(approvedCard.getByText("Selesai")).toBeVisible();
+  });
+
   test("marks an unread notification as read", async ({ page }) => {
     const api = await installMockApi(page, "Student");
     await page.goto("/student/notifications");

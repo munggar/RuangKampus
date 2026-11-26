@@ -129,6 +129,12 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 .reservation-card > span:not(.status-badge) { color: var(--text-secondary); font-size: 12px; }
 .reservation-card__meta { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
 .reservation-card__meta span { display: inline-flex; align-items: center; gap: 6px; }
+.reservation-card__meta .reservation-card__countdown { align-items: center; gap: 7px; color: var(--brand-primary); }
+.reservation-card__countdown-copy { display: flex; flex-direction: column; gap: 2px; }
+.reservation-card__countdown-copy small { color: var(--text-muted); font-size: 10px; line-height: 1.2; }
+.reservation-card__countdown-copy strong { color: var(--brand-primary); font-size: 12px; font-weight: 760; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.reservation-card__countdown--urgent,
+.reservation-card__countdown--urgent .reservation-card__countdown-copy strong { color: var(--status-warning) !important; }
 .reservation-card p { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; }
 .status-badge { display: inline-flex; width: fit-content; min-height: 25px; align-items: center; justify-content: center; padding: 3px 10px; border-radius: 99px; color: var(--text-secondary); background: var(--surface-muted); font-size: 10px; font-weight: 720; white-space: nowrap; }
 .status-badge--pending { color: var(--status-warning); background: var(--status-warning-surface); }
