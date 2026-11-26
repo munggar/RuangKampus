@@ -12,9 +12,9 @@ from ruangkampus.config import Settings
 
 logger = logging.getLogger(__name__)
 
-_EMAIL_PATTERN = re.compile(r"\\b[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}\\b")
-_PHONE_PATTERN = re.compile(r"(?<!\\w)(?:\\+?62|0)[\\d\\s().-]{7,}\\d(?!\\w)")
-_LONG_NUMBER_PATTERN = re.compile(r"(?<!\\w)\\d{8,}(?!\\w)")
+_EMAIL_PATTERN = re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b")
+_PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+?62|0)[\d\s().-]{7,}\d(?!\w)")
+_LONG_NUMBER_PATTERN = re.compile(r"(?<!\w)\d{8,}(?!\w)")
 _PUBLIC_ROOM_FIELDS = (
     "room_name",
     "room_code",
@@ -100,8 +100,8 @@ def generate_grounded_assistant_message(
     if not endpoint or not model:
         return None
 
-    # Do not send private reservation data or use generation for personal account intents.
-    if intent in {"MY_RESERVATIONS", "RESERVATION_STATUS", "RESERVATION_CREATE_PREVIEW", "RESERVATION_CANCEL_PREVIEW"}:
+    # Keep generation focused on room discovery; private and conversational intents stay deterministic.
+    if intent not in {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"}:
         return None
 
     evidence = {
