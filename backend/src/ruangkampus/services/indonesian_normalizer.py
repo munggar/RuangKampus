@@ -74,6 +74,7 @@ PARSER_STOP_WORDS = frozenset({
     "bro", "kak", "dong", "nih", "wkwk", "hehe", "ber", "cara", "jam",
     "pukul", "sampai", "hingga", "berapa", "kapan", "siapa", "apa", "mana",
     "pagi", "siang", "sore", "malam", "perlu", "mohon", "selamat", "informasi",
+    "tetapi", "melainkan", "namun",
 })
 
 COMMON_TOKENS = PARSER_STOP_WORDS | frozenset({
