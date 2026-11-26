@@ -338,7 +338,7 @@ def test_bulk_room_status_is_atomic_when_any_room_has_future_reservation(
 
 
 def test_student_cannot_bulk_update_rooms_and_duplicate_ids_are_rejected(
-    client, auth_headers, admin, create_room
+    client, auth_headers, student, admin, create_room
 ):
     room = create_room()
     payload = {"room_ids": [room["id"]], "room_status": "INACTIVE"}
