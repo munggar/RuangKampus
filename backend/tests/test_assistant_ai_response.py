@@ -33,7 +33,7 @@ def provider_response(content: str):
     return {"choices": [{"message": {"content": content}}]}
 
 
-def test_raka_generates_only_from_grounded_room_facts_and_redacts_identifiers(monkeypatch):
+def test_rukka_generates_only_from_grounded_room_facts_and_redacts_identifiers(monkeypatch):
     captured = {}
 
     def fake_post(url, **kwargs):
@@ -89,7 +89,37 @@ def test_raka_generates_only_from_grounded_room_facts_and_redacts_identifiers(mo
     assert captured["body"]["response_format"] == {"type": "json_object"}
 
 
-def test_raka_never_sends_private_reservation_intents_to_provider(monkeypatch):
+def test_rukka_handles_smalltalk_with_short_whatsapp_style_reply(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["body"] = kwargs["json"]
+        return FakeResponse(provider_response(json.dumps({
+            "message": "Woy juga 😄 Lagi butuh bantuan apa nih?"
+        })))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Woy",
+        intent="SMALLTALK",
+        deterministic_message="Wkwk, aku asisten virtual RuangKampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer == "Woy juga 😄 Lagi butuh bantuan apa nih?"
+    request = captured["body"]
+    assert request["max_tokens"] == 120
+    assert len(request["messages"][0]["content"]) > 0
+    assert "RUKKA AI" in request["messages"][0]["content"]
+    assert "WhatsApp" in request["messages"][0]["content"]
+
+
+def test_rukka_never_sends_private_reservation_intents_to_provider(monkeypatch):
     def fail_post(*args, **kwargs):
         raise AssertionError("private reservation intents must not reach the provider")
 
@@ -108,7 +138,7 @@ def test_raka_never_sends_private_reservation_intents_to_provider(monkeypatch):
     assert answer is None
 
 
-def test_raka_falls_back_when_provider_times_out(monkeypatch):
+def test_rukka_falls_back_when_provider_times_out(monkeypatch):
     def timeout(*args, **kwargs):
         raise httpx.TimeoutException("provider timeout")
 
@@ -127,7 +157,7 @@ def test_raka_falls_back_when_provider_times_out(monkeypatch):
     assert answer is None
 
 
-def test_raka_does_not_call_provider_when_disabled(monkeypatch):
+def test_rukka_does_not_call_provider_when_disabled(monkeypatch):
     def fail_post(*args, **kwargs):
         raise AssertionError("disabled provider must not be called")
 
