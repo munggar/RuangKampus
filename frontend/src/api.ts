@@ -26,7 +26,17 @@ export function buildApiUrl(path: string) {
   return API_BASE_URL + "/" + path.replace(/^\/+/, "");
 }
 
-export function apiAssetUrl(path: string): string { return /^https?:\/\//i.test(path) ? path : API_ORIGIN + "/" + path.replace(/^\/+/, ""); }
+export function apiAssetUrl(path: string): string {
+  const value = path.trim();
+  if (/^https?:\\/\\//i.test(value)) return value;
+  const normalizedPath = "/" + value.replace(/^\\/+/, "");
+  if (!API_ORIGIN) return normalizedPath;
+  try {
+    return new URL(normalizedPath, API_ORIGIN + "/").toString();
+  } catch {
+    return API_ORIGIN + normalizedPath;
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -151,6 +161,13 @@ export const roomApi = {
   update: (id: string, payload: Partial<Room>) =>
     apiRequest<Room>("/rooms/" + encodeURIComponent(id), { method: "PATCH", body: payload }),
   remove: (id: string) => apiRequest<unknown>("/rooms/" + encodeURIComponent(id), { method: "DELETE" }),
+  bulkUpdateOperatingHours: (
+    roomIds: string[],
+    operatingHours: Record<string, Array<{ start: string; end: string }>>,
+  ) => apiRequest<{ updated_count: number; unchanged_count: number; rooms: Room[] }>("/rooms/bulk-operating-hours", {
+    method: "PATCH",
+    body: { room_ids: roomIds, operating_hours: operatingHours },
+  }),
   bulkUpdateStatus: (roomIds: string[], roomStatus: RoomStatus) =>
     apiRequest<{ updated_count: number; unchanged_count: number; rooms: Room[] }>("/rooms/bulk-status", {
       method: "PATCH",
