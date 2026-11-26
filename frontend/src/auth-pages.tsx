@@ -68,7 +68,7 @@ export function LoginPage() {
               <button type="button" className="field-action" onClick={() => setVisible(!visible)} aria-label={visible ? "Sembunyikan password" : "Tampilkan password"}>{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button>
             </span>
           </Field>
-          <div className="form-between"><label className="checkbox-line"><input type="checkbox" disabled />Ingat saya</label><Link to="/forgot-password">Lupa password?</Link></div>
+          <div className="form-between"><Link to="/forgot-password">Lupa password?</Link></div>
           {error ? <Notice tone="error">{error}</Notice> : null}
           <Button type="submit" disabled={submitting} className="button--wide">{submitting ? "Memeriksa…" : <>Masuk ke RuangKampus <ArrowRight size={17} /></>}</Button>
         </form>

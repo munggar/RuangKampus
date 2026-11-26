@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowRight, Bot, Building2, CalendarDays, CheckCircle2, Clock3,
   MessageCircle, Search, Send, Sparkles, Users, WandSparkles,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import {
-  availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
+  apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
 } from "./api";
 import type {
   AlternativeSlot, AlternativeSlotsResult, AppRole, AssistantChatResult,
@@ -19,9 +19,19 @@ function makeAvailabilityParams(date: string, start: string, end: string, partic
     date, startTime: start, endTime: end, participantCount: String(Number(participants)),
   });
 }
-function roomBookingPath(roomId: string, date: string, start: string, end: string) {
-  return "/student/rooms/" + encodeURIComponent(roomId) + "/book?date=" + encodeURIComponent(date)
-    + "&startTime=" + encodeURIComponent(start) + "&endTime=" + encodeURIComponent(end);
+function roomBookingPath(roomId: string, date: string, start: string, end: string, participants = "1") {
+  const params = makeAvailabilityParams(date, start, end, participants);
+  return "/student/rooms/" + encodeURIComponent(roomId) + "/book?" + params.toString();
+}
+function roomDetailPath(roomId: string, date: string, start: string, end: string, participants: string) {
+  const params = makeAvailabilityParams(date, start, end, participants);
+  return "/student/rooms/" + encodeURIComponent(roomId) + "?" + params.toString();
+}
+function AvailabilityRoomPhoto({ room }: { room: Room }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [room.photo_url]);
+  if (!room.photo_url || failed) return <span className="room-card__placeholder"><Building2 size={34} aria-hidden="true" /></span>;
+  return <img src={apiAssetUrl(room.photo_url)} alt={"Foto " + room.room_name} loading="lazy" decoding="async" onError={() => setFailed(true)} />;
 }
 function roomLocation(room: Room) {
   return [room.faculty, room.building, room.floor ? "Lantai " + room.floor : null, room.location_description]
@@ -42,7 +52,7 @@ function AlternativeCard({ slot }: { slot: AlternativeSlot }) {
     </div>
     <div className="chip-list">{slot.room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
     <div className="chip-list">{slot.match_reasons.map((reason) => <span key={reason}>{reason.replaceAll("_", " ").toLowerCase()}</span>)}</div>
-    <Link className="button button--primary button--wide" to={roomBookingPath(slot.room.id, slot.date, slot.start_time, slot.end_time)}>
+    <Link className="button button--primary button--wide" to={roomBookingPath(slot.room.id, slot.date, slot.start_time, slot.end_time, String(slot.participant_count))}>
       Pilih slot ini <ArrowRight size={16} />
     </Link>
   </article>;
@@ -63,6 +73,9 @@ export function StudentRoomAvailabilityPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [request, setRequest] = useState<{ filters: URLSearchParams; timeParams: URLSearchParams; date: string; start: string; end: string; participants: string } | null>(null);
 
   async function searchAvailability(event: FormEvent) {
     event.preventDefault();
@@ -71,8 +84,7 @@ export function StudentRoomAvailabilityPage() {
       setError("Periksa kembali tanggal, jam, dan jumlah peserta. Jam selesai harus setelah jam mulai.");
       return;
     }
-    setLoading(true);
-    const filters = new URLSearchParams({ page: "1", limit: "30", sortBy: "room_name", sortOrder: "asc", status: "ACTIVE" });
+    const filters = new URLSearchParams({ limit: "30", sortBy: "room_name", sortOrder: "asc", status: "ACTIVE" });
     if (faculty.trim()) filters.set("faculty", faculty.trim());
     if (building.trim()) filters.set("building", building.trim());
     if (location.trim()) filters.set("location", location.trim());
@@ -80,22 +92,37 @@ export function StudentRoomAvailabilityPage() {
     if (facility.trim()) filters.append("facilities", facility.trim());
     const timeParams = new URLSearchParams(filters);
     makeAvailabilityParams(date, start, end, participants).forEach((value, key) => timeParams.set(key, value));
-    try {
-      const result = await roomApi.list(timeParams);
+    setPage(1);
+    setRequest({ filters, timeParams, date, start, end, participants });
+  }
+
+  useEffect(() => {
+    if (!request) return;
+    let active = true;
+    setLoading(true); setError(""); setAvailable([]); setBlocked([]);
+    const query = new URLSearchParams(request.timeParams);
+    query.set("page", String(page));
+    roomApi.list(query).then(async (result) => {
+      if (!active) return;
       setAvailable(result.items);
-      if (!result.items.length) {
-        const candidates = await roomApi.list(filters);
+      setTotalPages(result.meta?.total_pages || 1);
+      if (!result.items.length && page === 1) {
+        const candidateParams = new URLSearchParams(request.filters);
+        candidateParams.set("page", "1");
+        const candidates = await roomApi.list(candidateParams);
         const checks = await Promise.allSettled(candidates.items.slice(0, 15).map(async (room) => ({
-          room, result: await roomApi.availability(room.id, makeAvailabilityParams(date, start, end, participants)),
+          room, result: await roomApi.availability(room.id, makeAvailabilityParams(request.date, request.start, request.end, request.participants)),
         })));
+        if (!active) return;
         setBlocked(checks.filter((item): item is PromiseFulfilledResult<{ room: Room; result: AvailabilityResult }> => item.status === "fulfilled")
           .map((item) => item.value).filter((item) => !item.result.available));
       }
-      setSearched(true);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Ketersediaan ruangan belum dapat diperiksa.");
-    } finally { setLoading(false); }
-  }
+      if (active) setSearched(true);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Ketersediaan ruangan belum dapat diperiksa.");
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [request, page]);
 
   const alternativeQuery = "/student/alternatives?date=" + encodeURIComponent(date)
     + "&durationMinutes=" + Math.max(15, Math.round((new Date("1970-01-01T" + end).getTime() - new Date("1970-01-01T" + start).getTime()) / 60000))
@@ -132,16 +159,21 @@ export function StudentRoomAvailabilityPage() {
     {searched && available.length ? <PageSection title={available.length + " ruangan tersedia"} action={<span className="muted small">{formatDate(date)} · {start}–{end} WIB</span>}>
       <div className="room-grid">
         {available.map((room) => <article className="room-card availability-result-card" key={room.id}>
-          <div className="room-card__media">{room.photo_url ? <img src={room.photo_url} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}</div>
+          <div className="room-card__media"><AvailabilityRoomPhoto room={room} /></div>
           <div className="room-card__body">
             <div className="room-card__top"><span className="status-badge status-badge--active">Tersedia</span><span><Users size={14} />{room.capacity} orang</span></div>
-            <Link className="room-card__title" to={"/student/rooms/" + room.id}>{room.room_name}</Link>
+            <Link className="room-card__title" to={roomDetailPath(room.id, date, start, end, participants)}>{room.room_name}</Link>
             <p>{roomLocation(room) || room.building}</p>
             <div className="chip-list">{room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
-            <Link className="button button--primary button--wide" to={roomBookingPath(room.id, date, start, end)}>Pilih ruangan</Link>
+            <Link className="button button--primary button--wide" to={roomBookingPath(room.id, date, start, end, participants)}>Pilih ruangan</Link>
           </div>
         </article>)}
       </div>
+      {totalPages > 1 ? <div className="form-actions availability-pagination">
+        <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+        <span className="muted">Halaman {page} dari {totalPages}</span>
+        <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+      </div> : null}
       <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat TU menyetujui.</Notice>
     </PageSection> : null}
     {searched && !available.length ? <section className="panel stack-form">
