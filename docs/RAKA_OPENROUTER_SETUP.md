@@ -29,7 +29,7 @@ ASSISTANT_AI_ENABLED=true
 ASSISTANT_AI_ENDPOINT_URL=https://openrouter.ai/api/v1/chat/completions
 ASSISTANT_AI_MODEL=google/gemma-4-26b-a4b-it:free
 ASSISTANT_AI_API_KEY=sk-or-v1-ISI_SECRET_MU_DI_SINI
-ASSISTANT_AI_TIMEOUT_SECONDS=6
+ASSISTANT_AI_TIMEOUT_SECONDS=8
 ```
 
 Pastikan file `.env` tetap di-ignore Git. Jangan pernah menaruh key ke file `.env.example`, kode Python, React, atau variabel frontend yang diawali `VITE_`.
@@ -58,7 +58,7 @@ API key harus dipasang pada **service backend/API**, bukan service frontend.
 | `ASSISTANT_AI_ENDPOINT_URL` | `https://openrouter.ai/api/v1/chat/completions` |
 | `ASSISTANT_AI_MODEL` | `google/gemma-4-26b-a4b-it:free` |
 | `ASSISTANT_AI_API_KEY` | API key rahasia dari OpenRouter |
-| `ASSISTANT_AI_TIMEOUT_SECONDS` | `6` |
+| `ASSISTANT_AI_TIMEOUT_SECONDS` | `8` |
 
 5. Simpan variable. Tunggu Railway menyelesaikan deploy/restart service API.
 6. Pastikan frontend tidak memiliki API key dan tidak memanggil OpenRouter secara langsung.

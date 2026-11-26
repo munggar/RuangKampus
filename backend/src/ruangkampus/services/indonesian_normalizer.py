@@ -38,6 +38,14 @@ SLANG_DICTIONARY: dict[str, str] = {
     "dipake": "digunakan",
     "pake": "pakai",
     "dongg": "dong",
+    "lu": "kamu",
+    "lau": "kamu",
+    "lo": "kamu",
+    "elu": "kamu",
+    "elo": "kamu",
+    "gue": "aku",
+    "gua": "aku",
+    "sokap": "siapa",
 }
 
 # Only the requested, high-certainty spelling corrections are hard-coded.
@@ -94,7 +102,7 @@ COMMON_TOKENS = PARSER_STOP_WORDS | frozenset({
 
 _TOKEN_PATTERN = re.compile(
     r"20\d{2}-\d{2}-\d{2}"
-    r"|(?:[01]?\d|2[0-3])[:.][0-5]\d(?:\s*(?:-|sampai|hingga|to)\s*(?:[01]?\d|2[0-3])[:.][0-5]\d)?"
+    r"|(?:[01]?\d|2[0-3])[:.][0-5]\d(?:\s*(?:-|–|—|s/d|sd|sampai|hingga|to)\s*(?:[01]?\d|2[0-3])[:.][0-5]\d)?"
     r"|[A-Za-z0-9]+(?:[-._/][A-Za-z0-9]+)+"
     r"|[^\W\d_]+"
     r"|\d+",

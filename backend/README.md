@@ -117,7 +117,7 @@ ASSISTANT_AI_ENABLED=true
 ASSISTANT_AI_ENDPOINT_URL=https://openrouter.ai/api/v1/chat/completions
 ASSISTANT_AI_MODEL=google/gemma-4-26b-a4b-it:free
 ASSISTANT_AI_API_KEY=sk-or-v1-REPLACE_WITH_YOUR_SECRET
-ASSISTANT_AI_TIMEOUT_SECONDS=6
+ASSISTANT_AI_TIMEOUT_SECONDS=8
 ```
 
 Create the key from [OpenRouter Keys](https://openrouter.ai/keys). Treat it like a password: never commit it, put it in frontend/`VITE_*` variables, or expose it to the browser. The detailed click-by-click setup, rate-limit notes, and smoke test are in [RUKKA AI OpenRouter Setup](../docs/RAKA_OPENROUTER_SETUP.md).

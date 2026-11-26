@@ -362,6 +362,48 @@ def test_assistant_normalizes_student_slang_before_existing_room_search(
     assert room["id"] in {item["id"] for item in data["rooms"]}
 
 
+def test_assistant_parses_indonesian_month_date_and_en_dash_time_range(
+    client, auth_headers, student, admin, room_payload
+):
+    create_located_room(client, auth_headers, room_payload)
+    raw_message = (
+        "Cek ruangan yang benar-benar kosong tanggal 27 November 2026, "
+        "pukul 10.00–12.00, untuk 20 orang di FTII. Wajib ada proyektor."
+    )
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": raw_message},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["slots"]["date"] == "2026-11-27"
+    assert data["slots"]["start_time"] == "10:00:00"
+    assert data["slots"]["end_time"] == "12:00:00"
+    assert data["slots"]["min_capacity"] == 20
+    assert data["slots"]["faculty"] == "FTII"
+    assert data["requires_clarification"] is False
+    assert not {"date", "start_time", "end_time"}.intersection(data["missing_fields"])
+
+
+def test_assistant_recognizes_casual_lu_siapa_question(
+    client, auth_headers, student
+):
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "lau sokap der"},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["intent"] == "SMALLTALK"
+    assert data["normalization"]["normalized_text"] == "kamu siapa der"
+    assert data["assistant_name"] == "RUKKA AI"
+
+
 def test_negated_facility_is_not_interpreted_as_a_positive_room_filter(
     client, auth_headers, student, admin, room_payload
 ):
