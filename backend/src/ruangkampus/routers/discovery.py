@@ -565,12 +565,27 @@ def room_assistant_chat(
             filters["facilities"], filters["date"], filters["start_time"],
             filters["end_time"],
         ))
-        detection = detect_assistant_intent(
-            normalization.normalized_text,
-            catalog,
-            has_structured_room_filters=has_structured_filters,
-            has_complete_availability_window=has_complete_availability_window,
-        )
+        if ai_fallback_used:
+            missing_ai_window = (
+                detection.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+                and not has_complete_availability_window
+            )
+            detection = IntentDetection(
+                intent=detection.intent,
+                matched_rule="AI_INTENT_FALLBACK",
+                requires_clarification=missing_ai_window,
+                clarification_message=(
+                    "Untuk memeriksa ketersediaan, sebutkan tanggal, jam mulai, dan jam selesai."
+                    if missing_ai_window else None
+                ),
+            )
+        else:
+            detection = detect_assistant_intent(
+                normalization.normalized_text,
+                catalog,
+                has_structured_room_filters=has_structured_filters,
+                has_complete_availability_window=has_complete_availability_window,
+            )
 
     confidence = evaluate_rule_confidence(
         detection,
