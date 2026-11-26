@@ -21,6 +21,7 @@ button:disabled { opacity:.58; cursor:not-allowed; }
 .nav-link__icon { width:22px; }
 .nav-link--ai .nav-link__icon { color:var(--brand-red); }
 .sidebar-footer { padding:14px 10px 0; border-top:1px solid var(--border-default); color:var(--text-secondary); font-size:11px; }
+.sidebar-footer > span:last-child { color:var(--text-secondary); opacity:1; }
 .online-dot { width:7px; height:7px; }
 .app-main { margin-left:260px; }
 .topbar { min-height:70px; padding:10px 34px; border-bottom:1px solid var(--border-default); background:var(--surface-navigation); backdrop-filter:none; -webkit-backdrop-filter:none; }
