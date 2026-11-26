@@ -1,9 +1,10 @@
 from datetime import date, datetime
+from math import ceil
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ruangkampus.config import get_settings
@@ -22,14 +23,39 @@ def _overlap(start_a, end_a, start_b, end_b) -> bool:
 
 
 @router.get("/schedules")
-def list_schedules(room_id: UUID | None = None, schedule_date: date | None = Query(default=None, alias="date"), db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+def list_schedules(
+    room_id: UUID | None = None,
+    schedule_date: date | None = Query(default=None, alias="date"),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
     stmt = select(LectureSchedule)
     if room_id:
         stmt = stmt.where(LectureSchedule.room_id == room_id)
     if schedule_date:
-        stmt = stmt.where((LectureSchedule.schedule_date == schedule_date) | (LectureSchedule.day_of_week == schedule_date.weekday()))
-    schedules = db.scalars(stmt.order_by(LectureSchedule.last_updated_at.desc())).all()
-    return success([ScheduleOut.model_validate(item).model_dump(mode="json") for item in schedules], "Schedules retrieved")
+        stmt = stmt.where(
+            (LectureSchedule.schedule_date == schedule_date)
+            | (LectureSchedule.day_of_week == schedule_date.weekday())
+        )
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    schedules = db.scalars(
+        stmt.order_by(LectureSchedule.last_updated_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    ).all()
+    meta = {
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": ceil(total / limit) if total else 0,
+    }
+    return success(
+        [ScheduleOut.model_validate(item).model_dump(mode="json") for item in schedules],
+        "Schedules retrieved",
+        meta,
+    )
 
 
 @router.post("/schedules", status_code=201)
