@@ -48,7 +48,8 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(async () => {
           const cachedPage = await caches.match(request);
-          return cachedPage || caches.match("/index.html");
+          if (cachedPage) return cachedPage;
+          return (await caches.match("/index.html")) || Response.error();
         }),
     );
     return;
