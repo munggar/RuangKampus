@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  ApiError, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
+  ApiError, apiAssetUrl, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
 } from "./api";
 import { useAuth } from "./auth";
@@ -165,7 +165,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
           <Link className="room-card__media" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
-            {room.photo_url ? <img src={room.photo_url} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}
+            {room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}
           </Link>
           <div className="room-card__body">
             <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang</span></div>
