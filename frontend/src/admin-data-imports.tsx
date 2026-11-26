@@ -79,7 +79,7 @@ export function AdminDataImportsPage() {
     <PageTitle
       eyebrow="CAMPUS MASTER DATA"
       title="Impor data kampus"
-      description="Impor data inventaris ruangan dari workbook Excel resmi, periksa hasilnya, lalu simpan melalui akun TU/Admin."
+      description="Impor data inventaris ruangan dari workbook Excel resmi, periksa hasilnya, lalu simpan melalui akun Staff Sekretariat."
       action={<div className="data-import-page-actions"><Link className="button button--secondary" to="/admin/rooms"><Building2 size={16} />Kelola ruangan</Link><Link className="button button--secondary" to="/admin/schedules"><CalendarDays size={16} />Jadwal & pemeliharaan</Link></div>}
     />
 

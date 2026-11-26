@@ -58,7 +58,7 @@ class UserOut(BaseOut):
     @field_validator("role", mode="before")
     @classmethod
     def map_internal_role_to_client_label(cls, value):
-        mapping = {"STUDENT": "Student", "TU_ADMIN": "TU/Admin"}
+        mapping = {"STUDENT": "Student", "TU_ADMIN": "Staff Sekretariat"}
         if value in mapping:
             return mapping[value]
         if value in mapping.values():
