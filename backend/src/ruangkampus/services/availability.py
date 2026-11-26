@@ -85,8 +85,28 @@ def check_room_availability(
     if exclude_reservation_id is not None:
         reservation_stmt = reservation_stmt.where(Reservation.id != exclude_reservation_id)
     reservations = db.scalars(reservation_stmt).all()
-    if any(_overlaps(start_time, end_time, item.start_time, item.end_time) for item in reservations):
+    campus_timezone = ZoneInfo(get_settings().campus_timezone)
+    campus_now = datetime.now(campus_timezone)
+    requested_start_at = datetime.combine(requested_date, start_time, tzinfo=campus_timezone)
+    reservation_conflict = False
+    occupancy_unconfirmed = False
+    for item in reservations:
+        if _overlaps(start_time, end_time, item.start_time, item.end_time):
+            reservation_conflict = True
+            break
+        # A reservation that has passed its end time remains a conservative
+        # room-occupancy block until an administrator confirms the room is vacant.
+        # This prevents an adjacent booking from being approved while the prior
+        # student may still be using the room.
+        if item.status == "APPROVED" and requested_date == campus_now.date():
+            reserved_end_at = datetime.combine(item.reservation_date, item.end_time, tzinfo=campus_timezone)
+            if campus_now >= reserved_end_at and requested_start_at >= reserved_end_at:
+                occupancy_unconfirmed = True
+                break
+    if reservation_conflict:
         reasons.append("RESERVATION_CONFLICT")
+    elif occupancy_unconfirmed:
+        reasons.append("ROOM_OCCUPANCY_NOT_CONFIRMED")
 
     return AvailabilityResult(available=not reasons, reasons=reasons)
 
