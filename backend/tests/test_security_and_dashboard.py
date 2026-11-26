@@ -83,11 +83,16 @@ def test_student_cannot_see_another_students_reservation(client, auth_headers, s
     }, headers=auth_headers())
     reservation_id = created.json()["data"]["id"]
 
-    second_student = client.post("/api/v1/auth/register", json={
-        "name": "Another Student", "email": "other.student@example.com", "student_identifier": "2403045009", "password": "VeryStrongPass456!"
+    second_student = client.post("/api/v1/users", headers=auth_headers("admin.uhamka"), json={
+        "name": "Another Student", "email": "other.student@example.com",
+        "student_identifier": "2403045009", "password": "VeryStrongPass456!"
     })
-    assert second_student.status_code == 201
-    second_headers = {"Authorization": f"Bearer {second_student.json()['access_token']}"}
+    assert second_student.status_code == 201, second_student.text
+    second_login = client.post("/api/v1/auth/login", json={
+        "identifier": "2403045009", "password": "VeryStrongPass456!"
+    })
+    assert second_login.status_code == 200, second_login.text
+    second_headers = {"Authorization": f"Bearer {second_login.json()['access_token']}"}
     hidden = client.get(f"/api/v1/reservations/{reservation_id}", headers=second_headers)
     assert hidden.status_code == 404
     history = client.get("/api/v1/reservations", headers=second_headers)
