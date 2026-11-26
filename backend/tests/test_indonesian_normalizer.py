@@ -11,6 +11,14 @@ from ruangkampus.services.indonesian_normalizer import (
 
 NORMALIZATION_CASES = [
     ("gmn", "bagaimana"),
+    ("lu", "kamu"),
+    ("lau", "kamu"),
+    ("lo", "kamu"),
+    ("elu", "kamu"),
+    ("elo", "kamu"),
+    ("gue", "aku"),
+    ("gua", "aku"),
+    ("sokap", "siapa"),
     ("gimana", "bagaimana"),
     ("ga", "tidak"),
     ("gak", "tidak"),
@@ -349,3 +357,8 @@ def test_facility_alias_not_observed_in_catalog_is_not_promoted_to_canonical():
         "butuh proyektor",
         {"facilities": []},
     ) == []
+
+
+def test_casual_identity_question_normalizes_to_supported_smalltalk():
+    result = normalize_indonesian_message("lau sokap der")
+    assert result.normalized_text == "kamu siapa der"
