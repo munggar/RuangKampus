@@ -255,6 +255,7 @@ export function availabilityReasonLabel(reason: string): string {
     LECTURE_SCHEDULE_CONFLICT: "Terdapat jadwal perkuliahan pada waktu tersebut.",
     ROOM_UNAVAILABLE: "Ruangan memiliki jadwal pemeliharaan atau tidak tersedia.",
     RESERVATION_CONFLICT: "Terdapat permohonan reservasi lain pada waktu tersebut.",
+    ROOM_OCCUPANCY_NOT_CONFIRMED: "Ruangan masih terkunci oleh reservasi sebelumnya yang melewati jadwal dan belum dikonfirmasi selesai oleh admin.",
   };
   return labels[reason] || reason;
 }
