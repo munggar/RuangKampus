@@ -27,7 +27,11 @@ from ruangkampus.services.indonesian_normalizer import (
     find_positive_facility_filters,
     normalize_indonesian_message,
 )
-from ruangkampus.services.assistant_intent import IntentDetection, detect_assistant_intent
+from ruangkampus.services.assistant_intent import (
+    IntentDetection,
+    detect_assistant_intent,
+    is_room_operation_candidate,
+)
 from ruangkampus.services.assistant_ai_fallback import interpret_with_ai_fallback
 from ruangkampus.services.assistant_ai_response import generate_grounded_assistant_message
 from ruangkampus.services.assistant_confidence import evaluate_rule_confidence
@@ -171,9 +175,9 @@ def _availability_clarification(filters: dict) -> str:
     if missing == {"date"}:
         return "Jamnya sudah aku catat. Tanggal pemakaiannya kapan?"
     if missing == {"start_time"}:
-        return "Jam mulai sudah aku catat. Jam selesai berapa?"
+        return "Jam selesai sudah aku catat. Jam mulai berapa?"
     if missing == {"end_time"}:
-        return "Jam selesai sudah aku catat. Jam mulainya pukul berapa?"
+        return "Jam mulai sudah aku catat. Jam selesai berapa?"
     return "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
 
 
@@ -343,6 +347,21 @@ def _parse_message_filters(
         if time_match:
             start_time = time(int(time_match.group(1)), int(time_match.group(2)))
             end_time = time(int(time_match.group(3)), int(time_match.group(4)))
+        else:
+            single_time = re.search(
+                r"\b(?:jam|pukul)\s*(\d{1,2})(?:[:.]([0-5]\d))?\s*(pagi|siang|sore|malam)?\b",
+                message,
+            )
+            if single_time:
+                hour = int(single_time.group(1))
+                minute = int(single_time.group(2) or 0)
+                period = single_time.group(3)
+                if period in {"pagi", "malam"} and hour == 12:
+                    hour = 0
+                elif period in {"siang", "sore", "malam"} and hour < 12:
+                    hour += 12
+                if 0 <= hour <= 23:
+                    start_time = time(hour, minute)
 
     # An activity's purpose is not always a room-name/description filter.
     # Keep explicit types ("ruang rapat") searchable but ignore "buat rapat".
@@ -533,6 +552,7 @@ def _maybe_generate_ai_message(
     availability_checked: bool = False,
     db: Session | None = None,
     user_id: UUID | None = None,
+    context_messages: list[dict[str, str]] | None = None,
 ) -> tuple[str, bool]:
     settings = get_settings()
     adaptive_preferences = (
@@ -551,6 +571,7 @@ def _maybe_generate_ai_message(
         availability_checked=availability_checked,
         settings=settings,
         adaptive_preferences=adaptive_preferences,
+        context_messages=context_messages,
     )
     return (generated, True) if generated else (deterministic_message, False)
 
@@ -593,11 +614,14 @@ def _intent_only_response(
             availability_checked=availability_checked,
             db=db,
             user_id=user_id,
+            context_messages=[item.model_dump() for item in payload.context],
         )
     engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
         "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
+        if ai_response_used else
+        "Pesan saat ini dan maksimal sepuluh pesan terakhir dari tab percakapan dikirim ke penyedia AI yang dikonfigurasi; konteks ini tidak disimpan sebagai isi chat oleh backend. Identitas akun dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_response_used else
         "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
         "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
@@ -695,7 +719,7 @@ def room_assistant_chat(
         contextual_followup_used = True
 
     ai_fallback_used = False
-    if detection.intent == "OUT_OF_SCOPE":
+    if detection.intent == "OUT_OF_SCOPE" and is_room_operation_candidate(normalization.parser_text):
         interpretation = interpret_with_ai_fallback(payload.message, catalog, get_settings())
         if interpretation is not None:
             ai_fallback_used = True
@@ -1085,6 +1109,7 @@ def room_assistant_chat(
             availability_checked=has_complete_availability_window,
             db=db,
             user_id=user.id,
+            context_messages=[item.model_dump() for item in payload.context],
         )
     structured_response = AssistantChatResponseData(
         message=response_message,
