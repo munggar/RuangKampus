@@ -5,7 +5,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ruangkampus.models import AssistantConversation
@@ -76,6 +76,14 @@ def load_or_create_conversation(
     else:
         conversation.expires_at = now + timedelta(minutes=CONVERSATION_TTL_MINUTES)
         conversation.updated_at = now
+
+    # Opportunistically purge this user's expired rows; state retention is bounded by inactivity TTL.
+    db.execute(
+        delete(AssistantConversation).where(
+            AssistantConversation.user_id == user_id,
+            AssistantConversation.expires_at <= now,
+        )
+    )
     return conversation
 
 
