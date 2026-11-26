@@ -188,9 +188,9 @@ def _parse_time(value: str | time) -> time:
 def _parse_time_only_follow_up(message: str) -> time | None:
     """Parse a short time-only reply such as 'sampai jam 12 siang'."""
     match = re.fullmatch(
-        r"\\s*(?:(?:sampai|hingga|sd|s/d|jam|pukul)\\s*)?"
-        r"([01]?\\d|2[0-3])(?:[:.]([0-5]\\d))?\\s*"
-        r"(pagi|siang|sore|malam)?[.!?\\s]*",
+        r"\s*(?:(?:sampai|hingga|sd|s/d|jam|pukul)\s*)?"
+        r"([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*"
+        r"(pagi|siang|sore|malam)?[.!?\s]*",
         message.casefold(),
     )
     if not match:
@@ -203,7 +203,6 @@ def _parse_time_only_follow_up(message: str) -> time | None:
     elif period in {"siang", "sore", "malam"} and hour < 12:
         hour += 12
     return time(hour, minute) if 0 <= hour <= 23 else None
-
 
 def _apply_contextual_end_time_follow_up(filters: dict, conversation, message: str) -> bool:
     """Treat a short time-only reply as the missing end time for the prior room request."""
