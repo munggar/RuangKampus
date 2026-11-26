@@ -72,6 +72,7 @@ function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reserv
       ) : null}
       <Modal
         open={cancelOpen}
+        closeDisabled={busy}
         title="Batalkan reservasi?"
         description="Reservasi ini akan berubah menjadi Dibatalkan dan slot ruangan dapat digunakan kembali sesuai validasi sistem."
         onClose={() => { if (!busy) setCancelOpen(false); }}
@@ -501,7 +502,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
         {canCancel ? <Button variant="danger" onClick={() => setCancelOpen(true)} className="button--wide">Batalkan reservasi</Button> : null}
       </aside>
     </div>
-    <Modal open={cancelOpen} title="Batalkan reservasi?" description="Pembatalan akan diproses oleh layanan RuangKampus." onClose={() => setCancelOpen(false)}>
+    <Modal open={cancelOpen} title="Batalkan reservasi?" description="Pembatalan akan diproses oleh layanan RuangKampus." onClose={() => setCancelOpen(false)} closeDisabled={busy}>
       <Field label="Alasan pembatalan (opsional)"><textarea rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={2000} /></Field>
       <div className="modal-actions"><Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button><Button variant="danger" onClick={() => void cancel()} disabled={busy}>{busy ? "Memproses…" : "Ya, batalkan"}</Button></div>
     </Modal>
