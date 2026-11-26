@@ -1,6 +1,3 @@
-from math import ceil
-from uuid import UUID
-
 import logging
 from math import ceil
 from uuid import UUID
@@ -85,7 +82,7 @@ def retry_notification_email(notification_id: UUID, user: User = Depends(get_cur
         settings.public_app_url.rstrip("/") + notification.action_url
         if notification.action_url else settings.public_app_url.rstrip("/")
     )
-    plain_body = notification.message + (f"\\n\\nBuka RuangKampus: {action_url}" if notification.action_url else "")
+    plain_body = notification.message + (f"\n\nBuka RuangKampus: {action_url}" if notification.action_url else "")
     try:
         delivered = send_email(
             recipient.email,
