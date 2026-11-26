@@ -690,7 +690,7 @@ def test_ai_fallback_is_used_only_after_rule_engine_cannot_classify(
     assert data["confidence_basis"] == "AI_FALLBACK"
     assert data["requires_clarification"] is True
     assert data["rooms"] == []
-    assert "endpoint AI" in data["privacy"]
+    assert "penyedia AI" in data["privacy"]
 
 
 def test_ai_fallback_is_not_called_when_rule_engine_recognizes_smalltalk(
