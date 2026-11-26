@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from ruangkampus.config import get_settings
@@ -79,8 +79,14 @@ def check_room_availability(
 
     reservation_stmt = select(Reservation).where(
         Reservation.room_id == room.id,
-        Reservation.reservation_date == requested_date,
         Reservation.status.in_(["PENDING", "APPROVED"]),
+        or_(
+            Reservation.reservation_date == requested_date,
+            and_(
+                Reservation.status == "APPROVED",
+                Reservation.reservation_date < requested_date,
+            ),
+        ),
     )
     if exclude_reservation_id is not None:
         reservation_stmt = reservation_stmt.where(Reservation.id != exclude_reservation_id)
@@ -91,15 +97,19 @@ def check_room_availability(
     reservation_conflict = False
     occupancy_unconfirmed = False
     for item in reservations:
-        if _overlaps(start_time, end_time, item.start_time, item.end_time):
+        if item.reservation_date == requested_date and _overlaps(
+            start_time, end_time, item.start_time, item.end_time
+        ):
             reservation_conflict = True
             break
-        # A reservation that has passed its end time remains a conservative
-        # room-occupancy block until an administrator confirms the room is vacant.
-        # This prevents an adjacent booking from being approved while the prior
-        # student may still be using the room.
-        if item.status == "APPROVED" and requested_date == campus_now.date():
-            reserved_end_at = datetime.combine(item.reservation_date, item.end_time, tzinfo=campus_timezone)
+        # An approved reservation whose end time has passed remains a
+        # conservative occupancy block until an administrator confirms the
+        # room is vacant. Keep the hold across calendar days as well: a late
+        # student must not make the room appear free after midnight.
+        if item.status == "APPROVED":
+            reserved_end_at = datetime.combine(
+                item.reservation_date, item.end_time, tzinfo=campus_timezone
+            )
             if campus_now >= reserved_end_at and requested_start_at >= reserved_end_at:
                 occupancy_unconfirmed = True
                 break
