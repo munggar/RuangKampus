@@ -20,6 +20,8 @@ Set these variables on the `ruangkampus-api` service in the production environme
 | `BREVO_SENDER_EMAIL` | The exact verified sender email address |
 | `BREVO_SENDER_NAME` | `RuangKampus` |
 
+For compatibility with an existing Railway setup, the backend also accepts `BREVO_SENDER_MAIL`. Prefer renaming it to `BREVO_SENDER_EMAIL` when convenient; no sender address needs to be changed. The `EMAIL_BACKEND` value is normalized to lowercase, so `BREVO` also works.
+
 The existing `SMTP_TIMEOUT_SECONDS` value is also used as the Brevo HTTP request timeout. Do not set the Brevo key in `ruangkampus-web`; it belongs only in `ruangkampus-api`.
 
 After setting the variables, Railway redeploys the API. Production configuration validation refuses to start with `EMAIL_BACKEND=brevo` when the key or sender address is missing.
