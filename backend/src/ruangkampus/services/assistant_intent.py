@@ -93,7 +93,8 @@ SMALLTALK_THANKS = (
 FAQ_PHRASES = (
     "apa itu ruangkampus", "tentang ruangkampus", "fitur ruangkampus",
     "fitur apa", "apa saja yang bisa kamu bantu", "kamu bisa apa",
-    "apa yang bisa dibantu", "bantuan ruangkampus",
+    "apa yang bisa dibantu", "bantuan ruangkampus", "mode ai",
+    "aktifkan mode ai", "gunakan ai", "mode standar",
 )
 
 # These are explicit signs that a student wants explanation, analysis, or planning,
@@ -107,7 +108,9 @@ GENERAL_REASONING_PHRASES = (
     "ada 3 kelompok", "ada tiga kelompok", "apa saja yang perlu aku",
     "apa saja yang perlu saya", "buatkan rencana", "rencana acara",
     "apakah selalu", "apa dampak", "apa solusi", "menyelesaikan masalah",
-    "kenapa", "mengapa",
+    "kenapa", "mengapa", "jika seseorang meminta", "apa yang harus kamu katakan",
+    "apa yang seharusnya kamu lakukan", "ketika tidak memiliki data",
+    "jika tidak memiliki data", "tidak dapat mengakses database",
 )
 
 ROOM_OPERATION_PATTERN = re.compile(
@@ -240,12 +243,6 @@ def detect_assistant_intent(
             ),
         )
 
-    if _has_phrase(text, GENERAL_REASONING_PHRASES):
-        return IntentDetection(
-            intent="OUT_OF_SCOPE",
-            matched_rule="GENERAL_REASONING_REQUEST",
-        )
-
     if has_room and (
         _has_phrase(text, AVAILABILITY_TERMS)
         or has_complete_availability_window
@@ -276,6 +273,12 @@ def detect_assistant_intent(
         return IntentDetection(
             intent="ROOM_SEARCH",
             matched_rule="ROOM_SEARCH_VERB",
+        )
+
+    if _has_phrase(text, GENERAL_REASONING_PHRASES):
+        return IntentDetection(
+            intent="OUT_OF_SCOPE",
+            matched_rule="GENERAL_REASONING_REQUEST",
         )
 
     if has_structured_room_filters:
