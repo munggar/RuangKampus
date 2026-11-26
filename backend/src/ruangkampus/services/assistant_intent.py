@@ -111,12 +111,12 @@ GENERAL_REASONING_PHRASES = (
 )
 
 ROOM_OPERATION_PATTERN = re.compile(
-    r"\\b(?:cari(?:kan)?|nyari|temukan|cek|periksa|booking|reservasi|"
-    r"pinjam|meminjam|pesan|butuh|perlu|mau|ingin|alternatif|slot)\\b"
-    r".{0,100}\\b(?:ruang(?:an)?|rgn|room|jadwal|slot)\\b"
-    r"|\\b(?:ruang(?:an)?|rgn|room)\\b.{0,90}"
-    r"\\b(?:kosong|tersedia|available|kapasitas|fasilitas|proyektor|"
-    r"\\bac\\b|\\bwi-?fi\\b|jadwal|alternatif|booking|reservasi)\\b",
+    r"\b(?:cari(?:kan)?|nyari|temukan|cek|periksa|booking|reservasi|"
+    r"pinjam|meminjam|pesan|butuh|perlu|mau|ingin|alternatif|slot)\b"
+    r".{0,100}\b(?:ruang(?:an)?|rgn|room|jadwal|slot)\b"
+    r"|\b(?:ruang(?:an)?|rgn|room)\b.{0,90}"
+    r"\b(?:kosong|tersedia|available|kapasitas|fasilitas|proyektor|"
+    r"\bac\b|\bwi-?fi\b|jadwal|alternatif|booking|reservasi)\b",
     flags=re.IGNORECASE,
 )
 
