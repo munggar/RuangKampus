@@ -811,3 +811,26 @@ def test_ai_fallback_is_not_called_when_rule_engine_recognizes_smalltalk(
     assert data["intent"] == "SMALLTALK"
     assert data["engine"] == "RULE_BASED"
     assert data["confidence_basis"] == "RULE_HEURISTIC"
+
+
+def test_student_can_submit_explicit_rukka_feedback_and_negative_feedback_requires_reason(
+    client, auth_headers, student
+):
+    feedback = client.post(
+        "/api/v1/assistant/feedback",
+        json={
+            "intent": "SMALLTALK",
+            "rating": "NOT_HELPFUL",
+            "reason_code": "TOO_FORMAL",
+        },
+        headers=auth_headers(),
+    )
+    assert feedback.status_code == 200, feedback.text
+    assert feedback.json()["data"]["recorded"] is True
+
+    invalid = client.post(
+        "/api/v1/assistant/feedback",
+        json={"intent": "SMALLTALK", "rating": "NOT_HELPFUL"},
+        headers=auth_headers(),
+    )
+    assert invalid.status_code == 422
