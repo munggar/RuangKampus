@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ruangkampus.config import get_settings
 from ruangkampus.database import get_db
-from ruangkampus.dependencies import get_current_user, require_admin
+from ruangkampus.dependencies import get_current_user
 from ruangkampus.models import Notification, User, utcnow
 from ruangkampus.responses import success
 from ruangkampus.schemas import NotificationOut
@@ -57,7 +57,7 @@ def mark_read(notification_id: UUID, user: User = Depends(get_current_user), db:
 
 
 @router.post("/{notification_id}/retry-email")
-def retry_notification_email(notification_id: UUID, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+def retry_notification_email(notification_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     notification = db.scalar(
         select(Notification)
         .options(joinedload(Notification.recipient))
@@ -65,6 +65,8 @@ def retry_notification_email(notification_id: UUID, admin: User = Depends(requir
         .with_for_update()
     )
     if notification is None:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if user.role != "TU_ADMIN" and notification.recipient_id != user.id:
         raise HTTPException(status_code=404, detail="Notification not found")
     if notification.email_delivery_status != "FAILED":
         raise HTTPException(status_code=409, detail="Only failed email notifications can be retried")
