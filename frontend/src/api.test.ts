@@ -14,7 +14,7 @@ describe("frontend API display helpers", () => {
     expect(typeof authApi.register).toBe("function");
   });
   it("resolves imported relative room photo paths against the API origin", () => {
-    expect(apiAssetUrl("/media/rooms/room-photo.jpg")).toMatch(/\\/media\\/rooms\\/room-photo\\.jpg$/);
+    expect(apiAssetUrl("/media/rooms/room-photo.jpg")).toContain("/media/rooms/room-photo.jpg");
     expect(apiAssetUrl("https://cdn.example.com/room.jpg")).toBe("https://cdn.example.com/room.jpg");
   });
 
