@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  ApiError, apiAssetUrl, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
+  ApiError, apiAssetUrl, availabilityReasonLabel, dashboardApi, formatDate, formatDateTime, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
 } from "./api";
 import { useAuth } from "./auth";
