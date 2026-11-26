@@ -174,7 +174,7 @@ export function StudentRoomAvailabilityPage() {
         <span className="muted">Halaman {page} dari {totalPages}</span>
         <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
       </div> : null}
-      <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat TU menyetujui.</Notice>
+      <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat Staff Sekretariat menyetujui.</Notice>
     </PageSection> : null}
     {searched && !available.length ? <section className="panel stack-form">
       <EmptyState title="Belum ada ruangan yang tersedia" description="Tidak ditemukan ruang yang memenuhi kriteria pada waktu tersebut. Periksa penyebab bentrok atau cari jadwal alternatif." icon={<CalendarDays size={23} />} />
@@ -284,25 +284,6 @@ export function RoomAssistantPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
     } finally { setLoading(false); }
-  }
-
-  return <div className="page-stack">
-      <PageTitle eyebrow="SMART CAMPUS SUPPORT" title="AI Facility Assistant"
-        description="Pusat bantuan untuk alur persetujuan, pengelolaan fasilitas, dan informasi operasional ruangan." />
-      <section className="panel assistant-intro">
-        <span className="assistant-intro__icon"><Sparkles size={25} /></span>
-        <div><h2>Halo, Administrator!</h2><p className="muted">Pilih pekerjaan yang ingin dilakukan. Panel ini menyediakan akses cepat ke fitur administrasi.</p></div>
-      </section>
-      <section className="panel stack-form">
-        <h2>Apa yang ingin Anda lakukan?</h2>
-        <div className="assistant-prompts">
-          <Link className="assistant-prompt-link" to="/admin/reservations"><MessageCircle size={19} /><span><b>Tinjau permohonan reservasi</b><small>Periksa dan proses pengajuan mahasiswa</small></span><ArrowRight size={17} /></Link>
-          <Link className="assistant-prompt-link" to="/admin/rooms"><Building2 size={19} /><span><b>Kelola ruangan kampus</b><small>Perbarui fasilitas, kapasitas, dan lokasi</small></span><ArrowRight size={17} /></Link>
-          <Link className="assistant-prompt-link" to="/admin/schedules"><CalendarDays size={19} /><span><b>Jadwal dan pemeliharaan</b><small>Atur waktu operasional dan periode tidak tersedia</small></span><ArrowRight size={17} /></Link>
-        </div>
-      </section>
-      <Notice tone="info">Endpoint asisten percakapan pada backend saat ini hanya mengizinkan role Student. Karena itu, halaman TU menampilkan pintasan operasional dan tidak mengirim pesan ke endpoint yang belum mengizinkan Admin.</Notice>
-    </div>;
   }
 
   return <div className="page-stack">
