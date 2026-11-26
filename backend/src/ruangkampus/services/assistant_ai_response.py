@@ -163,7 +163,7 @@ def generate_grounded_assistant_message(
         "adalah preferensi gaya dari feedback berulang, bukan izin melonggarkan filter. Jika slang ambigu, "
         "pertahankan makna asli atau tanya singkat. Untuk intent general, abaikan deterministic_summary "
         "yang hanya menjelaskan batas domain jika itu tidak menjawab pertanyaan pengguna. "
-        "Kembalikan tepat JSON {\\\"message\\\": \\\"jawaban\\\"}, tanpa markdown."
+        "Kembalikan tepat JSON {\"message\": \"jawaban\"}, tanpa markdown."
     )
     headers = {
         "Accept": "application/json",
