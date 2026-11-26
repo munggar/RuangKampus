@@ -19,8 +19,7 @@ SLANG_DICTIONARY: dict[str, str] = {
     "nggak": "tidak",
     "enggak": "tidak",
     "engga": "tidak",
-    "lg": "sedang",
-    "lagi": "sedang",
+    "lg": "lagi",
     "yg": "yang",
     "dmn": "di mana",
     "dpt": "dapat",
@@ -51,7 +50,7 @@ TYPO_DICTIONARY: dict[str, str] = {
 }
 
 CONVERSATIONAL_FILLERS = frozenset({
-    "bro", "kak", "dong", "nih", "wkwk", "hehe", "tolong",
+    "bro", "kak", "dong", "nih", "wkwk", "hehe", "tolong", "halo", "hai", "hello", "hi", "permisi", "makasih", "terima", "kasih",
 })
 
 NEGATION_TOKENS = frozenset({
@@ -74,7 +73,7 @@ PARSER_STOP_WORDS = frozenset({
     "bro", "kak", "dong", "nih", "wkwk", "hehe", "ber", "cara", "jam",
     "pukul", "sampai", "hingga", "berapa", "kapan", "siapa", "apa", "mana",
     "pagi", "siang", "sore", "malam", "perlu", "mohon", "selamat", "informasi",
-    "tetapi", "melainkan", "namun",
+    "tetapi", "melainkan", "namun", "lagi",
 })
 
 COMMON_TOKENS = PARSER_STOP_WORDS | frozenset({
