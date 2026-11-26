@@ -192,22 +192,19 @@ def test_raw_message_and_parser_message_are_both_retained():
     }
 
 
-def test_negation_words_are_preserved_for_the_next_parser_stage():
+def test_negation_and_restriction_words_are_preserved_for_the_next_parser_stage():
     samples = (
-        "Saya tidak mau ruangan ber-AC.",
-        "Jangan cari ruangan yang menggunakan proyektor.",
-        "Bukan fakultas teknik, tetapi fakultas ekonomi.",
-        "Tidak perlu ruangan besar.",
-        "Saya tidak ingin melakukan reservasi.",
-        "Cari ruang dengan fasilitas wifi, bukan proyektor.",
+        ("Saya tidak mau ruangan ber-AC.", "tidak"),
+        ("Bukan fakultas teknik, tetapi fakultas ekonomi.", "bukan"),
+        ("Jangan cari ruangan yang menggunakan proyektor.", "jangan"),
+        ("Ruangan tanpa AC.", "tanpa"),
+        ("Pilih semua fasilitas kecuali proyektor.", "kecuali"),
+        ("Saya hanya membutuhkan wifi.", "hanya"),
     )
-    required = {"tidak", "bukan", "jangan", "tanpa", "kecuali", "hanya"}
 
-    for sample in samples:
+    for sample, required_token in samples:
         result = normalize_indonesian_message(sample)
-        assert required.intersection(result.normalized_tokens) or any(
-            word in result.normalized_tokens for word in ("tidak", "bukan", "jangan")
-        )
+        assert required_token in result.normalized_tokens
 
 
 def test_only_symbols_and_whitespace_are_cleaned_without_inventing_tokens():
@@ -315,3 +312,38 @@ def test_unknown_catalogue_facility_is_filtered_by_its_observed_label_without_ca
 
     assert find_positive_facility_filters("butuh CCTV", catalog) == ["CCTV"]
     assert find_positive_facility_filters("jangan gunakan CCTV", catalog) == []
+
+
+
+def test_hanya_is_a_positive_restriction_not_a_negative_facility_clause():
+    catalog = {
+        "facilities": [
+            {"canonical_name": "wifi", "source_values": ["WiFi"], "aliases": ["wifi", "internet"]}
+        ]
+    }
+
+    assert find_positive_facility_filters("saya hanya membutuhkan wifi", catalog) == ["wifi"]
+
+
+def test_air_conditioner_in_a_negated_phrase_is_not_a_positive_filter():
+    catalog = {
+        "facilities": [
+            {
+                "canonical_name": "air conditioner",
+                "source_values": ["AC"],
+                "aliases": ["ac", "air conditioner", "pendingin"],
+            }
+        ]
+    }
+
+    assert find_positive_facility_filters(
+        "saya tidak ingin ruangan yang ada AC",
+        catalog,
+    ) == []
+
+
+def test_facility_alias_not_observed_in_catalog_is_not_promoted_to_canonical():
+    assert find_positive_facility_filters(
+        "butuh proyektor",
+        {"facilities": []},
+    ) == []
