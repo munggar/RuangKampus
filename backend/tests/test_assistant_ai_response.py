@@ -236,3 +236,105 @@ def test_rukka_provider_timeout_has_safe_floor_for_slow_free_models(monkeypatch)
 
     assert answer == "Kita bisa membahas masalah ini dari beberapa sudut pandang."
     assert captured["timeout"] == 30.0
+
+
+
+def test_general_intent_accepts_plain_text_from_free_model_router(monkeypatch):
+    expected = (
+        "Sistem peminjaman yang adil perlu mempertimbangkan kebutuhan, "
+        "aksesibilitas, kapasitas, serta pemerataan kesempatan mahasiswa."
+    )
+
+    def fake_post(url, **kwargs):
+        return FakeResponse(provider_response(expected))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Menurutmu, bagaimana sistem peminjaman ruang yang adil?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku fokus membantu urusan ruangan kampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer == expected
+
+
+def test_general_intent_accepts_openai_text_content_blocks(monkeypatch):
+    expected = (
+        "Ada beberapa pertimbangan penting, mulai dari kapasitas, "
+        "aksesibilitas, kebutuhan kegiatan, sampai pemerataan jadwal."
+    )
+
+    def fake_post(url, **kwargs):
+        return FakeResponse({
+            "choices": [{
+                "message": {
+                    "content": [{"type": "text", "text": expected}]
+                },
+                "finish_reason": "stop",
+            }]
+        })
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Jelaskan pertimbangan sistem peminjaman yang adil.",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku fokus membantu urusan ruangan kampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer == expected
+
+
+def test_general_intent_accepts_fenced_json_message(monkeypatch):
+    expected = "Sistem yang adil perlu transparansi, akses setara, dan prioritas yang jelas."
+
+    def fake_post(url, **kwargs):
+        return FakeResponse(provider_response(f"```json\n{json.dumps({'message': expected})}\n```"))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Bagaimana sistem peminjaman yang adil?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku fokus membantu urusan ruangan kampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer == expected
+
+
+def test_room_intent_rejects_plain_text_without_verified_json_envelope(monkeypatch):
+    def fake_post(url, **kwargs):
+        return FakeResponse(provider_response(
+            "Ruang 301 tersedia dan dapat langsung kamu gunakan."
+        ))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Cari ruang 20 orang.",
+        intent="ROOM_SEARCH",
+        deterministic_message="Aku perlu memeriksa data ruangan terlebih dahulu.",
+        filters={"min_capacity": 20},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer is None
