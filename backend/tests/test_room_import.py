@@ -54,7 +54,7 @@ def test_room_import_commit_persists_rooms_and_photo(client, auth_headers, admin
     committed = client.post("/api/v1/admin/rooms/imports/commit", headers=headers, json={"batch_id": batch_id})
     assert committed.status_code == 200, committed.text
     assert committed.json()["data"]["inserted"] == 2
-    rooms = client.get("/api/v1/rooms?search=Laboratorium%20Komputer%20Dasar")
+    rooms = client.get("/api/v1/rooms?search=Laboratorium%20Komputer%20Dasar", headers=headers)
     assert rooms.status_code == 200
     room = rooms.json()["data"][0]
     assert room["capacity"] == 20
