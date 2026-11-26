@@ -9,6 +9,7 @@ from sqlalchemy import select
 from ruangkampus.config import Settings
 from ruangkampus.models import AssistantConversation
 from ruangkampus.services.assistant_intent import detect_assistant_intent
+from ruangkampus.services.assistant_response import compose_intent_response
 from ruangkampus.services.indonesian_normalizer import normalize_indonesian_message
 from ruangkampus.services.availability import campus_today
 
@@ -136,6 +137,11 @@ def test_explicit_room_tasks_keep_their_domain_intents():
 
 def test_ai_mode_question_is_routed_to_faq():
     assert detect_assistant_intent("Aktifkan mode AI").intent == "FAQ"
+
+
+def test_standard_faq_does_not_claim_chat_can_activate_ai_provider():
+    message = compose_intent_response("FAQ")
+    assert "tidak bisa diaktifkan hanya lewat chat" in message
 
 
 def test_general_reasoning_response_uses_context_and_variable_length(
