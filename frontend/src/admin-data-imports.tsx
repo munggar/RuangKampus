@@ -123,17 +123,17 @@ export function AdminDataImportsPage() {
               <article className="data-import-overview__card"><div><b>{batch.valid_count}</b><small>Valid</small></div></article>
               <article className="data-import-overview__card"><div><b>{batch.invalid_count}</b><small>Perlu diperbaiki</small></div></article>
             </div>
-            <div className="table-wrap"><table className="data-table"><thead><tr><th>Baris</th><th>Nama ruangan</th><th>Kapasitas estimasi</th><th>Foto</th><th>Status / catatan</th></tr></thead><tbody>
-              {batch.row_results.map((row) => <tr key={row.row_number}><td>{row.row_number}</td><td>{row.room_name}</td><td>{row.capacity_estimate || "—"}</td><td>{row.has_photo ? "Tersedia" : "Tidak ada"}</td><td>{row.status === "VALID" ? <span className="status-pill status-pill--success"><CheckCircle2 size={13} />Valid</span> : <span className="status-pill status-pill--danger">{row.errors.join(", ")}</span>}</td></tr>)}
+            <div className="table-wrap"><table className="data-table"><thead><tr><th>Baris</th><th>Nama ruangan</th><th>Lantai</th><th>Kapasitas estimasi</th><th>Foto</th><th>Status / catatan</th></tr></thead><tbody>
+              {batch.row_results.map((row) => <tr key={row.row_number}><td>{row.row_number}</td><td>{row.room_name}</td><td>{row.floor ? "Lantai " + row.floor : "Belum diketahui"}</td><td>{row.capacity_estimate || "—"}</td><td>{row.has_photo ? "Tersedia" : "Tidak ada"}</td><td>{row.status === "VALID" ? <span className="status-pill status-pill--success"><CheckCircle2 size={13} />Valid</span> : <span className="status-pill status-pill--danger">{row.errors.join(", ")}</span>}</td></tr>)}
             </tbody></table></div>
-            <Notice tone="warning">Kapasitas operasional akan menggunakan batas bawah dari rentang (misalnya 20–25 menjadi 20). Rentang aslinya tetap disimpan sebagai estimasi. Gedung/lantai tidak tersedia di workbook, sehingga tidak diisi dengan asumsi. Semua ruangan hasil impor dibuat nonaktif sampai Admin melengkapi lokasi dan mengaktifkannya.</Notice>
+            <Notice tone="warning">Kapasitas operasional akan menggunakan batas bawah dari rentang (misalnya 20–25 menjadi 20). Rentang aslinya tetap disimpan sebagai estimasi. Semua lab/laboratorium otomatis ditetapkan di lantai 2. Untuk ruangan lain, angka pertama pada nama ruangan menjadi nomor lantai. Gedung dan fakultas tetap perlu dilengkapi Admin; ruangan tetap nonaktif sampai lokasi lengkap.</Notice>
           </div>}
         </div>
 
         <aside className="data-import-guide"><div className="data-import-guide__header"><div><p className="eyebrow">PEMETAAN KOLOM</p><h3>Struktur workbook</h3></div><span>3 kolom</span></div>
           <div className="data-import-columns"><div className="data-import-column"><div><b>nomor ruangan</b><small>Nama ruang sesuai file</small></div><span className="data-import-required">Wajib</span></div><div className="data-import-column"><div><b>Kapasitas (estimasi)</b><small>Angka atau rentang, mis. 40–45</small></div><span className="data-import-required">Wajib</span></div><div className="data-import-column"><div><b>Fasilitas</b><small>Deskripsi fasilitas lengkap</small></div><span className="data-import-required">Wajib</span></div><div className="data-import-column"><div><b>Dokumentasi</b><small>Foto yang tertanam pada baris Excel</small></div><span className="data-import-optional">Opsional</span></div></div>
           <div className="data-import-example"><span>Aturan impor</span><b>Kapasitas konservatif</b><small>Nilai minimum menjadi kapasitas yang dipakai pada validasi pemesanan. Rentang perkiraan disimpan terpisah.</small></div>
-          <Notice tone="info"><Info size={15} />Kode internal dibuat otomatis dari nama. Gedung, fakultas, dan lantai tidak ditebak. Ruangan tetap nonaktif sampai lokasi dilengkapi Admin.</Notice>
+          <Notice tone="info"><Info size={15} />Kode internal dibuat otomatis dari nama. Lantai ditentukan dari nama: semua lab di lantai 2, sedangkan ruangan lain memakai angka pertama pada nama. Gedung dan fakultas tetap perlu dilengkapi Admin.</Notice>
         </aside>
       </div>}
     </section>
