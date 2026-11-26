@@ -137,8 +137,8 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
   test("approved reservation card starts its loan countdown at the scheduled start time", async ({ page }) => {
     const reservationDate = futureDate(2);
 
-    await page.clock.install({ time: new Date(reservationDate + "T09:59:58+07:00") });
     await installMockApi(page, "Student");
+    await page.clock.install({ time: new Date(reservationDate + "T09:59:58+07:00") });
     await page.goto("/student/reservations");
     await waitForPageReady(page);
 
@@ -192,7 +192,7 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     await waitForPageReady(page);
 
     await page.locator('input[autocomplete="current-password"]').fill("fixture-current");
-    await page.getByLabel("Password baru").fill("fixture-new-value");
+    await page.locator("#profile-new-password").fill("fixture-new-value");
     const confirmation = page.getByLabel("Konfirmasi password baru");
     await confirmation.fill("fixture-different-value");
 
