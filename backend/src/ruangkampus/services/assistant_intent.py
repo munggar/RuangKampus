@@ -81,7 +81,8 @@ CREATE_RESERVATION_PHRASES = (
     "buat booking", "submit reservasi",
 )
 SMALLTALK_GREETINGS = (
-    "halo", "hai", "hello", "hi", "assalamualaikum", "selamat pagi",
+    "halo", "hai", "hello", "hi", "hey", "hei", "woy", "woi", "oy",
+    "bro", "sis", "cuy", "min", "assalamualaikum", "selamat pagi",
     "selamat siang", "selamat sore", "selamat malam",
 )
 SMALLTALK_THANKS = (
