@@ -157,6 +157,17 @@ export const discoveryApi = {
     apiRequest<AssistantChatResult>("/assistant/chat", { method: "POST", body: payload }),
 };
 
+export const userApi = {
+  list: (params = new URLSearchParams()) => apiPage<AuthUser>("/users?" + params.toString()),
+  createStudent: (payload: { name: string; email: string; student_identifier: string; password: string; phone?: string }) =>
+    apiRequest<AuthUser>("/users", { method: "POST", body: payload }),
+  updateStatus: (id: string, account_status: "ACTIVE" | "DISABLED") =>
+    apiRequest<AuthUser>("/users/" + encodeURIComponent(id) + "/status", { method: "PATCH", body: { account_status } }),
+  updateRole: (id: string, role: "STUDENT" | "TU_ADMIN") =>
+    apiRequest<AuthUser>("/users/" + encodeURIComponent(id) + "/role", { method: "PATCH", body: { role } }),
+  remove: (id: string) => apiRequest<unknown>("/users/" + encodeURIComponent(id), { method: "DELETE" }),
+};
+
 export const reservationApi = {
   list: (params: URLSearchParams) => apiPage<Reservation>("/reservations?" + params.toString()),
   get: (id: string) => apiRequest<Reservation>("/reservations/" + encodeURIComponent(id)),
@@ -169,6 +180,7 @@ export const reservationApi = {
   reject: (id: string, rejection_reason: string) => apiRequest<Reservation>("/reservations/" + encodeURIComponent(id) + "/reject", {
     method: "PATCH", body: { rejection_reason },
   }),
+  complete: (id: string) => apiRequest<Reservation>("/reservations/" + encodeURIComponent(id) + "/complete", { method: "PATCH" }),
 };
 
 export const notificationApi = {
@@ -194,6 +206,29 @@ export const scheduleApi = {
   deactivateUnavailability: (id: string) => apiRequest<Pick<RoomUnavailability, "id" | "is_active">>("/admin/room-unavailability/" + encodeURIComponent(id) + "/deactivate", { method: "PATCH" }),
 };
 
+export interface ScheduleImportBatch {
+  batch_id: string;
+  status: string;
+  source_filename: string;
+  row_count: number;
+  valid_count: number;
+  invalid_count: number;
+  row_results: Array<{ row_number: number; status: string; errors?: string[]; room_code?: string; course_name?: string }>;
+  preview_rows?: Array<Record<string, unknown>>;
+  created_at: string;
+  completed_at: string | null;
+  inserted?: number;
+}
+export const scheduleImportApi = {
+  preview: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiRequest<ScheduleImportBatch>("/admin/schedules/imports/preview", { method: "POST", body: form });
+  },
+  commit: (batch_id: string) =>
+    apiRequest<ScheduleImportBatch>("/admin/schedules/imports/commit", { method: "POST", body: { batch_id } }),
+  list: (limit = 20) => apiRequest<ScheduleImportBatch[]>("/admin/schedules/imports?limit=" + limit),
+};
 export const adminApi = {
   activity: (params = new URLSearchParams()) => apiPage<Record<string, unknown>>("/admin/activity?" + params.toString()),
   roomStatistics: (params = new URLSearchParams()) => dashboardApi.roomStatistics(params),
@@ -224,6 +259,9 @@ export function availabilityReasonLabel(reason: string): string {
   const labels: Record<string, string> = {
     PAST_OR_CURRENT_START_TIME: "Waktu mulai harus berada di masa mendatang.",
     ROOM_NOT_ACTIVE: "Ruangan sedang tidak aktif.",
+    ROOM_INACTIVE: "Ruangan sedang tidak aktif.",
+    ROOM_IN_MAINTENANCE: "Ruangan sedang dalam pemeliharaan.",
+    ROOM_DELETED: "Ruangan sudah tidak tersedia.",
     CAPACITY_EXCEEDED: "Jumlah peserta melebihi kapasitas ruangan.",
     OUTSIDE_OPERATING_HOURS_OR_NOT_CONFIGURED: "Waktu di luar jam operasional atau jam operasional belum diatur.",
     LECTURE_SCHEDULE_CONFLICT: "Terdapat jadwal perkuliahan pada waktu tersebut.",
