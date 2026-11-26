@@ -7,11 +7,11 @@ Owns:
 - Backend source code and architecture.
 - Database schema, migrations, constraints, and data-access layer.
 - Authentication, sessions/tokens, and backend authorization.
-- Student and TU/Admin role enforcement.
+- Student and Staff Sekretariat role enforcement.
 - Room Management API and business rules.
 - Smart Availability Engine and conflict detection.
 - Reservation state machine and transactional approvals.
-- TU/Admin backend operations and audit history.
+- Staff Sekretariat backend operations and audit history.
 - In-app notifications and provider-backed email services.
 - Academic schedule import pipeline.
 - AI recommendation backend after core availability/reservation is stable.
