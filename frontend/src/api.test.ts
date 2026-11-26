@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { initialsFromName } from "./ui";
 import {
   availabilityReasonLabel,
+  canCancelReservation,
   authApi,
   apiAssetUrl,
   buildApiUrl,
@@ -28,6 +29,15 @@ describe("frontend API display helpers", () => {
   it("shows notification timestamps in the campus timezone (WIB)", () => {
     expect(formatDateTime("2026-11-26T10:00:00Z")).toBe("26 Nov 2026 · 17:00 WIB");
     expect(formatDateTime(null)).toBe("—");
+  });
+
+  it("allows cancellation only for pending or approved reservations on current or future dates", () => {
+    expect(canCancelReservation("PENDING", "2026-11-26", "2026-11-26")).toBe(true);
+    expect(canCancelReservation("APPROVED", "2026-11-27", "2026-11-26")).toBe(true);
+    expect(canCancelReservation("REJECTED", "2026-11-27", "2026-11-26")).toBe(false);
+    expect(canCancelReservation("CANCELLED", "2026-11-27", "2026-11-26")).toBe(false);
+    expect(canCancelReservation("COMPLETED", "2026-11-27", "2026-11-26")).toBe(false);
+    expect(canCancelReservation("APPROVED", "2026-11-25", "2026-11-26")).toBe(false);
   });
 
   it("maps reservation states to Indonesian labels", () => {
