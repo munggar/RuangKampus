@@ -73,6 +73,8 @@ export function AdminRequestsPage() {
   const [status, setStatus] = useState("PENDING");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<Reservation[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Reservation | null>(null);
@@ -81,13 +83,13 @@ export function AdminRequestsPage() {
   const [busy, setBusy] = useState(false);
   const reload = () => {
     setLoading(true); setError("");
-    const params = new URLSearchParams({ page: "1", limit: "100" });
+    const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status) params.set("status", status);
-    reservationApi.list(params).then((result) => setItems(result.items))
+    reservationApi.list(params).then((result) => { setItems(result.items); setTotalPages(result.meta?.total_pages || 1); })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Permohonan belum dapat dimuat."))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { reload(); }, [status]);
+  useEffect(() => { reload(); }, [status, page]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return items;
@@ -114,7 +116,7 @@ export function AdminRequestsPage() {
   return <div className="page-stack">
     <PageTitle eyebrow="RESERVATION REVIEW" title="Permohonan reservasi" description="Tinjau detail pengajuan sebelum menetapkan keputusan." />
     <div className="panel request-filter-panel">
-      <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.key || "all"} type="button" className={status === tab.key ? "is-active" : ""} onClick={() => setStatus(tab.key)}>{tab.text}</button>)}</div>
+      <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.key || "all"} type="button" className={status === tab.key ? "is-active" : ""} onClick={() => { setStatus(tab.key); setPage(1); }}>{tab.text}</button>)}</div>
       <Field label="Cari nama, ruang, atau ID"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama mahasiswa atau ruangan" /></span></Field>
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
@@ -134,6 +136,11 @@ export function AdminRequestsPage() {
         </div>
       </article>)}
     </div> : <EmptyState title="Tidak ada permohonan yang cocok" description="Ubah filter atau kata kunci pencarian." icon={<ClipboardList size={22} />} />}
+    <div className="form-actions">
+      <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {totalPages}</span>
+      <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
     <ConfirmModal open={action === "approve" && !!selected} title="Setujui permohonan?" description="Backend akan memeriksa kembali kapasitas, jam operasional, jadwal, dan benturan reservasi sebelum menyetujui." confirmText="Setujui permohonan" loading={busy} onClose={() => { setAction(null); setSelected(null); }} onConfirm={() => void runAction()} />
     <Modal open={action === "reject" && !!selected} title="Tolak permohonan" description="Alasan penolakan wajib dicatat dan akan terlihat oleh pemohon." onClose={() => { setAction(null); setSelected(null); setReason(""); }}>
       <Field label="Alasan penolakan"><textarea rows={4} minLength={3} maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Jelaskan alasan penolakan dengan jelas…" /></Field>
@@ -147,20 +154,23 @@ export function AdminRoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Room | null>(null);
   const [deleting, setDeleting] = useState(false);
   const reload = () => {
     setLoading(true); setError("");
-    const params = new URLSearchParams({ page: "1", limit: "100", sortBy: "room_name", sortOrder: "asc" });
+    const params = new URLSearchParams({ page: String(page), limit: "20", sortBy: "room_name", sortOrder: "asc" });
     if (status) params.set("status", status);
-    roomApi.list(params).then((result) => setRooms(result.items))
+    if (search.trim()) params.set("search", search.trim());
+    roomApi.list(params).then((result) => { setRooms(result.items); setTotalPages(result.meta?.total_pages || 1); })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Data ruangan belum dapat dimuat."))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { reload(); }, [status]);
-  const visible = rooms.filter((room) => !search || (room.room_name + " " + room.building + " " + (room.room_code || "")).toLowerCase().includes(search.toLowerCase()));
+  useEffect(() => { reload(); }, [status, page, search]);
+  const visible = rooms;
   async function removeRoom() {
     if (!selected) return;
     setDeleting(true); setError("");
@@ -172,8 +182,8 @@ export function AdminRoomsPage() {
   return <div className="page-stack">
     <PageTitle eyebrow="ROOM MANAGEMENT" title="Kelola ruangan" description={rooms.length + " ruangan dalam inventaris kampus."} action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruangan</Link>} />
     <div className="panel list-toolbar">
-      <Field label="Cari ruangan"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nama ruangan, gedung, atau kode" /></span></Field>
-      <Field label="Status"><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Semua status</option><option value="ACTIVE">Aktif</option><option value="INACTIVE">Nonaktif</option><option value="MAINTENANCE">Pemeliharaan</option></select></Field>
+      <Field label="Cari ruangan"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Nama ruangan, gedung, atau kode" /></span></Field>
+      <Field label="Status"><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">Semua status</option><option value="ACTIVE">Aktif</option><option value="INACTIVE">Nonaktif</option><option value="MAINTENANCE">Pemeliharaan</option></select></Field>
       <Link className="button button--secondary" to="/admin/schedules"><CalendarDays size={16} />Jadwal & pemeliharaan</Link>
     </div>
     <div className="list-summary"><b>{active} aktif</b><span>{rooms.length - active} nonaktif atau pemeliharaan</span></div>
@@ -193,6 +203,11 @@ export function AdminRoomsPage() {
         </div>
       </article>)}
     </div> : <EmptyState title="Ruangan belum tersedia" description="Tambahkan ruangan baru untuk memulai pengelolaan inventaris." action={<Link to="/admin/rooms/new" className="button button--primary">Tambah ruangan</Link>} icon={<Building2 size={22} />} />}
+    <div className="form-actions">
+      <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {totalPages}</span>
+      <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
     <ConfirmModal open={!!selected} title="Nonaktifkan ruangan?" description={selected ? selected.room_name + " akan dihapus secara soft-delete. Ruangan dengan reservasi mendatang yang masih aktif tidak dapat dihapus." : ""} confirmText="Nonaktifkan ruangan" destructive loading={deleting} onClose={() => setSelected(null)} onConfirm={() => void removeRoom()} />
   </div>;
 }
