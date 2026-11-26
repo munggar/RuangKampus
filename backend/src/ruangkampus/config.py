@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     cookie_samesite: str = "lax"
     email_backend: str = "console"
     local_mailbox_dir: str = ".local_mailbox"
+    public_app_url: str = "http://localhost:5173"
     password_reset_base_url: str = "http://localhost:5173/reset-password"
     smtp_host: str | None = None
     smtp_port: int = 587
