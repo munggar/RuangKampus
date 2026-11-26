@@ -19,7 +19,54 @@ function usePageError() {
   return { error, setError, busy, setBusy };
 }
 
-function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reservation; showCancel?: boolean; onUpdated?: (updated: Reservation) => void }) {
+function useReservationClock() {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return now;
+}
+
+function campusTimestamp(date: string, time: string): number {
+  return new Date(date + "T" + time.slice(0, 8) + "+07:00").getTime();
+}
+
+function countdownText(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remaining = seconds % 60;
+  return [hours, minutes, remaining].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+function reservationCardTiming(item: Reservation, now: number) {
+  if (item.status === "COMPLETED") {
+    return { caption: "Peminjaman", value: "Selesai", urgent: false };
+  }
+  if (item.status !== "APPROVED") return null;
+
+  const startsAt = campusTimestamp(item.reservation_date, item.start_time);
+  const endsAt = campusTimestamp(item.reservation_date, item.end_time);
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || endsAt <= startsAt) return null;
+
+  if (now < startsAt) {
+    return { caption: "Mulai pukul", value: formatTime(item.start_time) + " WIB", urgent: false };
+  }
+  if (now < endsAt) {
+    const remaining = endsAt - now;
+    return {
+      caption: "Sisa waktu peminjaman",
+      value: countdownText(remaining),
+      urgent: remaining <= 5 * 60 * 1000,
+    };
+  }
+  return { caption: "Peminjaman", value: "Selesai", urgent: false };
+}
+
+function ReservationCard({ item, now, showCancel = false, onUpdated }: { item: Reservation; now: number; showCancel?: boolean; onUpdated?: (updated: Reservation) => void }) {
   const [currentItem, setCurrentItem] = useState(item);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -29,6 +76,7 @@ function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reserv
   useEffect(() => { setCurrentItem(item); }, [item]);
 
   const canCancel = showCancel && canCancelReservation(currentItem.status, currentItem.reservation_date);
+  const timing = reservationCardTiming(currentItem, now);
 
   async function cancelReservation() {
     setBusy(true);
@@ -58,7 +106,17 @@ function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reserv
         <span className="muted">{currentItem.room?.building || "Lokasi kampus belum tersedia"}</span>
         <div className="reservation-card__meta">
           <span><CalendarDays size={15} />{formatDate(currentItem.reservation_date)}</span>
-          <span><Clock3 size={15} />{formatTime(currentItem.start_time)}–{formatTime(currentItem.end_time)}</span>
+          {timing ? (
+            <span className={"reservation-card__countdown" + (timing.urgent ? " reservation-card__countdown--urgent" : "")}>
+              <Clock3 size={15} />
+              <span className="reservation-card__countdown-copy">
+                <small>{timing.caption}</small>
+                <strong>{timing.value}</strong>
+              </span>
+            </span>
+          ) : (
+            <span><Clock3 size={15} />{formatTime(currentItem.start_time)}–{formatTime(currentItem.end_time)}</span>
+          )}
         </div>
         <p>{currentItem.purpose}</p>
       </Link>
@@ -121,6 +179,7 @@ function RoomPhoto({ photoUrl, roomName, detail = false, className }: {
 
 export function StudentDashboardPage() {
   const { user } = useAuth();
+  const reservationNow = useReservationClock();
   const [summary, setSummary] = useState<Record<string, number | string> | null>(null);
   const [recent, setRecent] = useState<Reservation[]>([]);
   const [error, setError] = useState("");
@@ -172,7 +231,7 @@ export function StudentDashboardPage() {
         ) : <EmptyState title="Belum ada sesi yang disetujui" description="Reservasi mendatang akan muncul di sini setelah disetujui oleh TU/Admin." action={<Link to="/student/rooms" className="button button--secondary">Cari ruang</Link>} icon={<CalendarDays size={23} />} />}
       </PageSection>
       <PageSection title="Permohonan terbaru" action={<Link className="text-link" to="/student/reservations">Lihat riwayat</Link>}>
-        {recent.length ? <div className="card-list">{recent.slice(0, 3).map((item) => <ReservationCard key={item.id} item={item} />)}</div>
+        {recent.length ? <div className="card-list">{recent.slice(0, 3).map((item) => <ReservationCard key={item.id} item={item} now={reservationNow} />)}</div>
           : <EmptyState title="Belum ada permohonan" description="Mulai dengan memilih ruangan yang sesuai untuk kegiatan Anda." action={<Link className="button button--primary" to="/student/rooms">Cari ruangan</Link>} icon={<CalendarCheck size={22} />} />}
       </PageSection>
     </>}
@@ -405,6 +464,7 @@ export function BookingPage() {
 }
 
 export function StudentReservationsPage() {
+  const reservationNow = useReservationClock();
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<Reservation[]>([]);
@@ -436,7 +496,7 @@ export function StudentReservationsPage() {
       <Field label="Cari reservasi"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari ruang, tujuan, atau ID reservasi" /></Field>
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
-    {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} showCancel onUpdated={(updated) => setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry))} />)}</div>
+    {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} now={reservationNow} showCancel onUpdated={(updated) => setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry))} />)}</div>
       : <EmptyState title="Belum ada reservasi" description="Belum ada permohonan yang sesuai dengan filter Anda." action={<Link to="/student/rooms" className="button button--primary">Cari ruangan</Link>} icon={<CalendarCheck size={22} />} />}
   </div>;
 }
