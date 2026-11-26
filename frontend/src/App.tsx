@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useLocation } from "react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useAuth } from "./auth";
 import { AppShell } from "./layout";
 import {
@@ -11,7 +11,14 @@ import {
 } from "./pages";
 
 function FullScreenLoading() {
-  return <main className="loading-screen"><span className="spinner" /><span>Memuat RuangKampus…</span></main>;
+  return <main className="loading-screen loading-screen--branded" role="status" aria-live="polite">
+    <div className="loading-screen__brand">
+      <img src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
+    </div>
+    <span className="spinner" aria-hidden="true" />
+    <strong>Menyiapkan RuangKampus</strong>
+    <span className="loading-screen__message">Menghubungkan sesi dan memuat aplikasi…</span>
+  </main>;
 }
 
 function RequireRole({ role, children }: { role: "Student" | "TU/Admin"; children: ReactNode }) {
@@ -31,6 +38,13 @@ function HomeRedirect() {
 }
 
 export function App() {
+  const { loading } = useAuth();
+  useEffect(() => {
+    if (!loading) document.getElementById("boot-splash")?.remove();
+  }, [loading]);
+
+  if (loading) return <FullScreenLoading />;
+
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />

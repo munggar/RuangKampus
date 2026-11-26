@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth";
+import { notificationApi } from "./api";
 import type { AppRole } from "./types";
 import { initialsFromName } from "./ui";
 
@@ -87,6 +88,45 @@ function Navigation({ items, mobile = false }: { items: NavigationItem[]; mobile
   </nav>;
 }
 
+function useUnreadNotificationCount() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      void notificationApi.list(new URLSearchParams({
+        unreadOnly: "true",
+        page: "1",
+        limit: "1",
+      })).then((result) => {
+        if (!active) return;
+        setUnreadCount(result.meta?.total ?? result.items.filter((item) => !item.read_at).length);
+      }).catch(() => {
+        // Preserve the last known count when the API is temporarily unavailable.
+      });
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("rk-notifications-updated", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("rk-notifications-updated", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, []);
+
+  return unreadCount;
+}
+
 export function AppShell({ role }: { role: AppRole }) {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -99,6 +139,7 @@ export function AppShell({ role }: { role: AppRole }) {
   const name = user?.name || (role === "Student" ? "Mahasiswa" : "Administrator");
   const initials = initialsFromName(name);
   const root = role === "Student" ? "/student" : "/admin";
+  const unreadCount = useUnreadNotificationCount();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -137,7 +178,15 @@ export function AppShell({ role }: { role: AppRole }) {
         <div className="topbar-page"><span>{role === "Student" ? "STUDENT PORTAL" : "ADMINISTRATION"}</span><strong>{pageLabel(location.pathname, role)}</strong></div>
         <div className="topbar-actions">
           <ThemeButton theme={theme} toggle={() => setTheme(theme === "dark" ? "light" : "dark")} />
-          <Link className="icon-button notification-link" to={root + "/notifications"} aria-label="Buka notifikasi"><Bell size={18} /></Link>
+          <Link
+            className="icon-button notification-link"
+            to={root + "/notifications"}
+            aria-label={unreadCount > 0 ? `Notifikasi, ${unreadCount} belum dibaca` : "Buka notifikasi"}
+            title={unreadCount > 0 ? `${unreadCount} notifikasi belum dibaca` : "Notifikasi"}
+          >
+            <Bell size={18} />
+            {unreadCount > 0 ? <span className="notification-badge" aria-hidden="true">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
+          </Link>
           <div className="account-menu" ref={accountMenuRef}>
             <button ref={accountTriggerRef} className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="account-menu-dropdown">
               <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "TU / Administrator"}</small></span><ChevronDown size={15} />

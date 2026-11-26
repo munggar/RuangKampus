@@ -82,3 +82,28 @@ def test_chunked_body_size_limit_is_enforced(client):
     )
     assert response.status_code == 413
     assert response.json()["success"] is False
+
+def test_register_accepts_eight_character_password(client):
+    accepted = client.post(
+        "/api/v1/auth/register",
+        json={
+            "name": "Eight Char Student",
+            "email": "eight-char@example.com",
+            "student_identifier": "2403048888",
+            "password": "Pass123!",
+        },
+    )
+    assert accepted.status_code == 201, accepted.text
+
+
+def test_register_rejects_password_shorter_than_eight_characters(client):
+    rejected = client.post(
+        "/api/v1/auth/register",
+        json={
+            "name": "Seven Char Student",
+            "email": "seven-char@example.com",
+            "student_identifier": "2403047777",
+            "password": "Pass12!",
+        },
+    )
+    assert rejected.status_code == 422

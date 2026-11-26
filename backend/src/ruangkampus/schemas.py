@@ -27,7 +27,7 @@ class RegisterIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=2, max_length=160)
     email: EmailStr
-    password: str = Field(min_length=10, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
     phone: str | None = Field(default=None, max_length=40)
     student_identifier: str = Field(min_length=3, max_length=50)
 

@@ -471,7 +471,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
   }, []);
   async function markRead(id: string) {
     setBusyId(id);
-    try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); }
+    try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); window.dispatchEvent(new Event("rk-notifications-updated")); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui."); }
     finally { setBusyId(""); }
   }

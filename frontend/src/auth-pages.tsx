@@ -146,8 +146,8 @@ export function RegisterPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (password.length < 10) {
-      setError("Password harus terdiri dari minimal 10 karakter.");
+    if (password.length < 8) {
+      setError("Password harus terdiri dari minimal 8 karakter.");
       return;
     }
     if (password !== confirm) {
@@ -196,12 +196,12 @@ export function RegisterPage() {
           </Field>
           <Field label="Password">
             <span className="input-with-action">
-              <input type={visible ? "text" : "password"} autoComplete="new-password" minLength={10} maxLength={128} placeholder="Minimal 10 karakter" value={password} onChange={(event) => setPassword(event.target.value)} required />
+              <input type={visible ? "text" : "password"} autoComplete="new-password" minLength={8} maxLength={128} placeholder="Minimal 8 karakter" value={password} onChange={(event) => setPassword(event.target.value)} required />
               <button type="button" className="field-action" onClick={() => setVisible(!visible)} aria-label={visible ? "Sembunyikan password" : "Tampilkan password"}>{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button>
             </span>
           </Field>
           <Field label="Konfirmasi password">
-            <input type="password" autoComplete="new-password" minLength={10} maxLength={128} placeholder="Ulangi password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
+            <input type="password" autoComplete="new-password" minLength={8} maxLength={128} placeholder="Ulangi password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
           </Field>
           {error ? <Notice tone="error">{error}</Notice> : null}
           <Button type="submit" disabled={busy || !isApiConfigured()} className="button--wide">
