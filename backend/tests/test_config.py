@@ -53,3 +53,28 @@ def test_production_smtp_accepts_explicit_provider_configuration():
         smtp_use_tls=True,
     )
     assert settings.email_backend == "smtp"
+
+
+def test_production_brevo_requires_api_key_and_verified_sender():
+    with pytest.raises(ValidationError, match="BREVO_API_KEY and BREVO_SENDER_EMAIL"):
+        production_settings(email_backend="brevo")
+
+
+def test_production_brevo_accepts_api_key_and_sender_configuration():
+    settings = production_settings(
+        email_backend="brevo",
+        brevo_api_key="xkeysib-test-secret",
+        brevo_sender_email="notifications@example.test",
+        brevo_sender_name="RuangKampus",
+    )
+    assert settings.email_backend == "brevo"
+    assert settings.brevo_sender_email == "notifications@example.test"
+
+
+def test_production_brevo_rejects_invalid_sender_email():
+    with pytest.raises(ValidationError, match="BREVO_SENDER_EMAIL must be a valid email address"):
+        production_settings(
+            email_backend="brevo",
+            brevo_api_key="xkeysib-test-secret",
+            brevo_sender_email="not-an-email",
+        )

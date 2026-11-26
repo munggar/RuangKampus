@@ -76,7 +76,7 @@ def _notify_once(
 
 
 def _deliver_notification_email(db: Session, notification: Notification, recipient: User) -> None:
-    # Claim the one permitted attempt under a row lock. SMTP cannot guarantee
+    # Claim the one permitted attempt under a row lock. Email providers cannot guarantee
     # exactly-once delivery across network timeouts, so retries are not automatic.
     record = db.scalar(select(Notification).where(Notification.id == notification.id).with_for_update())
     if record is None or record.email_attempted_at is not None:
@@ -96,7 +96,7 @@ def _deliver_notification_email(db: Session, notification: Notification, recipie
             record.email_delivery_status = (
                 "LOCAL_MAILBOX_WRITTEN" if get_settings().email_backend == "console" else "SENT"
             )
-            record.email_sent_at = utcnow() if get_settings().email_backend == "smtp" else None
+            record.email_sent_at = utcnow() if get_settings().email_backend in {"smtp", "brevo"} else None
         else:
             record.email_delivery_status = "NOT_CONFIGURED"
     except Exception as exc:

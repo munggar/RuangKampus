@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     smtp_from_email: str = "no-reply@example.invalid"
     smtp_use_tls: bool = True
     smtp_timeout_seconds: int = 10
+    brevo_api_key: str | None = None
+    brevo_sender_email: str | None = None
+    brevo_sender_name: str = "RuangKampus"
     campus_timezone: str = "Asia/Jakarta"
     room_media_dir: str = ".room-media"
 
@@ -60,18 +63,21 @@ class Settings(BaseSettings):
             if "*" in self.cors_origins:
                 raise ValueError("Production CORS_ORIGINS must list explicit trusted origins")
 
-            # Explicitly disabling outbound email is a supported deployment mode.
-            # In-app notifications remain available; reset links and email alerts
-            # are delivered only after a real SMTP provider is configured.
+            # In-app notifications remain available even when outbound email is disabled.
             if self.email_backend == "console":
-                raise ValueError("Console email backend is development-only; use smtp or disabled")
-            if self.email_backend not in {"smtp", "disabled"}:
-                raise ValueError("Production EMAIL_BACKEND must be smtp or disabled")
+                raise ValueError("Console email backend is development-only; use smtp, brevo or disabled")
+            if self.email_backend not in {"smtp", "brevo", "disabled"}:
+                raise ValueError("Production EMAIL_BACKEND must be smtp, brevo or disabled")
             if self.email_backend == "smtp":
                 if not self.smtp_host or not self.smtp_username:
                     raise ValueError("EMAIL_BACKEND=smtp requires SMTP_HOST and SMTP_USERNAME")
                 if not self.smtp_use_tls:
                     raise ValueError("Production SMTP must use STARTTLS (SMTP_USE_TLS=true)")
+            if self.email_backend == "brevo":
+                if not self.brevo_api_key or not self.brevo_sender_email:
+                    raise ValueError("EMAIL_BACKEND=brevo requires BREVO_API_KEY and BREVO_SENDER_EMAIL")
+                if "@" not in self.brevo_sender_email:
+                    raise ValueError("BREVO_SENDER_EMAIL must be a valid email address")
         return self
 
     @property
