@@ -935,7 +935,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
         </form>
       </div>
     </div>
-    <Link className="panel profile-link" to={accountRoot + "/assistant"}><span><b>Bantuan & FAQ</b><small>Informasi alur reservasi dan aturan layanan</small></span><ArrowRight size={18} /></Link>
+    <Link className="panel profile-link" to={role === "Staff Sekretariat" ? "/admin/guide" : accountRoot + "/assistant"}><span><b>Bantuan & FAQ</b><small>{role === "Staff Sekretariat" ? "Panduan penggunaan aplikasi sebagai Staff TU" : "Informasi alur reservasi dan aturan layanan"}</small></span><ArrowRight size={18} /></Link>
   </div>;
 }
 
