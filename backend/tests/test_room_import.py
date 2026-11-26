@@ -43,6 +43,8 @@ def test_room_import_preview_maps_capacity_range_and_embedded_photo(client, auth
     assert payload["valid_count"] == 2
     assert payload["preview_rows"][0]["capacity"] == 20
     assert payload["preview_rows"][0]["capacity_estimate"] == "20–25"
+    assert payload["preview_rows"][0]["floor"] == "2"  # All labs are on floor 2.
+    assert payload["preview_rows"][1]["floor"] == "3"  # First digit in "Ruang 301" is the floor.
     assert payload["row_results"][0]["has_photo"] is True
 
 
