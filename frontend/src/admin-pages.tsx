@@ -15,6 +15,24 @@ import { Button, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSe
 function campusTimestamp(date: string, time: string): number {
   return new Date(date + "T" + time.slice(0, 8) + "+07:00").getTime();
 }
+function formatCampusClock(timestamp: number): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(timestamp);
+}
+function formatCampusDate(timestamp: number): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(timestamp);
+}
 function timerText(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
   const hours = Math.floor(seconds / 3600);
@@ -58,10 +76,10 @@ export function AdminDashboardPage() {
     let active = true;
     const refreshToday = () => {
       const today = localToday();
-      const params = new URLSearchParams({ page: "1", limit: "100", status: "APPROVED", dateFrom: today, dateTo: today });
+      const params = new URLSearchParams({ page: "1", limit: "100", status: "APPROVED", dateTo: today });
       reservationApi.list(params)
         .then((result) => {
-          if (active) setTodayReservations(result.items.sort((a, b) => a.start_time.localeCompare(b.start_time)));
+          if (active) setTodayReservations(result.items.sort((a, b) => a.reservation_date.localeCompare(b.reservation_date) || a.start_time.localeCompare(b.start_time)));
         })
         .catch((cause) => {
           if (active) setMonitorError(cause instanceof Error ? cause.message : "Pemantauan reservasi belum dapat diperbarui.");
@@ -104,7 +122,13 @@ export function AdminDashboardPage() {
         <article className="stat-card"><div className="stat-card__top"><span>Disetujui</span><CheckCircle2 size={18} /></div><strong>{Number(summary?.approved || 0)}</strong><small>Reservasi terkonfirmasi</small></article>
         <article className="stat-card"><div className="stat-card__top"><span>Total ruangan</span><Building2 size={18} /></div><strong>{Number(summary?.total_rooms || 0)}</strong><small>{Number(summary?.active_rooms || 0)} ruangan aktif</small></article>
       </div>
-      <PageSection title="Pemantauan reservasi hari ini" action={<span className="muted small">Diperbarui otomatis · setiap 30 detik</span>}>
+      <PageSection title="Pemantauan reservasi hari ini" action={<div className="reservation-monitor-toolbar">
+          <div className="campus-clock" aria-label={`Waktu kampus ${formatCampusClock(monitorNow)} WIB`}>
+            <Clock3 size={16} aria-hidden="true" />
+            <span><small>WAKTU KAMPUS · WIB</small><strong>{formatCampusClock(monitorNow)}</strong></span>
+          </div>
+          <span className="muted small">Data diperbarui otomatis · 30 detik</span>
+        </div>}>
         {monitorError ? <Notice tone="warning">{monitorError}</Notice> : null}
         {todayReservations.length ? <div className="reservation-monitor-list">
           {todayReservations.map((item) => {
@@ -116,8 +140,8 @@ export function AdminDashboardPage() {
                   <span className={"reservation-monitor-state reservation-monitor-state--" + timing.kind}>{timing.title}</span>
                 </div>
                 <p>{item.applicant?.name || "Mahasiswa"} · {item.room?.building || "Lokasi kampus"}</p>
-                <small>{formatTime(item.start_time)}–{formatTime(item.end_time)} WIB · {item.participant_count} peserta</small>
-                {timing.kind === "overdue" ? <p className="reservation-monitor-warning">Jadwal berakhir. Pastikan ruangan sudah dikosongkan sebelum sesi berikutnya.</p> : null}
+                <small>{formatDate(item.reservation_date)} · {formatTime(item.start_time)}–{formatTime(item.end_time)} WIB · {item.participant_count} peserta</small>
+                {timing.kind === "overdue" ? <p className="reservation-monitor-warning">Jadwal berakhir. Pastikan ruangan sudah dikosongkan sebelum sesi berikutnya. Reservasi tetap menahan ketersediaan ruang sampai Admin mengonfirmasi ruangan kosong.</p> : null}
               </div>
               <div className="reservation-monitor-item__timer">
                 <small>{timing.caption}</small>
