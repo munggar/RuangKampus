@@ -553,8 +553,10 @@ export function ProfilePage({ role }: { role: AppRole }) {
   const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
   useEffect(() => {
     const syncTheme = () => setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
@@ -586,7 +588,14 @@ export function ProfilePage({ role }: { role: AppRole }) {
   }
 
   async function savePassword(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setError(""); setMessage("");
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    if (newPassword !== confirmPassword) {
+      setError("Konfirmasi password baru tidak cocok.");
+      return;
+    }
+    setSaving(true);
     try {
       await profileApi.changePassword(currentPassword, newPassword);
       setMessage("Password berhasil diubah. Silakan masuk kembali.");
@@ -656,6 +665,20 @@ export function ProfilePage({ role }: { role: AppRole }) {
                 onClick={() => setShowNewPassword((visible) => !visible)}
               >
                 {showNewPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+              </button>
+            </div>
+          </Field>
+          <Field label="Konfirmasi password baru">
+            <div className="input-with-action">
+              <input type={showConfirmPassword ? "text" : "password"} minLength={8} maxLength={128} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+              <button
+                className="field-action"
+                type="button"
+                aria-label={showConfirmPassword ? "Sembunyikan konfirmasi password" : "Tampilkan konfirmasi password"}
+                aria-pressed={showConfirmPassword}
+                onClick={() => setShowConfirmPassword((visible) => !visible)}
+              >
+                {showConfirmPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
               </button>
             </div>
           </Field>
