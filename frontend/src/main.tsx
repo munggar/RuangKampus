@@ -5,7 +5,6 @@ import { AuthProvider } from "./auth";
 import { App } from "./App";
 import "./styles/tokens.css";
 import "./styles.css";
-import "./styles/design-system.css";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   const baseUrl = import.meta.env.BASE_URL;

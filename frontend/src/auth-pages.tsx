@@ -10,9 +10,8 @@ function BrandHero() {
   return <aside className="auth-hero">
     <div className="auth-brand"><img className="brand-logo brand-logo--auth" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." /></div>
     <div className="auth-hero__text">
-      <p className="eyebrow">RUANG KAMPUS · RESERVASI FASILITAS</p>
-      <h1>Temukan ruang.
-Mulai kolaborasi.</h1>
+      <p className="eyebrow">CAMPUS FACILITY RESERVATIONS</p>
+      <h1>Make room for great ideas.</h1>
       <p>Temukan ruang kampus yang sesuai dan ajukan reservasi dalam satu tempat.</p>
     </div>
     <small className="auth-hero__copyright">© {new Date().getFullYear()} RuangKampus</small>
@@ -43,7 +42,7 @@ export function LoginPage() {
     <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">
-        <p className="eyebrow">SELAMAT DATANG KEMBALI</p>
+        <p className="eyebrow">WELCOME BACK</p>
         <h2>Selamat datang kembali</h2>
         <p className="muted">Masuk dengan akun universitas yang terdaftar.</p>
         {!isApiConfigured() ? <Notice tone="warning">Mode preview: tampilan tersedia, tetapi backend belum di-host atau URL API belum diatur. Login dan pemuatan data belum aktif.</Notice> : null}
@@ -114,7 +113,7 @@ export function ForgotPasswordPage() {
   return <main className="auth-layout">
     <BrandHero />
     <section className="auth-panel"><div className="auth-panel__inner">
-      <p className="eyebrow">BANTUAN AKUN</p>
+      <p className="eyebrow">ACCOUNT SUPPORT</p>
       <h2>{token ? "Buat password baru" : "Lupa password?"}</h2>
       <p className="muted">{token ? "Gunakan password baru yang kuat dan mudah Anda ingat." : "Masukkan email akun Anda untuk meminta instruksi reset password."}</p>
       <form className="stack-form" onSubmit={submit}>
@@ -178,7 +177,7 @@ export function RegisterPage() {
     <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">
-        <p className="eyebrow">BUAT AKUN MAHASISWA</p>
+        <p className="eyebrow">CREATE YOUR ACCOUNT</p>
         <h2>Daftar RuangKampus</h2>
         <p className="muted">Buat akun Student untuk mencari ruangan dan mengajukan reservasi kampus. NIM akan digunakan untuk login.</p>
         {!isApiConfigured() ? <Notice tone="warning">Backend belum dikonfigurasi. Pendaftaran akan aktif setelah layanan API tersedia.</Notice> : null}
