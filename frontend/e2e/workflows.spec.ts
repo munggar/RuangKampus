@@ -9,7 +9,7 @@ test.describe("Authentication UI — mocked session only", () => {
     await page.goto("/login");
     await waitForPageReady(page);
     await page.getByLabel("NIM").fill("E2E-24000001");
-    await page.getByLabel("Password").fill("wrong-fixture-password");
+    await page.locator('input[autocomplete="current-password"]').fill("wrong-fixture-password");
     await page.getByRole("button", { name: "Masuk ke RuangKampus" }).click();
     await expect(page.getByRole("alert")).toContainText("Kredensial fixture tidak valid");
     await expect(page).toHaveURL(/\/login$/);
@@ -20,7 +20,7 @@ test.describe("Authentication UI — mocked session only", () => {
     await page.goto("/login");
     await waitForPageReady(page);
     await page.getByLabel("NIM").fill("E2E-24000001");
-    await page.getByLabel("Password").fill("fixture-pass-1234");
+    await page.locator('input[autocomplete="current-password"]').fill("fixture-pass-1234");
     await page.getByRole("button", { name: "Masuk ke RuangKampus" }).click();
     await expect(page).toHaveURL(/\/student\/dashboard$/);
     await expect(page.getByRole("heading", { name: /Selamat (pagi|siang|sore|malam)/ })).toBeVisible();
