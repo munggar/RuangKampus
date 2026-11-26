@@ -720,7 +720,10 @@ def room_assistant_chat(
     ai_fallback_used = False
     if (
         detection.intent == "OUT_OF_SCOPE"
-        and detection.matched_rule != "GENERAL_REASONING_REQUEST"
+        and detection.matched_rule not in {
+            "GENERAL_REASONING_REQUEST",
+            "HYPOTHETICAL_REASONING_REQUEST",
+        }
         and is_room_operation_candidate(normalization.parser_text)
     ):
         interpretation = interpret_with_ai_fallback(payload.message, catalog, get_settings())
