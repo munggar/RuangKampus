@@ -248,6 +248,7 @@ export function AlternativeSlotsPage() {
 type AssistantTurn = {
   id: number;
   sender: "assistant" | "user";
+  assistantName?: string;
   message: string;
   rooms?: Room[];
   alternatives?: AlternativeSlot[];
@@ -256,17 +257,17 @@ type AssistantTurn = {
   engine?: string;
 };
 const assistantPrompts = [
-  "Cari ruang untuk 20 orang dengan proyektor",
-  "Temukan ruang tersedia besok pukul 10:00 sampai 12:00",
-  "Cari ruang di fakultas saya dengan Wi-Fi",
+  "Cari ruang 20 orang + proyektor",
+  "Cek ruang kosong besok 10.00–12.00",
+  "Ada ruang dengan Wi-Fi?",
 ];
 
 export function RoomAssistantPage() {
   const [message, setMessage] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [turns, setTurns] = useState<AssistantTurn[]>([{
-    id: 1, sender: "assistant",
-    message: "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan.",
+    id: 1, sender: "assistant", assistantName: "RUKKA AI",
+    message: "Hai! Aku RUKKA AI 👋 Mau cari ruang, cek jadwal, atau butuh alternatif slot? Cerita aja santai.",
   }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -285,7 +286,7 @@ export function RoomAssistantPage() {
       });
       if (response.conversation_id) setConversationId(response.conversation_id);
       setTurns((current) => [...current, {
-        id: Date.now() + 1, sender: "assistant", message: response.message,
+        id: Date.now() + 1, sender: "assistant", assistantName: response.assistant_name || "RUKKA AI", message: response.message,
         rooms: response.rooms,
         alternatives: response.alternative_slots,
         reservations: response.data?.reservations || [],
@@ -298,20 +299,20 @@ export function RoomAssistantPage() {
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="SMART CAMPUS SUPPORT" title="AI Room Assistant"
-      description="Tanyakan kebutuhan ruangan dan dapatkan hasil pencarian berdasarkan informasi fasilitas serta pemeriksaan ketersediaan." />
+    <PageTitle eyebrow="FITUR ANDALAN" title="RUKKA AI"
+      description="Teman ngobrol kampus buat cari ruangan, cek jadwal, dan nemuin alternatif slot." />
     <section className="panel assistant-intro">
       <span className="assistant-intro__icon"><Bot size={25} /></span>
-      <div><h2>Teman pencarian ruangan</h2><p className="muted">Ceritakan kebutuhan acara Anda. Asisten akan menyaring data ruangan dan menampilkan slot alternatif jika tersedia.</p></div>
+      <div><h2>Ngobrol aja seperti biasa</h2><p className="muted">Ceritain kebutuhanmu. RUKKA bantu cari solusi dari data ruangan RuangKampus.</p></div>
     </section>
     <section className="panel assistant-chat-panel">
-      <div className="assistant-engine-label"><span className="online-dot" />Rule-based first · AI fallback opsional · data backend</div>
+      <div className="assistant-engine-label"><span className="online-dot" />RUKKA AI <span aria-hidden="true">·</span> Asisten kampusmu</div>
       <div className="assistant-chat-list" aria-live="polite">
         {turns.map((turn) => <article key={turn.id} className={"assistant-message assistant-message--" + turn.sender}>
           <span className="assistant-message__avatar">{turn.sender === "assistant" ? <Sparkles size={16} /> : <Users size={16} />}</span>
           <div className="assistant-message__body">
+            {turn.sender === "assistant" ? <small className="assistant-message__name">{turn.assistantName || "RUKKA AI"}</small> : null}
             <p>{turn.message}</p>
-            {turn.sender === "assistant" && turn.engine === "HYBRID" ? <small className="muted">AI membantu memahami pesan; hasil tetap divalidasi backend.</small> : null}
             {turn.rooms?.length ? <div className="assistant-inline-results">
               {turn.rooms.map((room) => <Link className="assistant-room-link" key={room.id} to={"/student/rooms/" + room.id}>
                 <span><b>{room.room_name}</b><small>{roomLocation(room) || room.building} · {room.capacity} orang</small></span><ArrowRight size={16} />
@@ -323,10 +324,14 @@ export function RoomAssistantPage() {
                 <span><b>{reservation.room_name} · {reservation.status}</b><small>{reservation.building} · {formatDate(reservation.date)} · {formatTime(reservation.start_time)}–{formatTime(reservation.end_time)} WIB · {reservation.participant_count} peserta</small></span>
               </div>)}
             </div> : null}
-            {turn.followUps?.map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>)}
+            {turn.followUps?.filter((question, index, all) =>
+              question.trim() &&
+              question.trim().toLocaleLowerCase() !== turn.message.trim().toLocaleLowerCase() &&
+              all.findIndex((item) => item.trim().toLocaleLowerCase() === question.trim().toLocaleLowerCase()) === index
+            ).map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>)}
           </div>
         </article>)}
-        {loading ? <Loading label="Asisten sedang memeriksa kebutuhan ruangan..." /> : null}
+        {loading ? <Loading label="RUKKA lagi mikir sebentar..." /> : null}
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
       <div className="assistant-suggestions">
@@ -336,10 +341,10 @@ export function RoomAssistantPage() {
       <form className="assistant-compose" onSubmit={sendMessage}>
         <label className="sr-only" htmlFor="assistant-message">Tulis pertanyaan</label>
         <textarea id="assistant-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={2}
-          maxLength={1000} minLength={3} placeholder="Contoh: Saya butuh ruang untuk 20 orang besok pukul 10:00–12:00 dengan proyektor..." required />
+          maxLength={1000} minLength={3} placeholder="Tulis pesan ke RUKKA AI..." required />
         <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
       </form>
     </section>
-    <Notice tone="info">Asisten mengutamakan pencocokan aturan dan data RuangKampus. Jika provider dikonfigurasi, AI hanya membantu memahami maksud pesan; semua data dan hasil tetap divalidasi backend. Chat tidak membuat reservasi otomatis, dan pengajuan tetap melalui alur Reservasi.</Notice>
+    <Notice tone="info">RUKKA membantu pencarian dan informasi ruangan. Jadwal tetap dicek dari data kampus, dan pengajuan reservasi dilakukan lewat fitur Reservasi.</Notice>
   </div>;
 }
