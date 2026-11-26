@@ -10,3 +10,4 @@ export {
 export { StudentRoomAvailabilityPage, AlternativeSlotsPage, RoomAssistantPage } from "./feature-pages";
 
 export { AdminDataImportsPage } from "./admin-data-imports";
+export { AdminGuidePage } from "./staff-guide-page";
