@@ -382,8 +382,10 @@ button:disabled { opacity:.58; cursor:not-allowed; }
 
 /* At 320px, keep reservation status filters inside the panel without page overflow. */
 @media (max-width:380px) {
-  .reservation-filters .segmented-tabs { display:flex; width:100%; min-width:0; }
-  .reservation-filters .segmented-tabs button {
+  .reservation-filters .segmented-tabs,
+  .request-filter-panel .segmented-tabs { display:flex; width:100%; min-width:0; }
+  .reservation-filters .segmented-tabs button,
+  .request-filter-panel .segmented-tabs button {
     flex:1 1 0;
     min-width:0;
     padding:0 5px;

@@ -257,6 +257,6 @@ test.describe("Staff Sekretariat workflows — fixture-backed browser E2E", () =
     await mobileNavigation.getByRole("link", { name: "Impor" }).click();
     await expect(page).toHaveURL(new RegExp("/admin/data-imports$"));
     await waitForPageReady(page);
-    await expect(page.getByRole("heading", { name: /Impor/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Impor data kampus", exact: true })).toBeVisible();
   });
 });
