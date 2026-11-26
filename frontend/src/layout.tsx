@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Bell, Building2, CalendarDays, CalendarCheck, Clock3, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
+  Bell, BookOpen, Building2, CalendarDays, CalendarCheck, Clock3, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
   LogOut, Moon, Sparkles, Sun, UserRound,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
@@ -25,6 +25,7 @@ function navigationFor(role: AppRole): NavigationItem[] {
     { label: "Reservation requests", shortLabel: "Requests", path: base + "/reservations", icon: ClipboardList },
     { label: "Manage rooms", shortLabel: "Rooms", path: base + "/rooms", icon: Building2 },
     { label: "Profile", shortLabel: "Profile", path: base + "/profile", icon: UserRound },
+    { label: "Panduan penggunaan", shortLabel: "Panduan", path: base + "/guide", icon: BookOpen },
   ];
 }
 function Brand() {
@@ -87,7 +88,7 @@ function pageLabel(path: string, role: AppRole) {
   const items: Array<[string, string]> = [
     [root + "/dashboard", "Dashboard"], [root + "/rooms", "Ruang kampus"],
     [root + "/reservations", role === "Student" ? "Reservasi saya" : "Permohonan reservasi"],
-    [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"],
+    [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"], [root + "/guide", "Panduan Staff TU"],
     [root + "/availability", "Ketersediaan ruangan"],
     [root + "/alternatives", "Slot alternatif"], [root + "/schedules", "Jadwal ruang"], ["/admin/data-imports", "Impor data kampus"],
   ];
