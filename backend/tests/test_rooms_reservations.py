@@ -423,6 +423,7 @@ def test_bulk_operating_hours_rejects_batch_when_future_reservation_would_fall_o
     )
     assert second_response.status_code == 201, second_response.text
     second = second_response.json()["data"]
+    admin_headers = auth_headers("admin.uhamka")
 
     booking_date = next_weekday(1)
     reservation = client.post(
@@ -445,13 +446,13 @@ def test_bulk_operating_hours_rejects_batch_when_future_reservation_would_fall_o
             "room_ids": [first["id"], second["id"]],
             "operating_hours": {"monday": [{"start": "08:00", "end": "17:00"}]},
         },
-        headers=auth_headers("admin.uhamka"),
+        headers=admin_headers,
     )
 
     assert response.status_code == 409
     for room_id in (first["id"], second["id"]):
         current = client.get(
-            f"/api/v1/rooms/{room_id}", headers=auth_headers("admin.uhamka")
+            f"/api/v1/rooms/{room_id}", headers=admin_headers
         )
         assert current.status_code == 200
         assert "tuesday" in current.json()["data"]["operating_hours"]
