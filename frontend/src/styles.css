@@ -1097,3 +1097,24 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
     width: 100%;
   }
 }
+
+
+/* Subtle logo depth in light theme and restrained blue glow in dark theme. */
+.brand-logo {
+  filter: drop-shadow(0 2px 5px rgb(14 35 58 / 18%));
+  transition: filter .25s ease;
+}
+:root[data-theme="dark"] .brand-logo {
+  filter:
+    drop-shadow(0 0 6px rgb(75 151 255 / 38%))
+    drop-shadow(0 0 14px rgb(75 151 255 / 18%));
+}
+.loading-screen__brand img {
+  filter: drop-shadow(0 2px 5px rgb(14 35 58 / 18%));
+  transition: filter .25s ease;
+}
+:root[data-theme="dark"] .loading-screen__brand img {
+  filter:
+    drop-shadow(0 0 6px rgb(75 151 255 / 38%))
+    drop-shadow(0 0 14px rgb(75 151 255 / 18%));
+}
