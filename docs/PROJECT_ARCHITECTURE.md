@@ -47,7 +47,7 @@ backend/
 ## Logical request flow
 
 ```text
-Browser (Student / TU Admin)
+Browser (Student / Staff Sekretariat)
           |
           v
 React + TypeScript (Account B)
@@ -68,7 +68,7 @@ PostgreSQL (provider not yet confirmed)
 
 ## Frontend authentication contract
 
-The existing frontend auth client expects direct JSON bodies for login/register/refresh (`access_token`, `token_type`, `expires_in`, `user`), direct safe user data from `/auth/me`, and `{ success: true }` for logout. The browser uses `Authorization: Bearer` and `credentials: include`. Public role labels are `Student` / `TU/Admin`; internal DB/RBAC values remain `STUDENT` / `TU_ADMIN`. Backend auth serializers follow this contract without editing frontend source.
+The existing frontend auth client expects direct JSON bodies for login/register/refresh (`access_token`, `token_type`, `expires_in`, `user`), direct safe user data from `/auth/me`, and `{ success: true }` for logout. The browser uses `Authorization: Bearer` and `credentials: include`. Public role labels are `Student` / `Staff Sekretariat`; internal DB/RBAC values remain `STUDENT` / `TU_ADMIN`. Backend auth serializers expose the Staff Sekretariat label while preserving the existing internal role and authorization checks. AI Assistant remains Student-only; the Staff Sekretariat workspace has no assistant page, menu item, or admin-scoped assistant endpoint.
 
 ## Availability and reservation integrity
 
