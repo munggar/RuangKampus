@@ -461,3 +461,38 @@ test.describe("Staff Sekretariat workflows — fixture-backed browser E2E", () =
     await expect(page.getByRole("heading", { name: "Impor data kampus", exact: true })).toBeVisible();
   });
 });
+
+
+test.describe("Staff Secretariat usage guide", () => {
+  test("admin bottom navigation and profile FAQ open the same guide page", async ({ page }) => {
+    await installMockApi(page, "Staff Sekretariat");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/dashboard");
+    await waitForPageReady(page);
+
+    const mobileNavigation = page.locator(".mobile-nav-shell");
+    const guideLink = mobileNavigation.getByRole("link", { name: "Panduan" });
+    await expect(guideLink).toBeVisible();
+    await guideLink.click();
+    await expect(page).toHaveURL(/\\/admin\\/guide$/);
+    await expect(page.getByRole("heading", { name: "Panduan penggunaan RuangKampus" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Meninjau permohonan reservasi" })).toBeVisible();
+
+    await page.goto("/admin/profile");
+    await waitForPageReady(page);
+    await page.getByRole("link", { name: /Bantuan & FAQ/ }).click();
+    await expect(page).toHaveURL(/\\/admin\\/guide$/);
+    await expect(page.getByRole("heading", { name: "Panduan penggunaan RuangKampus" })).toBeVisible();
+  });
+
+  test("Student cannot access the Staff guide and keeps the Student help destination", async ({ page }) => {
+    await installMockApi(page, "Student");
+    await page.goto("/admin/guide");
+    await waitForPageReady(page);
+    await expect(page).toHaveURL(/\\/student\\/dashboard$/);
+
+    await page.goto("/student/profile");
+    await waitForPageReady(page);
+    await expect(page.getByRole("link", { name: /Bantuan & FAQ/ })).toHaveAttribute("href", "/student/assistant");
+  });
+});
