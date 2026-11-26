@@ -569,6 +569,39 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
   </div>;
 }
 
+const notificationTitles: Record<string, string> = {
+  RESERVATION_NEW: "Pengajuan reservasi baru",
+  RESERVATION_APPROVED: "Reservasi disetujui",
+  RESERVATION_REJECTED: "Reservasi ditolak",
+  RESERVATION_CANCELLED: "Reservasi dibatalkan",
+  RESERVATION_CANCELLED_BY_STUDENT: "Reservasi dibatalkan mahasiswa",
+  RESERVATION_COMPLETED: "Reservasi selesai",
+};
+
+function localizedNotificationMessage(item: AppNotification): string {
+  const legacy = item.message;
+  let match: RegExpMatchArray | null = null;
+  switch (item.notification_type) {
+    case "RESERVATION_NEW":
+      match = legacy.match(/^A new request was submitted for (.+) on (\d{4}-\d{2}-\d{2})\.$/);
+      return match ? `Ada pengajuan reservasi baru untuk ${match[1]} pada ${formatDate(match[2])}.` : legacy;
+    case "RESERVATION_APPROVED":
+      match = legacy.match(/^Your reservation for (.+) has been approved\.$/);
+      return match ? `Reservasi ${match[1]} telah disetujui oleh Admin.` : legacy;
+    case "RESERVATION_REJECTED":
+      match = legacy.match(/^Your reservation was rejected\. Reason: (.*)$/);
+      return match ? `Pengajuan reservasi kamu ditolak. Alasan: ${match[1]}` : legacy;
+    case "RESERVATION_CANCELLED":
+      match = legacy.match(/^Your reservation for (.+) was cancelled by the administrator\.$/);
+      return match ? `Reservasi ${match[1]} dibatalkan oleh Admin.` : legacy;
+    case "RESERVATION_CANCELLED_BY_STUDENT":
+      match = legacy.match(/^A reservation for (.+) on (\d{4}-\d{2}-\d{2}) was cancelled by the applicant\.$/);
+      return match ? `Reservasi ${match[1]} pada ${formatDate(match[2])} dibatalkan oleh mahasiswa.` : legacy;
+    default:
+      return legacy;
+  }
+}
+
 export function NotificationsPage({ role }: { role: AppRole }) {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -705,7 +738,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
   }
 
   const emailStatusLabel = (status: string) => ({
-    SENT: "Terkirim",
+    SENT: "Diterima penyedia email",
     LOCAL_MAILBOX_WRITTEN: "Tersimpan di kotak lokal",
     FAILED: "Gagal dikirim",
     ATTEMPTED: "Sedang diproses",
@@ -724,7 +757,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
         <button type="button" className={filter === "all" ? "is-active" : ""} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>Semua ({allTotal})</button>
         <button type="button" className={filter === "unread" ? "is-active" : ""} aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}>Belum dibaca ({unreadTotal})</button>
       </div>
-      <span className="muted small">Diperbarui otomatis setiap 15 detik</span>
+      <span className="muted small">Diperbarui otomatis setiap 15 detik · Status email menunjukkan hasil penyedia, bukan konfirmasi masuk ke kotak masuk.</span>
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat notifikasi…" /> : items.length ? <>
@@ -737,13 +770,13 @@ export function NotificationsPage({ role }: { role: AppRole }) {
             <div className="notification-card__icon"><Bell size={18} /></div>
             <div className="notification-card__content">
               <div className="notification-card__heading">
-                <strong>{item.title}</strong>
+                <strong>{notificationTitles[item.notification_type] || item.title}</strong>
                 <time dateTime={item.created_at}>{formatDateTime(item.created_at)}</time>
               </div>
-              <p>{item.message}</p>
+              <p>{localizedNotificationMessage(item)}</p>
               <div className="notification-card__delivery">
                 <span>Aplikasi: Tersimpan</span>
-                <span className={emailFailed ? "notification-card__email--failed" : ""}>Email: {emailStatusLabel(item.email_delivery_status)}</span>
+                <span className={emailFailed ? "notification-card__email--failed" : ""}>Email: {emailStatusLabel(item.email_delivery_status)}{item.email_attempt_count > 0 ? ` · ${item.email_attempt_count}/3 percobaan` : ""}</span>
                 {item.email_sent_at ? <span>Dikirim {formatDateTime(item.email_sent_at)}</span> : null}
               </div>
               <div className="notification-card__actions">
