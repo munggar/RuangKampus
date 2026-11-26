@@ -43,7 +43,7 @@ export function LoginPage() {
     <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">
-        <p className="eyebrow">WELCOME BACK</p>
+        <p className="eyebrow">SELAMAT DATANG KEMBALI</p>
         <h2>Selamat datang kembali</h2>
         <p className="muted">Masuk dengan akun universitas yang terdaftar.</p>
         {!isApiConfigured() ? <Notice tone="warning">Mode preview: tampilan tersedia, tetapi backend belum di-host atau URL API belum diatur. Login dan pemuatan data belum aktif.</Notice> : null}
@@ -114,7 +114,7 @@ export function ForgotPasswordPage() {
   return <main className="auth-layout">
     <BrandHero />
     <section className="auth-panel"><div className="auth-panel__inner">
-      <p className="eyebrow">ACCOUNT SUPPORT</p>
+      <p className="eyebrow">BANTUAN AKUN</p>
       <h2>{token ? "Buat password baru" : "Lupa password?"}</h2>
       <p className="muted">{token ? "Gunakan password baru yang kuat dan mudah Anda ingat." : "Masukkan email akun Anda untuk meminta instruksi reset password."}</p>
       <form className="stack-form" onSubmit={submit}>
@@ -178,7 +178,7 @@ export function RegisterPage() {
     <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">
-        <p className="eyebrow">CREATE YOUR ACCOUNT</p>
+        <p className="eyebrow">BUAT AKUN MAHASISWA</p>
         <h2>Daftar RuangKampus</h2>
         <p className="muted">Buat akun Student untuk mencari ruangan dan mengajukan reservasi kampus. NIM akan digunakan untuk login.</p>
         {!isApiConfigured() ? <Notice tone="warning">Backend belum dikonfigurasi. Pendaftaran akan aktif setelah layanan API tersedia.</Notice> : null}
