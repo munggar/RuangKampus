@@ -946,3 +946,154 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
   .brand-logo--navigation { width: 172px; }
   .brand-logo--auth { width: min(100%, 320px); }
 }
+
+
+/* Admin live campus clock and reservation time monitor */
+.campus-clock {
+  display: inline-flex;
+  min-width: 112px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  color: var(--brand-primary);
+  background: var(--surface-card);
+}
+.campus-clock > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.15;
+}
+.campus-clock small {
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 650;
+}
+.campus-clock strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .06em;
+}
+.reservation-monitor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.reservation-monitor-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--surface-card);
+}
+.reservation-monitor-item--active {
+  border-left: 3px solid var(--status-success);
+}
+.reservation-monitor-item--upcoming {
+  border-left: 3px solid var(--brand-primary);
+}
+.reservation-monitor-item--overdue {
+  border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  border-left: 3px solid var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning-surface) 28%, var(--surface-card));
+}
+.reservation-monitor-item__details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.reservation-monitor-item__heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.reservation-monitor-item__heading > b {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.reservation-monitor-item__details > p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.reservation-monitor-item__details > small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.reservation-monitor-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 750;
+}
+.reservation-monitor-state--upcoming {
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+.reservation-monitor-state--active {
+  color: var(--status-success);
+  background: var(--status-success-surface);
+}
+.reservation-monitor-state--overdue {
+  color: var(--status-warning);
+  background: var(--status-warning-surface);
+}
+.reservation-monitor-item__timer {
+  display: flex;
+  min-width: 112px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.reservation-monitor-item__timer > small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+.reservation-monitor-item__timer > strong {
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .035em;
+}
+.reservation-monitor-item--overdue .reservation-monitor-item__timer > strong {
+  color: var(--status-warning);
+}
+.reservation-monitor-item__timer .text-link {
+  font-size: 10px;
+}
+.reservation-monitor-warning {
+  color: var(--status-warning) !important;
+  font-size: 10px !important;
+  font-weight: 650;
+}
+@media (max-width: 900px) {
+  .campus-clock { min-width: 0; gap: 5px; padding: 5px 7px; }
+  .campus-clock small { display: none; }
+}
+@media (max-width: 680px) {
+  .reservation-monitor-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+  }
+  .reservation-monitor-item__timer {
+    min-width: 0;
+    align-items: flex-end;
+  }
+  .reservation-monitor-item__timer > strong { font-size: 15px; }
+  .reservation-monitor-item > .button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
