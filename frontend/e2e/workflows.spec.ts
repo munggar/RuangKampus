@@ -33,7 +33,7 @@ test.describe("Authentication UI — mocked session only", () => {
     await waitForPageReady(page);
     await page.getByRole("button", { name: "Staff Sekretariat", exact: true }).click();
     await expect(page.getByLabel("Username Staff Sekretariat")).toHaveValue("admin.uhamka");
-    await page.getByLabel("Password").fill("fixture-pass-1234");
+    await page.locator('input[autocomplete="current-password"]').fill("fixture-pass-1234");
     await page.getByRole("button", { name: "Masuk ke RuangKampus" }).click();
     await expect(page).toHaveURL(/\/admin\/dashboard$/);
     await expect(page.getByText("Staff Sekretariat", { exact: true }).first()).toBeVisible();
