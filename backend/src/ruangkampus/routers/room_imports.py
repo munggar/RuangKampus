@@ -47,6 +47,14 @@ def _slug_code(name: str) -> str:
     return ("AUTO-" + slug)[:80]
 
 
+def _room_floor(name: str) -> str | None:
+    normalized = name.casefold()
+    if re.search(r"\b(lab|laboratorium)\b", normalized):
+        return "2"
+    first_digit = re.search(r"\d", name)
+    return first_digit.group(0) if first_digit else None
+
+
 def _photo_dir() -> Path:
     path = Path(get_settings().room_media_dir).resolve()
     path.mkdir(parents=True, exist_ok=True)
@@ -116,7 +124,7 @@ def _parse_workbook(content: bytes, batch_id: UUID) -> tuple[list[dict], dict[in
             code = _slug_code(name) if name else ""
             rows.append({
                 "row_number": row_number, "room_name": name, "room_code": code,
-                "building": "Belum ditentukan", "faculty": None, "floor": None,
+                "building": "Belum ditentukan", "faculty": None, "floor": _room_floor(name),
                 "location_description": None, "capacity": capacity_min,
                 "capacity_min": capacity_min, "capacity_max": capacity_max,
                 "capacity_estimate": capacity_label, "description": facilities_text,
