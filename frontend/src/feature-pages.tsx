@@ -271,7 +271,7 @@ export function RoomAssistantPage() {
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
     const text = message.trim();
-    if (text.length < 3 || loading || role !== "Student") return;
+    if (text.length < 3 || loading) return;
     setMessage(""); setError("");
     setTurns((current) => [...current, { id: Date.now(), sender: "user", message: text }]);
     setLoading(true);
