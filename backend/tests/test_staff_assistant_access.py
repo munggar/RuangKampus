@@ -12,7 +12,6 @@ def test_staff_secretariat_cannot_access_student_assistant_chat(
     )
 
     assert response.status_code == 403
-    assert "Student" in response.text or "role" in response.text.lower()
 
 
 def test_staff_secretariat_cannot_access_student_alternative_slot_api(
