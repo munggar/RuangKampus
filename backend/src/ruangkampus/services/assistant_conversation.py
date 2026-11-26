@@ -96,8 +96,8 @@ def merge_room_slots(
     for field in _SLOT_FIELDS:
         value = merged.get(field)
         empty = value is None or value == [] or (field == "search_terms" and not value)
-        if field == "participant_count" and field in explicit:
-            empty = False
+        if field == "participant_count":
+            empty = field not in explicit and value == 1
         if not empty or field in explicit:
             continue
         if has_negation and field in {"faculty", "building", "facilities"}:
