@@ -152,8 +152,8 @@ export function AdminGuidePage() {
           <ul>
             <li>Ikon lonceng pada header menampilkan jumlah notifikasi yang belum dibaca.</li>
             <li>Buka halaman Notifikasi untuk membaca pembaruan dan membuka konteks reservasi terkait.</li>
-            <li>Perhatikan status pengiriman email yang ditampilkan pada detail notifikasi bila tersedia.</li>
-            <li>Jika pemberitahuan belum diterima, periksa statusnya di aplikasi terlebih dahulu dan ikuti tindakan yang tersedia pada halaman tersebut.</li>
+            <li>Periksa status email: diterima penyedia email, tersimpan di kotak lokal, sedang diproses, gagal dikirim, atau email tidak diaktifkan.</li>
+            <li>Jika email gagal dikirim, gunakan tombol coba ulang selama jumlah percobaan belum mencapai 3 kali.</li>
           </ul>
           <Link className="text-link" to="/admin/notifications">Buka notifikasi <ArrowRight size={14} /></Link>
         </article>
