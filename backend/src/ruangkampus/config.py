@@ -30,9 +30,18 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: int = 10
     brevo_api_key: str | None = None
     brevo_sender_email: str | None = None
+    # Backward-compatible alias for the existing Railway variable name.
+    brevo_sender_mail: str | None = None
     brevo_sender_name: str = "RuangKampus"
     campus_timezone: str = "Asia/Jakarta"
     room_media_dir: str = ".room-media"
+
+    @field_validator("email_backend", mode="before")
+    @classmethod
+    def normalize_email_backend(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -74,11 +83,20 @@ class Settings(BaseSettings):
                 if not self.smtp_use_tls:
                     raise ValueError("Production SMTP must use STARTTLS (SMTP_USE_TLS=true)")
             if self.email_backend == "brevo":
-                if not self.brevo_api_key or not self.brevo_sender_email:
-                    raise ValueError("EMAIL_BACKEND=brevo requires BREVO_API_KEY and BREVO_SENDER_EMAIL")
-                if "@" not in self.brevo_sender_email:
-                    raise ValueError("BREVO_SENDER_EMAIL must be a valid email address")
+                sender_email = self.brevo_sender_email or self.brevo_sender_mail
+                if not self.brevo_api_key or not sender_email:
+                    raise ValueError(
+                        "EMAIL_BACKEND=brevo requires BREVO_API_KEY and BREVO_SENDER_EMAIL "
+                        "(BREVO_SENDER_MAIL is also accepted)"
+                    )
+                if "@" not in sender_email:
+                    raise ValueError("BREVO_SENDER_EMAIL must be a valid email address (BREVO_SENDER_MAIL is also accepted)")
         return self
+
+    @property
+    def brevo_sender_address(self) -> str | None:
+        """Return the configured Brevo sender, accepting the legacy Railway variable."""
+        return self.brevo_sender_email or self.brevo_sender_mail
 
     @property
     def is_production(self) -> bool:
