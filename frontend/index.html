@@ -3,12 +3,48 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f5f8fc" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="/brand/favicon/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="description" content="RuangKampus — Find the Room. Book the Space." />
+    <meta name="application-name" content="RuangKampus" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="RuangKampus" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <script>
+      // Restore the saved theme before the first paint on protected and public routes.
+      (function () {
+        try {
+          document.documentElement.dataset.theme = window.localStorage.getItem("rk-theme") === "dark" ? "dark" : "light";
+        } catch {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
     <title>RuangKampus</title>
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot-splash" role="status" aria-live="polite">
+      <div class="boot-splash__brand">
+        <img src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
+      </div>
+      <span class="boot-splash__spinner" aria-hidden="true"></span>
+      <p>Menyiapkan RuangKampus…</p>
+    </div>
+    <style>
+      #boot-splash { position: fixed; z-index: 9999; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px; background: #f5f8fc; color: #526174; font: 500 13px/1.5 system-ui, sans-serif; }
+      .boot-splash__brand { width: min(340px, 88vw); padding: 16px 18px; border: 1px solid #e6edf5; border-radius: 16px; background: #fff; }
+      .boot-splash__brand img { display: block; width: 100%; height: auto; max-width: 100%; object-fit: contain; }
+      .boot-splash__spinner { width: 30px; height: 30px; border: 3px solid #dce7f2; border-top-color: #005a9c; border-radius: 50%; animation: boot-spin .85s linear infinite; }
+      #boot-splash p { margin: 0; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .boot-splash__spinner { animation-duration: 2.5s; } }
+    </style>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  ApiError, apiAssetUrl, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
+  ApiError, apiAssetUrl, availabilityReasonLabel, canCancelReservation, dashboardApi, formatDate, formatDateTime, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
 } from "./api";
 import { useAuth } from "./auth";
@@ -19,22 +19,76 @@ function usePageError() {
   return { error, setError, busy, setBusy };
 }
 
-function ReservationCard({ item }: { item: Reservation }) {
+function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reservation; showCancel?: boolean; onUpdated?: (updated: Reservation) => void }) {
+  const [currentItem, setCurrentItem] = useState(item);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+
+  useEffect(() => { setCurrentItem(item); }, [item]);
+
+  const canCancel = showCancel && canCancelReservation(currentItem.status, currentItem.reservation_date);
+
+  async function cancelReservation() {
+    setBusy(true);
+    setCancelError("");
+    try {
+      const updated = await reservationApi.cancel(currentItem.id, cancelReason.trim() || undefined);
+      setCurrentItem(updated);
+      onUpdated?.(updated);
+      setCancelReason("");
+      setCancelOpen(false);
+    } catch (cause) {
+      setCancelError(cause instanceof Error ? cause.message : "Pembatalan belum berhasil. Silakan coba kembali.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Link className="reservation-card" to={"/student/reservations/" + item.id}>
-      <div className="reservation-card__top">
-        <span className="reservation-card__id">RK-{item.id.slice(0, 8).toUpperCase()}</span>
-        <StatusBadge status={item.status} />
-      </div>
-      {item.room?.photo_url ? <RoomPhoto photoUrl={item.room.photo_url} roomName={item.room.room_name} className="reservation-card__image" /> : null}
-      <strong>{item.room?.room_name || "Ruangan"}</strong>
-      <span className="muted">{item.room?.building || "Lokasi kampus belum tersedia"}</span>
-      <div className="reservation-card__meta">
-        <span><CalendarDays size={15} />{formatDate(item.reservation_date)}</span>
-        <span><Clock3 size={15} />{formatTime(item.start_time)}–{formatTime(item.end_time)}</span>
-      </div>
-      <p>{item.purpose}</p>
-    </Link>
+    <article className="reservation-card">
+      <Link className="reservation-card__link" to={"/student/reservations/" + currentItem.id}>
+        <div className="reservation-card__top">
+          <span className="reservation-card__id">RK-{currentItem.id.slice(0, 8).toUpperCase()}</span>
+          <StatusBadge status={currentItem.status} />
+        </div>
+        {currentItem.room?.photo_url ? <RoomPhoto photoUrl={currentItem.room.photo_url} roomName={currentItem.room.room_name} className="reservation-card__image" /> : null}
+        <strong>{currentItem.room?.room_name || "Ruangan"}</strong>
+        <span className="muted">{currentItem.room?.building || "Lokasi kampus belum tersedia"}</span>
+        <div className="reservation-card__meta">
+          <span><CalendarDays size={15} />{formatDate(currentItem.reservation_date)}</span>
+          <span><Clock3 size={15} />{formatTime(currentItem.start_time)}–{formatTime(currentItem.end_time)}</span>
+        </div>
+        <p>{currentItem.purpose}</p>
+      </Link>
+      {cancelError ? <div className="reservation-card__feedback"><Notice tone="error">{cancelError}</Notice></div> : null}
+      {canCancel ? (
+        <div className="reservation-card__actions">
+          <Button variant="danger" onClick={() => { setCancelError(""); setCancelOpen(true); }}>
+            <XCircle size={15} />Batalkan reservasi
+          </Button>
+        </div>
+      ) : null}
+      <Modal
+        open={cancelOpen}
+        closeDisabled={busy}
+        title="Batalkan reservasi?"
+        description="Reservasi ini akan berubah menjadi Dibatalkan dan slot ruangan dapat digunakan kembali sesuai validasi sistem."
+        onClose={() => { if (!busy) setCancelOpen(false); }}
+      >
+        {cancelError ? <Notice tone="error">{cancelError}</Notice> : null}
+        <Field label="Alasan pembatalan (opsional)">
+          <textarea rows={3} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} maxLength={2000} />
+        </Field>
+        <div className="modal-actions">
+          <Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button>
+          <Button variant="danger" onClick={() => void cancelReservation()} disabled={busy}>
+            {busy ? "Memproses…" : "Ya, batalkan"}
+          </Button>
+        </div>
+      </Modal>
+    </article>
   );
 }
 
@@ -190,7 +244,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     {loading ? <Loading label="Memuat direktori ruangan…" /> : rooms.length ? (
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
-          <Link className="room-card__media" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
+          <Link className="room-card__media" aria-label={"Lihat foto dan detail " + room.room_name} to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
             <RoomPhoto photoUrl={room.photo_url} roomName={room.room_name} />
           </Link>
           <div className="room-card__body">
@@ -382,7 +436,7 @@ export function StudentReservationsPage() {
       <Field label="Cari reservasi"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari ruang, tujuan, atau ID reservasi" /></Field>
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
-    {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} />)}</div>
+    {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} showCancel onUpdated={(updated) => setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry))} />)}</div>
       : <EmptyState title="Belum ada reservasi" description="Belum ada permohonan yang sesuai dengan filter Anda." action={<Link to="/student/rooms" className="button button--primary">Cari ruangan</Link>} icon={<CalendarCheck size={22} />} />}
   </div>;
 }
@@ -415,7 +469,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
 
   if (loading) return <Loading label="Memuat detail reservasi…" />;
   if (!item) return <Notice tone="error">{error || "Reservasi tidak ditemukan."}</Notice>;
-  const canCancel = (item.status === "PENDING" || item.status === "APPROVED") && item.reservation_date >= localToday();
+  const canCancel = canCancelReservation(item.status, item.reservation_date);
   const root = role === "Student" ? "/student" : "/admin";
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>
@@ -448,7 +502,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
         {canCancel ? <Button variant="danger" onClick={() => setCancelOpen(true)} className="button--wide">Batalkan reservasi</Button> : null}
       </aside>
     </div>
-    <Modal open={cancelOpen} title="Batalkan reservasi?" description="Pembatalan akan diproses oleh layanan RuangKampus." onClose={() => setCancelOpen(false)}>
+    <Modal open={cancelOpen} title="Batalkan reservasi?" description="Pembatalan akan diproses oleh layanan RuangKampus." onClose={() => setCancelOpen(false)} closeDisabled={busy}>
       <Field label="Alasan pembatalan (opsional)"><textarea rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={2000} /></Field>
       <div className="modal-actions"><Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button><Button variant="danger" onClick={() => void cancel()} disabled={busy}>{busy ? "Memproses…" : "Ya, batalkan"}</Button></div>
     </Modal>
@@ -471,7 +525,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
   }, []);
   async function markRead(id: string) {
     setBusyId(id);
-    try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); }
+    try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); window.dispatchEvent(new Event("rk-notifications-updated")); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui."); }
     finally { setBusyId(""); }
   }
@@ -481,7 +535,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
     {loading ? <Loading label="Memuat notifikasi…" /> : items.length ? <div className="card-list">
       {items.map((item) => <article className={"notification-card" + (!item.read_at ? " is-unread" : "")} key={item.id}>
         <div className="notification-card__icon"><Bell size={18} /></div>
-        <div className="notification-card__content"><div className="notification-card__heading"><strong>{item.title}</strong><span>{formatDate(item.created_at)}</span></div><p>{item.message}</p>
+        <div className="notification-card__content"><div className="notification-card__heading"><strong>{item.title}</strong><span>{item.notification_type === "RESERVATION_APPROVED" ? formatDateTime(item.created_at) : formatDate(item.created_at)}</span></div><p>{item.message}</p>
           <small>In-app: {item.delivery_status.replaceAll("_", " ").toLowerCase()} · Email: {item.email_delivery_status.replaceAll("_", " ").toLowerCase()}</small>
         </div>
         {!item.read_at ? <Button variant="secondary" disabled={busyId === item.id} onClick={() => void markRead(item.id)}>Tandai dibaca</Button> : <span className="read-mark"><Check size={15} />Dibaca</span>}
@@ -495,6 +549,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
   const { user, replaceUser, logout } = useAuth();
   const [profile, setProfile] = useState<AuthUser | null>(user);
   const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -512,14 +567,18 @@ export function ProfilePage({ role }: { role: AppRole }) {
 
   useEffect(() => {
     let active = true;
-    profileApi.me().then((item) => { if (!active) return; setProfile(item); setName(item.name); setPhone(item.phone || ""); replaceUser(item); })
+    profileApi.me().then((item) => { if (!active) return; setProfile(item); setName(item.name); setEmail(item.email); setPhone(item.phone || ""); replaceUser(item); })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Profil belum dapat dimuat."); });
     return () => { active = false; };
   }, [replaceUser]);
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(""); setMessage("");
-    try { const updated = await profileApi.update({ name: name.trim(), phone: phone.trim() || null }); setProfile(updated); replaceUser(updated); setMessage("Profil berhasil diperbarui."); }
+    try {
+      const updated = await profileApi.update({ name: name.trim(), phone: phone.trim() || null });
+      setProfile(updated); setName(updated.name); setEmail(updated.email); setPhone(updated.phone || "");
+      replaceUser(updated); setMessage("Profil berhasil diperbarui.");
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Profil belum berhasil disimpan."); }
     finally { setSaving(false); }
   }
@@ -546,14 +605,18 @@ export function ProfilePage({ role }: { role: AppRole }) {
     <PageTitle eyebrow="YOUR ACCOUNT" title="Profil" description="Kelola informasi akun dan preferensi tampilan Anda." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {message ? <Notice tone="success">{message}</Notice> : null}
-    <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "TU / Administrator"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
+    <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "Staff Sekretariat"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
     <div className="profile-grid">
       <form className="panel stack-form" onSubmit={saveProfile}>
         <h2>Informasi profil</h2>
         <Field label="Nama lengkap"><input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={160} required /></Field>
-        <Field label="Email"><input type="email" value={profile?.email || ""} readOnly disabled /></Field>
-        <Field label="Nomor telepon"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
-        {profile?.student_identifier ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field> : null}
+        <Field label="Email"><input type="email" autoComplete="email" value={email} readOnly /></Field>
+        <Field label="Nomor telepon"><input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
+        {role === "Staff Sekretariat"
+          ? <Field label="Username admin"><input value={profile?.student_identifier || ""} autoComplete="username" disabled readOnly /></Field>
+          : profile?.student_identifier
+            ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field>
+            : null}
         <Button type="submit" disabled={saving}>{saving ? "Menyimpan…" : "Simpan perubahan"}</Button>
       </form>
       <div className="stack-form">
@@ -567,12 +630,12 @@ export function ProfilePage({ role }: { role: AppRole }) {
         <form className="panel stack-form" onSubmit={savePassword}>
           <h2>Ubah password</h2>
           <Field label="Password saat ini"><input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required /></Field>
-          <Field label="Password baru" hint="Minimal 10 karakter sesuai validasi server."><input type="password" minLength={10} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></Field>
+          <Field label="Password baru" hint="Minimal 8 karakter."><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></Field>
           <Button type="submit" variant="secondary" disabled={saving}>Ubah password</Button>
         </form>
       </div>
     </div>
-    <Link className="panel profile-link" to={accountRoot + "/assistant"}><span><b>Bantuan & FAQ</b><small>Informasi alur reservasi dan aturan layanan</small></span><ArrowRight size={18} /></Link>
+    {role === "Student" ? <Link className="panel profile-link" to="/student/assistant"><span><b>Bantuan & FAQ</b><small>Informasi alur reservasi dan aturan layanan</small></span><ArrowRight size={18} /></Link> : null}
   </div>;
 }
 

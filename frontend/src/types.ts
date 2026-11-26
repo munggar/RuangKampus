@@ -1,4 +1,4 @@
-export type AppRole = "Student" | "TU/Admin";
+export type AppRole = "Student" | "Staff Sekretariat";
 export type ReservationStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 export type RoomStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 
@@ -76,6 +76,8 @@ export interface AlternativeSlotsResult {
 }
 export interface AssistantChatRequest {
   message: string;
+  /** Opaque ID for the authenticated student's short-lived conversation state. */
+  conversation_id?: string | null;
   faculty?: string | null;
   building?: string | null;
   min_capacity?: number | null;
@@ -85,7 +87,46 @@ export interface AssistantChatRequest {
   end_time?: string | null;
   participant_count?: number;
 }
+export interface AssistantChatSlots {
+  faculty: string | null;
+  building: string | null;
+  min_capacity: number | null;
+  facilities: string[];
+  date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  participant_count: number;
+  search_terms: string[];
+}
+export interface AssistantReservationSummary {
+  id: string;
+  room_name: string;
+  building: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  participant_count: number;
+  status: ReservationStatus;
+  purpose: string;
+}
+export type AssistantResultType = "ROOMS_FOUND" | "ALTERNATIVE_SLOTS" | "RESERVATIONS_FOUND" | "ROOM_DETAILS" | "NO_RESULTS";
 export interface AssistantChatResult {
+  /** Structured fields are optional so the client remains compatible with an older API deployment. */
+  conversation_id?: string | null;
+  slots?: AssistantChatSlots;
+  confidence?: number | null;
+  confidence_basis?: "RULE_HEURISTIC" | "AI_FALLBACK" | null;
+  missing_fields?: string[];
+  requires_clarification?: boolean;
+  clarification_message?: string | null;
+  result_type?: AssistantResultType;
+  requires_confirmation?: boolean;
+  data?: {
+    rooms: Room[];
+    alternative_slots: AlternativeSlot[];
+    reservations?: AssistantReservationSummary[];
+    filters: AssistantChatSlots;
+  };
   engine: string;
   intent: string;
   message: string;

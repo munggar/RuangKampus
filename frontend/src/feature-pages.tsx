@@ -8,7 +8,7 @@ import {
   apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
 } from "./api";
 import type {
-  AlternativeSlot, AlternativeSlotsResult, AppRole, AssistantChatResult,
+  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult,
   AvailabilityResult, Room,
 } from "./types";
 import { PageTitle } from "./layout";
@@ -174,7 +174,7 @@ export function StudentRoomAvailabilityPage() {
         <span className="muted">Halaman {page} dari {totalPages}</span>
         <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
       </div> : null}
-      <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat TU menyetujui.</Notice>
+      <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat Staff Sekretariat menyetujui.</Notice>
     </PageSection> : null}
     {searched && !available.length ? <section className="panel stack-form">
       <EmptyState title="Belum ada ruangan yang tersedia" description="Tidak ditemukan ruang yang memenuhi kriteria pada waktu tersebut. Periksa penyebab bentrok atau cari jadwal alternatif." icon={<CalendarDays size={23} />} />
@@ -251,7 +251,9 @@ type AssistantTurn = {
   message: string;
   rooms?: Room[];
   alternatives?: AlternativeSlot[];
+  reservations?: import("./types").AssistantReservationSummary[];
   followUps?: string[];
+  engine?: string;
 };
 const assistantPrompts = [
   "Cari ruang untuk 20 orang dengan proyektor",
@@ -259,13 +261,12 @@ const assistantPrompts = [
   "Cari ruang di fakultas saya dengan Wi-Fi",
 ];
 
-export function RoomAssistantPage({ role }: { role: AppRole }) {
+export function RoomAssistantPage() {
   const [message, setMessage] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [turns, setTurns] = useState<AssistantTurn[]>([{
     id: 1, sender: "assistant",
-    message: role === "Student"
-      ? "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan."
-      : "Halo, administrator. Gunakan pintasan berikut untuk meninjau permohonan, mengelola ruangan, atau memperbarui jadwal fasilitas kampus.",
+    message: "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan.",
   }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -273,39 +274,27 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
     const text = message.trim();
-    if (text.length < 3 || loading || role !== "Student") return;
+    if (text.length < 3 || loading) return;
     setMessage(""); setError("");
     setTurns((current) => [...current, { id: Date.now(), sender: "user", message: text }]);
     setLoading(true);
     try {
-      const response: AssistantChatResult = await discoveryApi.chat({ message: text });
+      const response: AssistantChatResult = await discoveryApi.chat({
+        message: text,
+        conversation_id: conversationId,
+      });
+      if (response.conversation_id) setConversationId(response.conversation_id);
       setTurns((current) => [...current, {
         id: Date.now() + 1, sender: "assistant", message: response.message,
-        rooms: response.rooms, alternatives: response.alternative_slots, followUps: response.follow_up_questions,
+        rooms: response.rooms,
+        alternatives: response.alternative_slots,
+        reservations: response.data?.reservations || [],
+        followUps: response.follow_up_questions,
+        engine: response.engine,
       }]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
     } finally { setLoading(false); }
-  }
-
-  if (role === "TU/Admin") {
-    return <div className="page-stack">
-      <PageTitle eyebrow="SMART CAMPUS SUPPORT" title="AI Facility Assistant"
-        description="Pusat bantuan untuk alur persetujuan, pengelolaan fasilitas, dan informasi operasional ruangan." />
-      <section className="panel assistant-intro">
-        <span className="assistant-intro__icon"><Sparkles size={25} /></span>
-        <div><h2>Halo, Administrator!</h2><p className="muted">Pilih pekerjaan yang ingin dilakukan. Panel ini menyediakan akses cepat ke fitur administrasi.</p></div>
-      </section>
-      <section className="panel stack-form">
-        <h2>Apa yang ingin Anda lakukan?</h2>
-        <div className="assistant-prompts">
-          <Link className="assistant-prompt-link" to="/admin/reservations"><MessageCircle size={19} /><span><b>Tinjau permohonan reservasi</b><small>Periksa dan proses pengajuan mahasiswa</small></span><ArrowRight size={17} /></Link>
-          <Link className="assistant-prompt-link" to="/admin/rooms"><Building2 size={19} /><span><b>Kelola ruangan kampus</b><small>Perbarui fasilitas, kapasitas, dan lokasi</small></span><ArrowRight size={17} /></Link>
-          <Link className="assistant-prompt-link" to="/admin/schedules"><CalendarDays size={19} /><span><b>Jadwal dan pemeliharaan</b><small>Atur waktu operasional dan periode tidak tersedia</small></span><ArrowRight size={17} /></Link>
-        </div>
-      </section>
-      <Notice tone="info">Endpoint asisten percakapan pada backend saat ini hanya mengizinkan role Student. Karena itu, halaman TU menampilkan pintasan operasional dan tidak mengirim pesan ke endpoint yang belum mengizinkan Admin.</Notice>
-    </div>;
   }
 
   return <div className="page-stack">
@@ -316,18 +305,24 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
       <div><h2>Teman pencarian ruangan</h2><p className="muted">Ceritakan kebutuhan acara Anda. Asisten akan menyaring data ruangan dan menampilkan slot alternatif jika tersedia.</p></div>
     </section>
     <section className="panel assistant-chat-panel">
-      <div className="assistant-engine-label"><span className="online-dot" />Asisten berbasis aturan · data backend</div>
+      <div className="assistant-engine-label"><span className="online-dot" />Rule-based first · AI fallback opsional · data backend</div>
       <div className="assistant-chat-list" aria-live="polite">
         {turns.map((turn) => <article key={turn.id} className={"assistant-message assistant-message--" + turn.sender}>
           <span className="assistant-message__avatar">{turn.sender === "assistant" ? <Sparkles size={16} /> : <Users size={16} />}</span>
           <div className="assistant-message__body">
             <p>{turn.message}</p>
+            {turn.sender === "assistant" && turn.engine === "HYBRID" ? <small className="muted">AI membantu memahami pesan; hasil tetap divalidasi backend.</small> : null}
             {turn.rooms?.length ? <div className="assistant-inline-results">
               {turn.rooms.map((room) => <Link className="assistant-room-link" key={room.id} to={"/student/rooms/" + room.id}>
                 <span><b>{room.room_name}</b><small>{roomLocation(room) || room.building} · {room.capacity} orang</small></span><ArrowRight size={16} />
               </Link>)}
             </div> : null}
             {turn.alternatives?.length ? <div className="recommendation-list">{turn.alternatives.map((slot, index) => <AlternativeCard key={slot.room.id + slot.date + slot.start_time + index} slot={slot} />)}</div> : null}
+            {turn.reservations?.length ? <div className="assistant-inline-results">
+              {turn.reservations.map((reservation) => <div className="assistant-room-link" key={reservation.id}>
+                <span><b>{reservation.room_name} · {reservation.status}</b><small>{reservation.building} · {formatDate(reservation.date)} · {formatTime(reservation.start_time)}–{formatTime(reservation.end_time)} WIB · {reservation.participant_count} peserta</small></span>
+              </div>)}
+            </div> : null}
             {turn.followUps?.map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>)}
           </div>
         </article>)}
@@ -345,6 +340,6 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
         <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
       </form>
     </section>
-    <Notice tone="info">Asisten menggunakan pencarian berbasis aturan dari data RuangKampus, bukan model AI generatif. Pesan tidak membuat reservasi otomatis; permohonan tetap harus dikirim melalui halaman reservasi.</Notice>
+    <Notice tone="info">Asisten mengutamakan pencocokan aturan dan data RuangKampus. Jika provider dikonfigurasi, AI hanya membantu memahami maksud pesan; semua data dan hasil tetap divalidasi backend. Chat tidak membuat reservasi otomatis, dan pengajuan tetap melalui alur Reservasi.</Notice>
   </div>;
 }

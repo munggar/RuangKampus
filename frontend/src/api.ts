@@ -194,6 +194,7 @@ export const reservationApi = {
   reject: (id: string, rejection_reason: string) => apiRequest<Reservation>("/reservations/" + encodeURIComponent(id) + "/reject", {
     method: "PATCH", body: { rejection_reason },
   }),
+  complete: (id: string) => apiRequest<Reservation>("/reservations/" + encodeURIComponent(id) + "/complete", { method: "PATCH" }),
 };
 
 export const notificationApi = {
@@ -231,11 +232,27 @@ export function localToday(): string {
   const get = (type: string) => parts.find((item) => item.type === type)?.value || "00";
   return get("year") + "-" + get("month") + "-" + get("day");
 }
+export function canCancelReservation(status: string, reservationDate: string, today = localToday()): boolean {
+  return (status === "PENDING" || status === "APPROVED") && reservationDate >= today;
+}
 export function formatDate(value: string | null | undefined, options?: Intl.DateTimeFormatOptions): string {
   if (!value) return "—";
   const date = new Date(value.length === 10 ? value + "T00:00:00+07:00" : value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta", ...options }).format(date);
+}
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "00";
+  return formatDate(value) + " · " + part("hour") + ":" + part("minute") + " WIB";
 }
 export function formatTime(value: string | null | undefined): string { return value ? value.slice(0, 5) : "—"; }
 export function statusLabel(status: string): string {
@@ -254,6 +271,7 @@ export function availabilityReasonLabel(reason: string): string {
     LECTURE_SCHEDULE_CONFLICT: "Terdapat jadwal perkuliahan pada waktu tersebut.",
     ROOM_UNAVAILABLE: "Ruangan memiliki jadwal pemeliharaan atau tidak tersedia.",
     RESERVATION_CONFLICT: "Terdapat permohonan reservasi lain pada waktu tersebut.",
+    ROOM_OCCUPANCY_NOT_CONFIRMED: "Ruangan masih terkunci oleh reservasi sebelumnya yang melewati jadwal dan belum dikonfirmasi selesai oleh admin.",
   };
   return labels[reason] || reason;
 }

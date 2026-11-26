@@ -12,12 +12,65 @@ import type { Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from
 import { PageTitle } from "./layout";
 import { Button, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
 
+function campusTimestamp(date: string, time: string): number {
+  return new Date(date + "T" + time.slice(0, 8) + "+07:00").getTime();
+}
+function formatCampusClock(timestamp: number): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(timestamp);
+}
+function formatCampusDate(timestamp: number): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(timestamp);
+}
+function timerText(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remaining = seconds % 60;
+  return [hours, minutes, remaining].map((value) => String(value).padStart(2, "0")).join(":");
+}
+function reservationTiming(item: Reservation, now: number) {
+  const startsAt = campusTimestamp(item.reservation_date, item.start_time);
+  const endsAt = campusTimestamp(item.reservation_date, item.end_time);
+  if (now < startsAt) {
+    return { kind: "upcoming" as const, title: "Akan dimulai", caption: "Mulai dalam", value: timerText(startsAt - now), urgent: false };
+  }
+  if (now < endsAt) {
+    const remaining = endsAt - now;
+    const urgent = remaining <= 5 * 60 * 1000;
+    return {
+      kind: "active" as const,
+      title: urgent ? "Segera berakhir" : "Sedang berlangsung",
+      caption: "Sisa waktu",
+      value: timerText(remaining),
+      urgent,
+    };
+  }
+  return { kind: "overdue" as const, title: "Melewati jadwal", caption: "Terlambat", value: timerText(now - endsAt), urgent: true };
+}
+
 export function AdminDashboardPage() {
   const [summary, setSummary] = useState<Record<string, number | string> | null>(null);
   const [recent, setRecent] = useState<Reservation[]>([]);
   const [stats, setStats] = useState<Array<{ room_id: string; room_name: string; building: string; reservation_count: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [todayReservations, setTodayReservations] = useState<Reservation[]>([]);
+  const [monitorNow, setMonitorNow] = useState(() => Date.now());
+  const [monitorError, setMonitorError] = useState("");
+  const [finishTarget, setFinishTarget] = useState<Reservation | null>(null);
+  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -31,8 +84,48 @@ export function AdminDashboardPage() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const refreshToday = () => {
+      const today = localToday();
+      const params = new URLSearchParams({ page: "1", limit: "100", status: "APPROVED", dateTo: today });
+      reservationApi.list(params)
+        .then((result) => {
+          if (active) setTodayReservations(result.items.sort((a, b) => a.reservation_date.localeCompare(b.reservation_date) || a.start_time.localeCompare(b.start_time)));
+        })
+        .catch((cause) => {
+          if (active) setMonitorError(cause instanceof Error ? cause.message : "Pemantauan reservasi belum dapat diperbarui.");
+        });
+    };
+    refreshToday();
+    const clockTimer = window.setInterval(() => setMonitorNow(Date.now()), 1000);
+    const refreshTimer = window.setInterval(refreshToday, 30_000);
+    window.addEventListener("focus", refreshToday);
+    return () => {
+      active = false;
+      window.clearInterval(clockTimer);
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("focus", refreshToday);
+    };
+  }, []);
+
+  async function confirmRoomVacant() {
+    if (!finishTarget) return;
+    setFinishing(true);
+    setMonitorError("");
+    try {
+      await reservationApi.complete(finishTarget.id);
+      setTodayReservations((current) => current.filter((item) => item.id !== finishTarget.id));
+      setFinishTarget(null);
+    } catch (cause) {
+      setMonitorError(cause instanceof Error ? cause.message : "Status reservasi belum dapat diselesaikan.");
+    } finally {
+      setFinishing(false);
+    }
+  }
+
   return <div className="page-stack">
-    <PageTitle eyebrow="TU / ADMIN DASHBOARD" title="Selamat datang, Administrator" description="Pantau pengajuan reservasi dan pengelolaan fasilitas kampus." action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruang</Link>} />
+    <PageTitle eyebrow="STAFF SEKRETARIAT DASHBOARD" title="Selamat datang, Administrator" description="Pantau pengajuan reservasi dan pengelolaan fasilitas kampus." action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruang</Link>} />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat ringkasan administrasi…" /> : <>
       <div className="stat-grid stat-grid--four">
@@ -41,6 +134,44 @@ export function AdminDashboardPage() {
         <article className="stat-card"><div className="stat-card__top"><span>Disetujui</span><CheckCircle2 size={18} /></div><strong>{Number(summary?.approved || 0)}</strong><small>Reservasi terkonfirmasi</small></article>
         <article className="stat-card"><div className="stat-card__top"><span>Total ruangan</span><Building2 size={18} /></div><strong>{Number(summary?.total_rooms || 0)}</strong><small>{Number(summary?.active_rooms || 0)} ruangan aktif</small></article>
       </div>
+      <PageSection title="Pemantauan reservasi & keterlambatan" action={<div className="reservation-monitor-toolbar">
+          <div className="campus-clock" aria-label={`Waktu kampus ${formatCampusClock(monitorNow)} WIB`}>
+            <Clock3 size={16} aria-hidden="true" />
+            <span><small>WAKTU KAMPUS · WIB</small><strong>{formatCampusClock(monitorNow)}</strong><small>{formatCampusDate(monitorNow)}</small></span>
+          </div>
+          <span className="muted small">Data diperbarui otomatis · 30 detik</span>
+        </div>}>
+        {monitorError ? <Notice tone="warning">{monitorError}</Notice> : null}
+        {todayReservations.length ? <div className="reservation-monitor-list">
+          {todayReservations.map((item) => {
+            const timing = reservationTiming(item, monitorNow);
+            const endsAt = campusTimestamp(item.reservation_date, item.end_time);
+            const nextSession = todayReservations
+              .filter((candidate) => candidate.room_id === item.room_id && candidate.id !== item.id)
+              .filter((candidate) => campusTimestamp(candidate.reservation_date, candidate.start_time) >= endsAt)
+              .sort((a, b) => campusTimestamp(a.reservation_date, a.start_time) - campusTimestamp(b.reservation_date, b.start_time))[0];
+            return <article className={"reservation-monitor-item reservation-monitor-item--" + timing.kind} key={item.id}>
+              <div className="reservation-monitor-item__details">
+                <div className="reservation-monitor-item__heading">
+                  <b>{item.room?.room_name || "Ruangan"}</b>
+                  <span className={"reservation-monitor-state reservation-monitor-state--" + timing.kind}>{timing.title}</span>
+                </div>
+                <p>{item.applicant?.name || "Mahasiswa"} · {item.room?.building || "Lokasi kampus"}</p>
+                <small>{formatDate(item.reservation_date)} · {formatTime(item.start_time)}–{formatTime(item.end_time)} WIB · {item.participant_count} peserta</small>
+                {timing.kind === "active" && timing.urgent ? <p className="reservation-monitor-warning">Sisa waktu kurang dari 5 menit. Ingatkan mahasiswa untuk bersiap meninggalkan ruangan tepat waktu.</p> : null}
+                {timing.kind === "overdue" ? <p className="reservation-monitor-warning">Jadwal berakhir. Pastikan ruangan sudah dikosongkan. Reservasi tetap menahan ketersediaan ruang sampai Admin mengonfirmasi ruangan kosong.</p> : null}
+                {timing.kind === "overdue" && nextSession ? <p className="reservation-monitor-warning">PERHATIAN: sudah ada reservasi berikutnya untuk ruangan ini pada {formatDate(nextSession.reservation_date)} pukul {formatTime(nextSession.start_time)} WIB. Koordinasikan kondisi ruangan sebelum sesi tersebut dimulai.</p> : null}
+              </div>
+              <div className="reservation-monitor-item__timer">
+                <small>{timing.caption}</small>
+                <strong>{timing.value}</strong>
+                <Link className="text-link" to={"/admin/reservations/" + item.id}>Detail reservasi</Link>
+              </div>
+              {timing.kind === "overdue" ? <Button variant="secondary" onClick={() => setFinishTarget(item)}>Konfirmasi ruangan kosong</Button> : null}
+            </article>;
+          })}
+        </div> : <EmptyState title="Tidak ada reservasi untuk dipantau" description="Reservasi hari ini dan sesi terdahulu yang belum dikonfirmasi selesai akan muncul di sini." icon={<Clock3 size={22} />} />}
+      </PageSection>
       <PageSection title="Permohonan terbaru" action={<Link className="text-link" to="/admin/reservations">Lihat semua <ArrowRight size={15} /></Link>}>
         {recent.length ? <div className="table-wrap"><table className="data-table">
           <thead><tr><th>Pemohon</th><th>Ruangan</th><th>Tanggal & waktu</th><th>Status</th><th /></tr></thead>
@@ -66,6 +197,15 @@ export function AdminDashboardPage() {
         </PageSection>
       </div>
     </>}
+    <ConfirmModal
+      open={!!finishTarget}
+      title="Konfirmasi ruangan sudah kosong?"
+      description="Lanjutkan hanya setelah petugas memastikan mahasiswa sudah meninggalkan ruangan. Tindakan ini menandai reservasi selesai; sistem tidak mengeluarkan pengguna secara otomatis."
+      confirmText="Ya, ruangan sudah kosong"
+      loading={finishing}
+      onClose={() => { if (!finishing) setFinishTarget(null); }}
+      onConfirm={() => void confirmRoomVacant()}
+    />
   </div>;
 }
 
@@ -135,7 +275,7 @@ export function AdminRequestsPage() {
       </article>)}
     </div> : <EmptyState title="Tidak ada permohonan yang cocok" description="Ubah filter atau kata kunci pencarian." icon={<ClipboardList size={22} />} />}
     <ConfirmModal open={action === "approve" && !!selected} title="Setujui permohonan?" description="Backend akan memeriksa kembali kapasitas, jam operasional, jadwal, dan benturan reservasi sebelum menyetujui." confirmText="Setujui permohonan" loading={busy} onClose={() => { setAction(null); setSelected(null); }} onConfirm={() => void runAction()} />
-    <Modal open={action === "reject" && !!selected} title="Tolak permohonan" description="Alasan penolakan wajib dicatat dan akan terlihat oleh pemohon." onClose={() => { setAction(null); setSelected(null); setReason(""); }}>
+    <Modal open={action === "reject" && !!selected} title="Tolak permohonan" description="Alasan penolakan wajib dicatat dan akan terlihat oleh pemohon." onClose={() => { setAction(null); setSelected(null); setReason(""); }} closeDisabled={busy}>
       <Field label="Alasan penolakan"><textarea rows={4} minLength={3} maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Jelaskan alasan penolakan dengan jelas…" /></Field>
       {error ? <Notice tone="error">{error}</Notice> : null}
       <div className="modal-actions"><Button variant="secondary" onClick={() => { setAction(null); setSelected(null); setReason(""); }} disabled={busy}>Kembali</Button><Button variant="danger" disabled={busy || reason.trim().length < 3} onClick={() => void runAction()}>{busy ? "Memproses…" : "Kirim penolakan"}</Button></div>
@@ -331,6 +471,7 @@ export function AdminRoomsPage() {
     />
     <Modal
       open={bulkHoursOpen}
+      closeDisabled={bulkUpdating}
       title={"Atur jam operasional " + selectedIds.length + " ruangan"}
       description="Hari dan jam yang dipilih akan langsung diterapkan ke seluruh ruangan terpilih setelah disimpan."
       onClose={() => { if (!bulkUpdating) setBulkHoursOpen(false); }}
