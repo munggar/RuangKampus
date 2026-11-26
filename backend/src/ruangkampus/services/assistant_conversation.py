@@ -49,6 +49,7 @@ def load_or_create_conversation(
     """Load a non-expired user-owned conversation or create a fresh opaque ID."""
     now = utc_now()
     conversation = None
+    rotate_id = False
     if requested_id is not None:
         conversation = db.scalar(
             select(AssistantConversation).where(AssistantConversation.id == requested_id)
@@ -59,13 +60,17 @@ def load_or_create_conversation(
             db.delete(conversation)
             db.flush()
             conversation = None
+            rotate_id = True
 
     if conversation is None:
-        conversation = AssistantConversation(
-            user_id=user_id,
+        conversation_values = {
+            "user_id": user_id,
             state={"version": _STATE_VERSION, "slots": {}},
-            expires_at=now + timedelta(minutes=CONVERSATION_TTL_MINUTES),
-        )
+            "expires_at": now + timedelta(minutes=CONVERSATION_TTL_MINUTES),
+        }
+        if requested_id is not None and not rotate_id:
+            conversation_values["id"] = requested_id
+        conversation = AssistantConversation(**conversation_values)
         db.add(conversation)
         db.flush()
     else:
