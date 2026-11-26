@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     smtp_timeout_seconds: int = 10
     campus_timezone: str = "Asia/Jakarta"
+    room_media_dir: str = ".room-media"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
