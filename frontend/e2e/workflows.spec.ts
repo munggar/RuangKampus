@@ -35,7 +35,7 @@ test.describe("Authentication UI — mocked session only", () => {
     await expect(page.getByLabel("Username Staff Sekretariat")).toHaveValue("admin.uhamka");
     await page.getByLabel("Password").fill("fixture-pass-1234");
     await page.getByRole("button", { name: "Masuk ke RuangKampus" }).click();
-    await expect(page).toHaveURL(/\\/admin\\/dashboard$/);
+    await expect(page).toHaveURL(/\/admin\/dashboard$/);
     await expect(page.getByText("Staff Sekretariat", { exact: true }).first()).toBeVisible();
     expect(api.calls).toContain("POST /auth/login");
   });
