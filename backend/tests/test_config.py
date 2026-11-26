@@ -156,5 +156,5 @@ def test_assistant_ai_accepts_realistic_provider_timeouts():
 
 
 def test_assistant_ai_rejects_unbounded_provider_timeout():
-    with pytest.raises(ValidationError, match="must not exceed 45 seconds"):
+    with pytest.raises(ValidationError, match="less than or equal to 45"):
         Settings(_env_file=None, assistant_ai_timeout_seconds=46)
