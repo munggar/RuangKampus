@@ -49,6 +49,14 @@ LEGACY_SLANG_DICTIONARY: dict[str, str] = {
     "gue": "aku",
     "gua": "aku",
     "sokap": "siapa",
+    # Additive high-confidence campus-chat abbreviations. Existing entries remain unchanged.
+    "gw": "aku",
+    "mw": "mau",
+    "msh": "masih",
+    "jgn": "jangan",
+    "rgn": "ruangan",
+    "kaga": "tidak",
+    "org": "orang",
 }
 
 
@@ -77,10 +85,12 @@ TYPO_DICTIONARY: dict[str, str] = {
     "fasilits": "fasilitas",
     "proyektorr": "proyektor",
     "reservsi": "reservasi",
+    "ksong": "kosong",
 }
 
 CONVERSATIONAL_FILLERS = frozenset({
     "bro", "kak", "dong", "nih", "wkwk", "hehe", "tolong", "halo", "hai", "hello", "hi", "permisi", "makasih", "terima", "kasih",
+    "woy", "woi", "oy", "cuy", "min",
 })
 
 NEGATION_TOKENS = frozenset({
@@ -107,6 +117,10 @@ PARSER_STOP_WORDS = frozenset({
     "cek", "benar", "wajib", "januari", "februari", "maret", "april",
     "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember",
     "jan", "feb", "mar", "apr", "may", "jun", "jul", "agu", "aug", "sep", "okt", "oct", "nov", "des", "dec",
+    # Conversation, assistant addressing, and request-intent words are not room-name filters.
+    "woy", "woi", "oy", "cuy", "min", "rukka", "bantu", "membantu", "mencari",
+    "meminjam", "pinjam", "masih", "ada", "msh", "mw", "ad", "org", "rgn",
+    "kaga", "ksong", "muat", "panas", "gerah", "sejuk", "adem", "dingin",
 })
 
 COMMON_TOKENS = PARSER_STOP_WORDS | frozenset({
@@ -395,6 +409,21 @@ def find_positive_facility_filters(message: str, catalog: dict[str, Any]) -> lis
                     for match in _phrase_occurrences(message, source_value)
                 ):
                     matches.add(source_value)
+    # A common student preference ("jangan yang panas") means the room should have
+    # cooling. Treat it as an AC constraint, never as a free-text room-name keyword.
+    heat_avoidance_patterns = (
+        r"\b(?:jangan|jgn)\s+(?:ruangan\s+)?(?:yang\s+|yg\s+)?panas\b",
+        r"\b(?:tidak|ga|gak|nggak|enggak|kaga)\s+(?:mau|ingin)\s+(?:ruangan\s+)?(?:yang\s+|yg\s+)?panas\b",
+        r"\b(?:tidak|ga|gak|nggak|enggak|kaga)\s+(?:yang\s+|yg\s+)?panas\b",
+    )
+    if any(re.search(pattern, message, flags=re.IGNORECASE) for pattern in heat_avoidance_patterns):
+        matches.add("air conditioner")
+
+    for comfort_word in ("sejuk", "adem", "dingin"):
+        for match in _phrase_occurrences(message, comfort_word):
+            if not is_negated_phrase(message, match.start()):
+                matches.add("air conditioner")
+
     return sorted(matches, key=lambda item: (item.casefold(), item))
 
 
