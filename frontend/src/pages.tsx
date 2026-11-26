@@ -2,7 +2,7 @@ export { LoginPage, RegisterPage, ForgotPasswordPage } from "./auth-pages";
 export {
   StudentDashboardPage, RoomDirectoryPage, RoomDetailPage, BookingPage,
   StudentReservationsPage, ReservationDetailPage, NotificationsPage,
-  ProfilePage, AssistantUnavailablePage, NotFoundPage,
+  ProfilePage, NotFoundPage,
 } from "./student-pages";
 export {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
