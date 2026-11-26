@@ -1,100 +1,107 @@
 # RuangKampus
 
-RuangKampus is a campus room discovery and reservation platform. Students can discover rooms, check availability, submit reservation requests, and track their own requests. Authorized TU/Admin staff maintain rooms and schedules, review requests, and manage campus room resources.
+RuangKampus adalah aplikasi pencarian dan peminjaman ruang kampus. Mahasiswa dapat mencari ruang, memeriksa ketersediaan, mengajukan reservasi, dan memantau keputusannya. TU/Admin mengelola data ruang, jadwal, pemeliharaan, akun, serta persetujuan peminjaman.
 
-## Current implementation status
+## Kondisi aplikasi saat ini
 
-The backend core API is implemented under backend/ using Python, FastAPI, SQLAlchemy, Alembic, and PostgreSQL. Verified GitHub Actions run #19 passed 45 isolated SQLite API/unit tests and 9 PostgreSQL 18 schema/concurrency tests, including simultaneous reservation create/approval scenarios. PostgreSQL migration upgrade/check/downgrade/re-upgrade also passed. Workflow evidence: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
+- Frontend, API, dan PostgreSQL sudah berjalan di Railway.
+- Branch produksi yang terhubung ke Railway adalah `develop`.
+- Frontend: [RuangKampus Web](https://ruangkampus-web-production.up.railway.app/).
+- API: [RuangKampus API](https://ruangkampus-api-production.up.railway.app/).
+- Dokumentasi API: [Swagger UI](https://ruangkampus-api-production.up.railway.app/api/v1/docs).
+- Kode perbaikan audit sedang disiapkan pada pull request terpisah. Perubahan di pull request belum mengubah aplikasi produksi sampai ditinjau, digabungkan ke `develop`, dan berhasil di-deploy.
 
-The frontend foundation exists on a separate `feat/frontend-foundation` branch. Account B (Adil Muslim Saputra) owns frontend implementation and UI/UX. Account A (Munggar Fajar Muharram) owns backend source, database schema/migrations, API contracts, and backend tests. The frontend feature branch remains separate; Account A did not modify it.
+## Fitur yang tersedia
 
-## Monorepo layout
+### Mahasiswa
+- Melihat dan mencari ruang berdasarkan nama, gedung, fakultas, kapasitas, dan fasilitas.
+- Memeriksa ketersediaan berdasarkan waktu yang diminta.
+- Mengajukan reservasi, melihat status, membatalkan, dan menerima notifikasi.
+- Mengelola profil, kata sandi, tema tampilan, dan menggunakan asisten pencarian berbasis aturan.
 
-```text
-frontend/   React + TypeScript application (Account B ownership)
-backend/    FastAPI backend, SQLAlchemy models, Alembic migrations (Account A ownership)
-docs/       Shared brief, architecture, API contract, schema, and development status
-tests/      Shared/end-to-end test space; backend tests currently live in backend/tests/
-```
+### TU/Admin
+- Mengelola ruang, kapasitas, fasilitas, dan jam operasional.
+- Mengatur jadwal kuliah dan periode pemeliharaan.
+- Memeriksa, menyetujui, menolak, dan menyelesaikan reservasi.
+- Mengelola akun pengguna dan melihat riwayat aktivitas.
+- Memeriksa file jadwal CSV/XLSX sebelum mengimpor data.
 
-## Technology baseline
+## Teknologi
 
-- Frontend: React + TypeScript.
-- Backend: Python + FastAPI.
-- ORM: SQLAlchemy 2.x.
-- Migrations: Alembic.
-- Database engine: PostgreSQL for shared/staging/production deployments. Isolated SQLite is used for fast local/API tests only.
-- API: versioned REST under `/api/v1`, with generated OpenAPI and Swagger UI.
+| Bagian | Teknologi |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, React Router |
+| Backend | Python, FastAPI |
+| Database | PostgreSQL |
+| ORM dan migrasi | SQLAlchemy 2, Alembic |
+| Login | JWT access token, HttpOnly refresh cookie, Argon2id |
+| Hosting | Railway |
+| Otomatisasi tes | GitHub Actions |
 
-This follows the existing Master Project Brief and repository architecture decision. No production/staging database has been applied or modified by this implementation. CI used ephemeral PostgreSQL 18 databases; the existing Neon RuangKampus/production branch was not used.
+## Alur data singkat
 
-## Quick start — backend
+Browser mahasiswa/Admin → frontend React → API FastAPI melalui HTTPS → SQLAlchemy → PostgreSQL.
 
-See [backend/README.md](backend/README.md) for full setup, environment variables, migrations, admin bootstrap, testing, and endpoint groups.
+Backend memeriksa role pengguna, status akun, kapasitas ruang, jam operasional, jadwal kuliah, masa pemeliharaan, dan reservasi lain sebelum menerima atau menyetujui peminjaman. Pembuatan dan persetujuan reservasi memeriksa ulang ketersediaan dalam transaksi database agar dua peminjaman tidak memakai ruang yang sama pada waktu tumpang tindih.
 
-```bash
+## Keamanan akun mahasiswa
+
+Pendaftaran mandiri sementara dinonaktifkan sampai NIM dapat dicocokkan dengan daftar resmi mahasiswa. TU/Admin dapat membuat akun setelah memeriksa nama, NIM, dan kontak dengan sumber data kampus yang berwenang. Sistem belum terhubung otomatis ke basis data induk UHAMKA, sehingga pemeriksaan ini masih dilakukan oleh Admin.
+
+## Pengaturan email dan pemulihan kata sandi
+
+Backend sudah memiliki alur token reset kata sandi dan dukungan SMTP. Namun, pada pemeriksaan terakhir pengiriman email produksi masih dinonaktifkan. Pemulihan email belum bisa diandalkan sampai alamat pengirim resmi, host SMTP, kredensial, dan alamat email operasional Admin dikonfigurasi dan diuji.
+
+## Menjalankan aplikasi secara lokal
+
+### Backend
+```powershell
 cd backend
 python -m venv .venv
-# Windows: .venv\\Scripts\\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-# Copy backend/.env.example to backend/.env and configure private values.
-PYTHONPATH=src alembic upgrade head
-PYTHONPATH=src uvicorn ruangkampus.main:app --reload --host 127.0.0.1 --port 8000
+Copy-Item .env.example .env
 ```
 
-API docs: `http://127.0.0.1:8000/api/v1/docs`  
-OpenAPI JSON: `http://127.0.0.1:8000/api/v1/openapi.json`  
-Health: `http://127.0.0.1:8000/health`
+Atur `DATABASE_URL`, `JWT_SECRET_KEY`, `CORS_ORIGINS`, dan konfigurasi email sesuai kebutuhan lokal. Gunakan database pengembangan terpisah, bukan database produksi.
 
-For tests, use only isolated databases:
-
-```bash
-cd backend
-PYTHONPATH=src pytest -q
+```powershell
+$env:PYTHONPATH = "src"
+alembic upgrade head
+uvicorn ruangkampus.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-## Security rules
+### Frontend
+```powershell
+cd frontend
+npm install
+```
 
-- Never commit `.env`, populated credentials, API keys, SMTP passwords, private keys, tokens, or connection strings containing credentials.
-- `.env.example` files contain placeholders only; generate secrets locally or in the hosting provider's secret manager.
-- Public registration always creates a Student; role assignment is server-controlled.
-- Students can only access their own reservations and notifications.
-- Only TU/Admin can maintain rooms/schedules and approve/reject reservations.
-- Reservation approval re-checks availability in a database transaction.
-- Email is only reported delivered after a configured SMTP operation is confirmed. Local mailbox mode is not actual email delivery.
-- Never use production data or a production database for automated tests.
+Atur `VITE_API_BASE_URL=http://localhost:8000/api/v1` di file environment frontend, lalu jalankan:
 
-## Git workflow
+```powershell
+npm run dev
+```
 
-- `main`: stable reviewed baseline.
-- `develop`: integration branch.
-- `backend/<feature>`: Account A feature branches.
-- `frontend/<feature>`: Account B feature branches.
-- Do not commit directly to `main`, force-push, or automatically merge feature branches. Use pull requests and coordinate cross-owner changes.
+Lihat [backend/README.md](backend/README.md) untuk konfigurasi variabel, migrasi, pembuatan akun Admin, dan cara menjalankan tes.
 
-## Documentation
+## Pemeriksaan otomatis
 
-- [Master Project Brief](docs/MASTER_BRIEF.md)
-- [Feature Ownership](docs/FEATURE_OWNERSHIP.md)
-- [Project Architecture](docs/PROJECT_ARCHITECTURE.md)
-- [API Contract](docs/API_CONTRACT.md)
-- [Database Schema](docs/DATABASE_SCHEMA.md)
-- [Development Status](docs/DEVELOPMENT_STATUS.md)
+GitHub Actions menjalankan tes backend, pemeriksaan migrasi PostgreSQL, tes konkurensi, audit kerentanan dependensi, tes frontend, dan production build. Keberhasilan CI menunjukkan pemeriksaan otomatis lulus; hal itu tidak menggantikan tes alur pengguna langsung di browser dan uji beban.
 
-## Release readiness
+## Batasan yang masih perlu ditangani
 
-Not production-ready until a RuangKampus staging/production PostgreSQL resource is approved, Account B's full frontend pages are integrated and tested, SMTP credentials/provider are configured, and backend hosting/operations are deployed. CSV/XLSX schedule import is implemented. AI recommendations and room binary image upload/storage remain deferred because the current frontend branch has no confirmed flow/provider requirement.
+1. Daftar NIM resmi dan kontak mahasiswa harus disediakan serta divalidasi oleh unit kampus.
+2. Email pemulihan perlu alamat pengirim dan kredensial SMTP yang sah.
+3. Data ruang, kapasitas, jam operasional, jadwal kuliah, dan pemeliharaan perlu disahkan unit terkait.
+4. Proxy dan pembatasan permintaan perlu ditinjau sebelum menambah worker/replica; rate limit saat ini disimpan per proses.
+5. Tes browser end-to-end dan uji beban dengan data realistis tetap diperlukan sebelum peluncuran luas.
 
+## Dokumentasi proyek
 
-## Backend Phase 2
-
-The backend feature branch adds:
-- PostgreSQL-focused migration and row-lock/concurrency integration tests in CI.
-- Two-step CSV/XLSX schedule import preview and atomic commit endpoints.
-- HTML+plain-text SMTP messages, single-attempt delivery tracking, and idempotent in-app notification event keys.
-- Liveness/readiness split (`/health` and `/ready`), structured JSON logs, request-body limits, Dockerfile, Docker Compose, and GitHub Actions.
-
-Schedule import is TU/Admin-only. Only CSV/XLSX are accepted (5 MiB maximum, up to 5,000 rows). See [backend/README.md](backend/README.md) and [docs/API_CONTRACT.md](docs/API_CONTRACT.md) for the accepted import headers and full workflow.
-
-Production readiness still depends on the actual GitHub Actions PostgreSQL test result, SMTP credentials/provider, and deployment configuration. No production database migration or live email send is performed during repository development.
+- [Status pengembangan](docs/DEVELOPMENT_STATUS.md)
+- [Arsitektur proyek](docs/PROJECT_ARCHITECTURE.md)
+- [Kontrak API](docs/API_CONTRACT.md)
+- [Skema database](docs/DATABASE_SCHEMA.md)
+- [Kepemilikan fitur](docs/FEATURE_OWNERSHIP.md)
