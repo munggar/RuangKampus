@@ -164,6 +164,18 @@ def interpret_with_ai_fallback(
                 # Let the deterministic response composer ask for the missing time fields.
                 return parsed
         return parsed
-    except (httpx.HTTPError, ValidationError, ValueError, KeyError, TypeError, IndexError):
-        logger.info("Assistant AI fallback unavailable or returned invalid output")
+    except httpx.TimeoutException:
+        logger.warning(
+            "RUKKA AI intent provider timed out after %.1f seconds",
+            settings.assistant_ai_timeout_seconds,
+        )
+        return None
+    except httpx.HTTPStatusError as exc:
+        logger.warning("RUKKA AI intent provider returned HTTP %s", exc.response.status_code)
+        return None
+    except httpx.HTTPError as exc:
+        logger.warning("RUKKA AI intent provider transport error: %s", type(exc).__name__)
+        return None
+    except (ValidationError, ValueError, KeyError, TypeError, IndexError):
+        logger.warning("RUKKA AI intent provider returned an invalid structured response")
         return None
