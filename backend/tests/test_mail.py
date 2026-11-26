@@ -72,3 +72,71 @@ def test_development_mailbox_does_not_claim_smtp_delivery(monkeypatch, tmp_path)
     assert "Subject: Subject" in content
     assert "HTML ALTERNATIVE" in content
     assert files[0].stat().st_mode & 0o777 == 0o600
+
+
+
+def test_brevo_delivery_uses_transactional_email_api(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            captured["raised_for_status"] = True
+
+    def fake_post(url, *, headers, json, timeout):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = json
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(mail.httpx, "post", fake_post)
+    monkeypatch.setattr(mail, "get_settings", lambda: SimpleNamespace(
+        email_backend="brevo",
+        brevo_api_key="xkeysib-test-secret",
+        brevo_sender_email="notifications@example.test",
+        brevo_sender_name="RuangKampus",
+        smtp_timeout_seconds=9,
+    ))
+
+    delivered = mail.send_email(
+        "student@example.test",
+        "Reservation approved",
+        "Your reservation is approved.",
+        "<html><body><p>Your reservation is approved.</p></body></html>",
+    )
+
+    assert delivered is True
+    assert captured["url"] == "https://api.brevo.com/v3/smtp/email"
+    assert captured["headers"]["api-key"] == "xkeysib-test-secret"
+    assert captured["payload"] == {
+        "sender": {"name": "RuangKampus", "email": "notifications@example.test"},
+        "to": [{"email": "student@example.test"}],
+        "subject": "Reservation approved",
+        "htmlContent": "<html><body><p>Your reservation is approved.</p></body></html>",
+    }
+    assert captured["timeout"] == 9
+    assert captured["raised_for_status"] is True
+
+
+def test_brevo_delivery_falls_back_to_escaped_html(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, *, headers, json, timeout):
+        captured["payload"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(mail.httpx, "post", fake_post)
+    monkeypatch.setattr(mail, "get_settings", lambda: SimpleNamespace(
+        email_backend="brevo",
+        brevo_api_key="xkeysib-test-secret",
+        brevo_sender_email="notifications@example.test",
+        brevo_sender_name="RuangKampus",
+        smtp_timeout_seconds=9,
+    ))
+
+    assert mail.send_email("student@example.test", "Notice", "<hello>") is True
+    assert "&lt;hello&gt;" in captured["payload"]["htmlContent"]
