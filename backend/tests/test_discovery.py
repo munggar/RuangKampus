@@ -632,3 +632,62 @@ def test_assistant_returns_grounded_room_details_from_catalog(
     assert data["result_type"] == "ROOM_DETAILS"
     assert data["rooms"][0]["id"] == room["id"]
     assert room["room_name"] in data["message"]
+
+
+def test_ai_fallback_is_used_only_after_rule_engine_cannot_classify(
+    client, auth_headers, student, admin, monkeypatch
+):
+    from ruangkampus.config import Settings
+    from ruangkampus.routers import discovery
+    from ruangkampus.services.assistant_ai_fallback import AIIntentInterpretation
+
+    settings = Settings(
+        assistant_ai_enabled=True,
+        assistant_ai_endpoint_url="https://ai.example.test/v1/chat/completions",
+        assistant_ai_model="test-model",
+    )
+    calls = []
+
+    def fake_interpretation(message, catalog, provider_settings):
+        calls.append((message, provider_settings.assistant_ai_enabled))
+        return AIIntentInterpretation(intent="ROOM_AVAILABILITY")
+
+    monkeypatch.setattr(discovery, "get_settings", lambda: settings)
+    monkeypatch.setattr(discovery, "interpret_with_ai_fallback", fake_interpretation)
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "what should I do with my day?"},
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert calls == [("what should I do with my day?", True)]
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["engine"] == "HYBRID"
+    assert data["confidence_basis"] == "AI_FALLBACK"
+    assert data["requires_clarification"] is True
+    assert data["rooms"] == []
+    assert "endpoint AI" in data["privacy"]
+
+
+def test_ai_fallback_is_not_called_when_rule_engine_recognizes_smalltalk(
+    client, auth_headers, student, admin, monkeypatch
+):
+    from ruangkampus.routers import discovery
+
+    def fail_interpretation(*args, **kwargs):
+        raise AssertionError("AI fallback must not run for rule-recognized smalltalk")
+
+    monkeypatch.setattr(discovery, "interpret_with_ai_fallback", fail_interpretation)
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Halo kak"},
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["intent"] == "SMALLTALK"
+    assert data["engine"] == "RULE_BASED"
+    assert data["confidence_basis"] == "RULE_HEURISTIC"
