@@ -121,7 +121,29 @@ def test_student_room_assistant_uses_grounded_room_records(
     assert data["engine"] == "RULE_BASED"
     assert data["reservation_action"] == "NOT_CREATED"
     assert any(item["id"] == room["id"] for item in data["rooms"])
-    assert "ketersediaan" in data["follow_up_questions"][0].lower()
+    assert "jam" in data["follow_up_questions"][0].lower()
+
+
+def test_room_assistant_shows_partial_room_candidates_before_asking_for_schedule(
+    client, auth_headers, student, admin, room_payload
+):
+    room = create_located_room(client, auth_headers, room_payload)
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan kosong di FTII dengan proyektor"},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["assistant_name"] == "RAKA"
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["result_type"] == "ROOMS_FOUND"
+    assert room["id"] in {item["id"] for item in data["rooms"]}
+    assert data["requires_clarification"] is True
+    assert len(data["follow_up_questions"]) == 1
+    assert "belum bisa dipastikan" in data["message"].lower()
+    assert "2403045007" not in result.text
 
 
 def test_room_assistant_is_student_only(client, auth_headers, student, admin):
