@@ -136,3 +136,22 @@ GitHub Actions run #43 completed successfully for backend commit `1e80718e283ce5
 Run: https://github.com/munggar/RuangKampus/actions/runs/45607354793.
 
 This validates the backend source and migrations against isolated CI databases only. No production database was migrated and no hosting provider was deployed. Frontend sources were not modified. The room assistant API currently uses a deterministic rule-based engine; an external generative LLM provider remains unconfigured.
+
+
+## AI Assistant implementation update — Stage 2.4 onward
+
+Verified in the current feature branch:
+- Short-lived Student-owned conversation state with a 30-minute inactivity TTL and a reversible Alembic migration.
+- Follow-up slot merging for faculty, building, capacity, facilities, date/time and search terms; new explicit criteria take precedence and reset phrases clear old search context.
+- Rule-strength confidence evaluator with explicit confidence basis; scores are documented as heuristics, not probabilities.
+- Allowlisted assistant function registry for search, availability, alternative slots, room details, own reservation reads, help, FAQ, small talk and preview-only reservation intents.
+- Dynamic response composer for room search, room details, reservation summaries and conversational templates.
+- Privacy-safe aggregate analytics that does not log raw chat text or user/reservation identifiers.
+- Optional OpenAI-compatible structured AI intent adapter. Disabled by default; accepts only room search/availability/alternative intents and validates faculty/building/facility values against the active catalog.
+- Frontend conversation ID continuity and rendering of the authenticated Student's own reservation summaries.
+
+Release gates still required:
+- GitHub Actions full SQLite/API, PostgreSQL integration, migration drift, lint/security and Docker checks must pass on the final PR head.
+- Review the migration and privacy implications before merge.
+- Configure a provider only when an approved endpoint, model, cost/rate limits and data-processing terms are known. The application remains deterministic when AI is disabled or unavailable.
+- Apply the Alembic migration in the target deployment through the existing migration process and verify Railway health before treating the feature as production-ready.
