@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
-  adminApi, dashboardApi, formatDate, formatTime, localToday, reservationApi, roomApi,
+  adminApi, apiAssetUrl, dashboardApi, formatDate, formatTime, localToday, reservationApi, roomApi,
   scheduleApi, scheduleImportApi, statusLabel, userApi,
 } from "./api";
 import type { AuthUser, Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from "./types";
