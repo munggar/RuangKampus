@@ -19,7 +19,7 @@ function usePageError() {
   return { error, setError, busy, setBusy };
 }
 
-function ReservationCard({ item }: { item: Reservation }) {
+function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reservation; showCancel?: boolean; onUpdated?: (updated: Reservation) => void }) {
   const [currentItem, setCurrentItem] = useState(item);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -28,7 +28,7 @@ function ReservationCard({ item }: { item: Reservation }) {
 
   useEffect(() => { setCurrentItem(item); }, [item]);
 
-  const canCancel = canCancelReservation(currentItem.status, currentItem.reservation_date);
+  const canCancel = showCancel && canCancelReservation(currentItem.status, currentItem.reservation_date);
 
   async function cancelReservation() {
     setBusy(true);
@@ -36,6 +36,7 @@ function ReservationCard({ item }: { item: Reservation }) {
     try {
       const updated = await reservationApi.cancel(currentItem.id, cancelReason.trim() || undefined);
       setCurrentItem(updated);
+      onUpdated?.(updated);
       setCancelReason("");
       setCancelOpen(false);
     } catch (cause) {
@@ -75,6 +76,7 @@ function ReservationCard({ item }: { item: Reservation }) {
         description="Reservasi ini akan berubah menjadi Dibatalkan dan slot ruangan dapat digunakan kembali sesuai validasi sistem."
         onClose={() => { if (!busy) setCancelOpen(false); }}
       >
+        {cancelError ? <Notice tone="error">{cancelError}</Notice> : null}
         <Field label="Alasan pembatalan (opsional)">
           <textarea rows={3} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} maxLength={2000} />
         </Field>
@@ -433,7 +435,7 @@ export function StudentReservationsPage() {
       <Field label="Cari reservasi"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari ruang, tujuan, atau ID reservasi" /></Field>
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
-    {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} />)}</div>
+    {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} showCancel onUpdated={(updated) => setItems((current) => current.map((entry) => entry.id === updated.id ? updated : entry))} />)}</div>
       : <EmptyState title="Belum ada reservasi" description="Belum ada permohonan yang sesuai dengan filter Anda." action={<Link to="/student/rooms" className="button button--primary">Cari ruangan</Link>} icon={<CalendarCheck size={22} />} />}
   </div>;
 }
