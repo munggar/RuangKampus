@@ -353,9 +353,10 @@ def test_negated_facility_is_not_interpreted_as_a_positive_room_filter(
         "jangan", "cari", "ruangan", "dengan", "proyektor"
     ]
     assert data["slots"]["facilities"] == []
-    # Stage 2.2 preserves negation and avoids a false positive filter; exclusion
-    # semantics are deliberately left for a later intent/slot stage.
-    assert room["id"] in {item["id"] for item in data["rooms"]}
+    # Stage 2.2 does not yet implement negative-filter semantics. It must
+    # clarify rather than returning the entire room catalogue unfiltered.
+    assert data["rooms"] == []
+    assert data["requires_clarification"] is True
 
 
 def test_assistant_uses_only_positive_faculty_from_a_contrast_clause(
@@ -415,9 +416,10 @@ def test_ambiguous_positive_faculties_are_not_arbitrarily_selected(
     assert result.status_code == 200, result.text
     data = result.json()["data"]
     assert data["slots"]["faculty"] is None
-    found_ids = {item["id"] for item in data["rooms"]}
-    assert first["id"] in found_ids
-    assert second.json()["data"]["id"] in found_ids
+    # Multiple positive faculties are ambiguous. Do not choose either one
+    # and do not fall back to an unfiltered room catalogue.
+    assert data["rooms"] == []
+    assert data["requires_clarification"] is True
 
 
 
@@ -453,11 +455,12 @@ def test_assistant_does_not_return_unfiltered_rooms_for_conversational_messages(
         "!!! ???",
     )
 
+    headers = auth_headers()
     for message in messages:
         result = client.post(
             "/api/v1/assistant/chat",
             json={"message": message},
-            headers=auth_headers(),
+            headers=headers,
         )
 
         assert result.status_code == 200, (message, result.text)
