@@ -270,3 +270,38 @@ export function availabilityReasonLabel(reason: string): string {
   };
   return labels[reason] || reason;
 }
+
+export interface RoomImportRow {
+  row_number: number;
+  room_name: string;
+  room_code: string;
+  capacity_estimate: string;
+  status: "VALID" | "INVALID";
+  errors: string[];
+  has_photo: boolean;
+}
+export interface RoomImportBatch {
+  batch_id: string;
+  status: string;
+  source_filename: string;
+  row_count: number;
+  valid_count: number;
+  invalid_count: number;
+  row_results: RoomImportRow[];
+  preview_rows?: Array<Record<string, unknown>>;
+  created_at: string;
+  completed_at: string | null;
+  inserted?: number;
+}
+export const roomImportApi = {
+  preview: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiRequest<RoomImportBatch>("/admin/rooms/imports/preview", { method: "POST", body: form });
+  },
+  commit: (batch_id: string) =>
+    apiRequest<{ batch_id: string; status: string; inserted: number; row_count: number; invalid_count: number }>(
+      "/admin/rooms/imports/commit", { method: "POST", body: { batch_id } },
+    ),
+  list: (limit = 20) => apiRequest<RoomImportBatch[]>("/admin/rooms/imports?limit=" + limit),
+};
