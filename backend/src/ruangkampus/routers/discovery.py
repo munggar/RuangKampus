@@ -387,7 +387,7 @@ def _intent_only_response(
     slots = _assistant_empty_slots(payload)
     follow_up = [detection.clarification_message] if detection.clarification_message else []
     structured_response = AssistantChatResponseData(
-        message=message_override or _intent_response_message(detection.intent, detection.response_variant),
+        message=message_override or detection.clarification_message or _intent_response_message(detection.intent, detection.response_variant),
         conversation_id=conversation_id,
         intent=detection.intent,
         slots=slots,
