@@ -203,8 +203,15 @@ def _parse_message_filters(
             start_time = time(int(time_match.group(1)), int(time_match.group(2)))
             end_time = time(int(time_match.group(3)), int(time_match.group(4)))
 
+    message_tokens = re.findall(r"[a-z0-9-]+", message)
+    expanded_tokens = []
+    for token in message_tokens:
+        if "-" in token and not any(character.isdigit() for character in token):
+            expanded_tokens.extend(token.split("-"))
+        else:
+            expanded_tokens.append(token)
     tokens = [
-        token for token in re.findall(r"[a-z0-9-]+", message)
+        token for token in expanded_tokens
         if len(token) >= 3 and token not in STOP_WORDS and not token.isdigit()
     ]
 
