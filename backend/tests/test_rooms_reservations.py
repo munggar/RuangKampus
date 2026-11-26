@@ -265,3 +265,89 @@ def test_completed_reservation_is_historical_and_does_not_block(client, auth_hea
         "start_time": "09:00:00", "end_time": "10:00:00", "participant_count": 5,
     }, headers=auth_headers())
     assert request.status_code == 201, request.text
+
+
+def test_admin_bulk_updates_multiple_room_statuses_and_records_audit(
+    client, auth_headers, admin, create_room, room_payload
+):
+    first = create_room()
+    second_payload = {**room_payload, "room_name": "Room 102", "room_code": "R-102"}
+    second_response = client.post(
+        "/api/v1/rooms", json=second_payload, headers=auth_headers("admin.uhamka")
+    )
+    assert second_response.status_code == 201, second_response.text
+    second = second_response.json()["data"]
+
+    response = client.patch(
+        "/api/v1/rooms/bulk-status",
+        json={"room_ids": [first["id"], second["id"]], "room_status": "MAINTENANCE"},
+        headers=auth_headers("admin.uhamka"),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["updated_count"] == 2
+    assert data["unchanged_count"] == 0
+    assert {room["room_status"] for room in data["rooms"]} == {"MAINTENANCE"}
+
+    persisted = client.get(
+        "/api/v1/rooms?status=MAINTENANCE", headers=auth_headers("admin.uhamka")
+    )
+    assert persisted.status_code == 200
+    assert persisted.json()["meta"]["total"] == 2
+
+
+def test_bulk_room_status_is_atomic_when_any_room_has_future_reservation(
+    client, auth_headers, student, admin, create_room, room_payload
+):
+    first = create_room()
+    second_payload = {**room_payload, "room_name": "Room 103", "room_code": "R-103"}
+    second_response = client.post(
+        "/api/v1/rooms", json=second_payload, headers=auth_headers("admin.uhamka")
+    )
+    assert second_response.status_code == 201, second_response.text
+    second = second_response.json()["data"]
+
+    booking_date = next_weekday(1)
+    reservation = client.post(
+        "/api/v1/reservations",
+        json={
+            "room_id": first["id"],
+            "purpose": "Reserved slot",
+            "date": booking_date.isoformat(),
+            "start_time": "11:00:00",
+            "end_time": "12:00:00",
+            "participant_count": 2,
+        },
+        headers=auth_headers(),
+    )
+    assert reservation.status_code == 201, reservation.text
+
+    response = client.patch(
+        "/api/v1/rooms/bulk-status",
+        json={"room_ids": [first["id"], second["id"]], "room_status": "INACTIVE"},
+        headers=auth_headers("admin.uhamka"),
+    )
+
+    assert response.status_code == 409
+    unchanged = client.get(
+        "/api/v1/rooms?status=ACTIVE", headers=auth_headers("admin.uhamka")
+    )
+    assert unchanged.status_code == 200
+    assert unchanged.json()["meta"]["total"] == 2
+
+
+def test_student_cannot_bulk_update_rooms_and_duplicate_ids_are_rejected(
+    client, auth_headers, student, admin, create_room
+):
+    room = create_room()
+    payload = {"room_ids": [room["id"]], "room_status": "INACTIVE"}
+    denied = client.patch("/api/v1/rooms/bulk-status", json=payload, headers=auth_headers())
+    assert denied.status_code == 403
+
+    duplicate = client.patch(
+        "/api/v1/rooms/bulk-status",
+        json={"room_ids": [room["id"], room["id"]], "room_status": "INACTIVE"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert duplicate.status_code == 422

@@ -11,7 +11,7 @@ from ruangkampus.database import get_db
 from ruangkampus.dependencies import get_optional_user, require_admin
 from ruangkampus.models import Reservation, Room, RoomUpdateLog, User, utcnow
 from ruangkampus.responses import success
-from ruangkampus.schemas import AvailabilityOut, RoomCreateIn, RoomUpdateIn, serialize_room
+from ruangkampus.schemas import AvailabilityOut, RoomBulkStatusUpdateIn, RoomCreateIn, RoomUpdateIn, serialize_room
 from ruangkampus.services.availability import campus_today, check_room_availability
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
@@ -110,6 +110,79 @@ def list_rooms(
     items = [serialize_room(room) for room in page_rooms]
     meta = {"page": page, "limit": limit, "total": total, "total_pages": ceil(total / limit) if total else 0}
     return success(items, "Rooms retrieved", meta)
+
+
+@router.patch("/bulk-status")
+def bulk_update_room_status(
+    payload: RoomBulkStatusUpdateIn,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Update selected room statuses atomically and retain one audit entry per changed room."""
+    rooms = db.scalars(
+        select(Room)
+        .where(Room.id.in_(payload.room_ids), Room.deleted_at.is_(None))
+        .order_by(Room.id)
+        .with_for_update()
+    ).all()
+    if len(rooms) != len(payload.room_ids):
+        raise HTTPException(status_code=404, detail="One or more selected rooms were not found")
+
+    if payload.room_status in {"INACTIVE", "MAINTENANCE"}:
+        blocked_rows = db.execute(
+            select(Room.id, Room.room_name)
+            .join(Reservation, Reservation.room_id == Room.id)
+            .where(
+                Room.id.in_(payload.room_ids),
+                Reservation.status.in_(["PENDING", "APPROVED"]),
+                Reservation.reservation_date >= campus_today(),
+            )
+            .distinct()
+            .order_by(Room.room_name)
+        ).all()
+        if blocked_rows:
+            names = ", ".join(row.room_name for row in blocked_rows)
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Status tidak dapat diubah karena ruangan berikut memiliki reservasi "
+                    f"mendatang yang masih menunggu atau disetujui: {names}. "
+                    "Tidak ada ruangan yang diubah."
+                ),
+            )
+
+    now = utcnow()
+    changed_rooms = []
+    for room in rooms:
+        if room.room_status == payload.room_status:
+            continue
+        previous = _room_snapshot(room)
+        room.room_status = payload.room_status
+        room.updated_at = now
+        db.add(
+            RoomUpdateLog(
+                admin_id=admin.id,
+                entity_type="ROOM",
+                entity_id=room.id,
+                action="BULK_STATUS_UPDATE",
+                previous_value=previous,
+                new_value=_room_snapshot(room),
+            )
+        )
+        changed_rooms.append(room)
+
+    db.commit()
+    for room in rooms:
+        db.refresh(room)
+
+    return success(
+        {
+            "updated_count": len(changed_rooms),
+            "unchanged_count": len(rooms) - len(changed_rooms),
+            "rooms": [serialize_room(room) for room in rooms],
+        },
+        "Room statuses updated",
+    )
 
 
 @router.get("/{room_id}")
