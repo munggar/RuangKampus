@@ -211,7 +211,7 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
         <h1>{room.room_name}</h1>
         <p className="page-description">{room.description || "Informasi ruangan dikelola oleh administrator kampus."}</p>
         <StatusBadge status={room.room_status} />
-        {room.photo_url ? <img className="room-detail__image" src={room.photo_url} alt={room.room_name} /> : <div className="room-detail__image room-detail__image--empty"><Building2 size={48} /></div>}
+        {room.photo_url ? <img className="room-detail__image" src={apiAssetUrl(room.photo_url)} alt={room.room_name} /> : <div className="room-detail__image room-detail__image--empty"><Building2 size={48} /></div>}
         <section className="panel">
           <h2>Tentang ruangan ini</h2>
           <p>{room.description || "Belum ada deskripsi tambahan untuk ruangan ini."}</p>
