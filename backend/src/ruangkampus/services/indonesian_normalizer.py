@@ -55,7 +55,7 @@ CONVERSATIONAL_FILLERS = frozenset({
 })
 
 NEGATION_TOKENS = frozenset({
-    "tidak", "bukan", "jangan", "tanpa", "kecuali", "hanya",
+    "tidak", "bukan", "jangan", "tanpa", "kecuali",
 })
 
 # Words that should not become SQL room-description search terms by themselves.
