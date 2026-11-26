@@ -29,7 +29,8 @@ def render_html_email(
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
     safe_title = html.escape(title)
     safe_body = "<br>".join(html.escape(line) for line in body.splitlines())
-    safe_preheader = html.escape(preheader or body.splitlines()[0] if body else "Pembaruan dari RuangKampus")
+    preheader_text = preheader or (body.splitlines()[0] if body else "Pembaruan dari RuangKampus")
+    safe_preheader = html.escape(preheader_text)
     safe_eyebrow = html.escape(eyebrow)
     safe_footer_note = html.escape(footer_note)
 
