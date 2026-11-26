@@ -147,7 +147,7 @@ def test_old_assistant_contract_remains_and_new_structured_fields_are_present(
     data = result.json()["data"]
     # Legacy response fields remain available to the existing React page.
     assert data["engine"] == "RULE_BASED"
-    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["intent"] == "ROOM_SEARCH"
     assert data["message"]
     assert data["filters"]["faculty"] == "FTII"
     assert data["rooms"][0]["id"] == room["id"]
@@ -323,7 +323,7 @@ def test_assistant_normalizes_student_slang_before_existing_room_search(
 
     assert result.status_code == 200, result.text
     data = result.json()["data"]
-    assert data["intent"] == "ROOM_SEARCH"
+    assert data["intent"] == "ROOM_AVAILABILITY"
     assert data["normalization"]["raw_text"] == raw_message
     assert data["normalization"]["normalized_text"] == (
         "bro cari ruangan di ftii yang kosong besok pukul 10:00 sampai 12:00 dengan proyektor dong"

@@ -1,4 +1,4 @@
-# RuangKampus — AI Assistant API Contract (Stage 2.1)
+# RuangKampus — AI Assistant API Contract (Stages 2.1–2.3)
 
 This document describes the contract implemented by the current backend. It does not describe a generative AI service.
 
@@ -11,7 +11,7 @@ This document describes the contract implemented by the current backend. It does
 | Authentication | Required: `Authorization: Bearer <access_token>` |
 | Authorized role | `STUDENT` only |
 | Current engine | `RULE_BASED` |
-| Current intent | `ROOM_SEARCH` |
+| Current intent | Allowlisted deterministic intents (see section 11) |
 | Conversation persistence | Not implemented |
 | External AI provider | None |
 
@@ -79,7 +79,7 @@ The inner Pydantic response model is `AssistantChatResponseData`. The response c
 |---|---|---|
 | `message` | string | Existing rule-based response text |
 | `conversation_id` | UUID or null | Always null; no backend conversation store exists |
-| `intent` | literal `ROOM_SEARCH` | The only current assistant intent |
+| `intent` | allowlisted intent string | Determined by the Rule-Based Intent Engine; see section 11 |
 | `slots` | object | Search filters extracted by the current parser |
 | `confidence` | number 0–1 or null | Always null; no confidence model is implemented |
 | `normalization` | object | Stage 2.2 raw/normalized text, tokens, fillers, corrections, unknown tokens, and parser text; additive and optional |
@@ -311,7 +311,7 @@ Known facility aliases are selected only when their canonical alias group is pre
 
 ### Scope limitation
 
-The Stage 2.2 normalizer preserves negative wording and prevents a negated facility from becoming a positive facility filter. It does not yet implement full negative-filter semantics such as returning only rooms without AC or a projector. The endpoint still supports only `ROOM_SEARCH`; no additional intent, reservation action, confidence engine, memory, LLM adapter, or frontend chatbot change is introduced.
+The Stage 2.2 normalizer preserves negative wording and prevents a negated facility from becoming a positive facility filter. It does not yet implement full negative-filter semantics such as returning only rooms without AC or a projector. At the Stage 2.2 baseline, the endpoint supported only `ROOM_SEARCH`. Stage 2.3 adds deterministic intent classification; it still does not execute reservation actions, persist memory, calculate confidence, call an LLM adapter, or change the frontend chatbot.
 
 ## 11. Rule-Based Intent Detection (Stage 2.3)
 
