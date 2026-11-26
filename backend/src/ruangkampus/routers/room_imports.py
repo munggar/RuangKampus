@@ -121,7 +121,7 @@ def _parse_workbook(content: bytes, batch_id: UUID) -> tuple[list[dict], dict[in
                 "capacity_min": capacity_min, "capacity_max": capacity_max,
                 "capacity_estimate": capacity_label, "description": facilities_text,
                 "facilities": [part.strip() for part in re.split(r"[;,]", facilities_text) if part.strip()],
-                "operating_hours": {}, "room_status": "ACTIVE", "photo_key": None,
+                "operating_hours": {}, "room_status": "INACTIVE", "photo_key": None,
                 "errors": errors,
             })
         for image in getattr(sheet, "_images", []):
