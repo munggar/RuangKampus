@@ -4,7 +4,7 @@ import { useAuth } from "./auth";
 import { AppShell } from "./layout";
 import {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
-  AdminUsersPage, AdminActivityPage, AdminScheduleImportsPage,
+  AdminUsersPage, AdminActivityPage, AdminScheduleImportsPage, AdminDataImportsPage,
   ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
   ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
   StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
@@ -65,6 +65,7 @@ export function App() {
         <Route path="rooms/:roomId/edit" element={<AdminRoomEditorPage />} />
         <Route path="schedules" element={<AdminSchedulesPage />} />
         <Route path="schedule-imports" element={<AdminScheduleImportsPage />} />
+        <Route path="data-imports" element={<AdminDataImportsPage />} />
         <Route path="activity" element={<AdminActivityPage />} />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="notifications" element={<NotificationsPage role="TU/Admin" />} />
