@@ -213,7 +213,7 @@ def test_mark_all_read_updates_only_the_authenticated_recipient(client, auth_hea
 
 
 def test_admin_can_retry_only_failed_notification_email_with_attempt_limit(
-    client, auth_headers, student, db_session, monkeypatch
+    client, auth_headers, student, admin, db_session, monkeypatch
 ):
     sent = []
 
