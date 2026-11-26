@@ -90,7 +90,7 @@ class Settings(BaseSettings):
                         "(BREVO_SENDER_MAIL is also accepted)"
                     )
                 if "@" not in sender_email:
-                    raise ValueError("BREVO_SENDER_EMAIL/BREVO_SENDER_MAIL must be a valid email address")
+                    raise ValueError("BREVO_SENDER_EMAIL must be a valid email address (BREVO_SENDER_MAIL is also accepted)")
         return self
 
     @property
