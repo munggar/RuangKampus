@@ -27,6 +27,7 @@ from ruangkampus.services.indonesian_normalizer import (
 )
 from ruangkampus.services.assistant_intent import IntentDetection, detect_assistant_intent
 from ruangkampus.services.assistant_ai_fallback import interpret_with_ai_fallback
+from ruangkampus.services.assistant_ai_response import generate_grounded_assistant_message
 from ruangkampus.services.assistant_confidence import evaluate_rule_confidence
 from ruangkampus.services.assistant_function_registry import get_assistant_function
 from ruangkampus.services.assistant_response import (
@@ -366,6 +367,31 @@ def _intent_response_message(intent: str, response_variant: str | None = None) -
     return compose_intent_response(intent, response_variant)
 
 
+def _maybe_generate_ai_message(
+    *,
+    message: str,
+    intent: str,
+    deterministic_message: str,
+    filters: dict,
+    rooms: list[dict] | None = None,
+    alternative_slots: list[dict] | None = None,
+    follow_up_questions: list[str] | None = None,
+    availability_checked: bool = False,
+) -> tuple[str, bool]:
+    generated = generate_grounded_assistant_message(
+        message=message,
+        intent=intent,
+        deterministic_message=deterministic_message,
+        filters=filters,
+        rooms=rooms or [],
+        alternative_slots=alternative_slots or [],
+        follow_up_questions=follow_up_questions or [],
+        availability_checked=availability_checked,
+        settings=get_settings(),
+    )
+    return (generated, True) if generated else (deterministic_message, False)
+
+
 def _intent_only_response(
     payload: AssistantChatIn,
     normalization,
@@ -384,11 +410,33 @@ def _intent_only_response(
     requires_clarification: bool | None = None,
     ai_fallback_used: bool = False,
     slots_override: AssistantChatSlots | None = None,
+    availability_checked: bool = False,
 ):
     slots = slots_override or _assistant_empty_slots(payload)
     follow_up = [detection.clarification_message] if detection.clarification_message else []
+    base_message = message_override or detection.clarification_message or _intent_response_message(detection.intent, detection.response_variant)
+    final_message, ai_response_used = _maybe_generate_ai_message(
+        message=payload.message,
+        intent=detection.intent,
+        deterministic_message=base_message,
+        filters=_assistant_legacy_filters(slots),
+        rooms=rooms or [],
+        follow_up_questions=follow_up,
+        availability_checked=availability_checked,
+    )
+    engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
+    privacy_value = privacy_message or (
+        "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
+        "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+        if ai_response_used else
+        "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
+        "identitas akun, dan data reservasi pribadi tidak dikirim."
+        if ai_fallback_used else
+        "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara "
+        "selama maksimal 30 menit untuk menjaga konteks percakapan."
+    )
     structured_response = AssistantChatResponseData(
-        message=message_override or detection.clarification_message or _intent_response_message(detection.intent, detection.response_variant),
+        message=final_message,
         conversation_id=conversation_id,
         intent=detection.intent,
         slots=slots,
@@ -408,16 +456,13 @@ def _intent_only_response(
             filters=slots,
         ),
         normalization=normalization,
-        engine=engine,
+        engine=engine_value,
         filters=_assistant_legacy_filters(slots),
         rooms=rooms or [],
         alternative_slots=[],
         follow_up_questions=follow_up,
         reservation_action="NOT_CREATED",
-        privacy=privacy_message or (
-            "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara "
-            "selama maksimal 30 menit untuk menjaga konteks percakapan."
-        ),
+        privacy=privacy_value,
     )
     record_assistant_outcome(
         intent=detection.intent,
@@ -426,7 +471,7 @@ def _intent_only_response(
         confidence_basis=confidence_basis,
         result_type=result_type,
         requires_clarification=structured_response.requires_clarification,
-        ai_fallback_used=ai_fallback_used,
+        ai_fallback_used=ai_fallback_used or ai_response_used,
     )
     return success(
         structured_response.model_dump(mode="json", by_alias=True),
@@ -660,6 +705,44 @@ def room_assistant_chat(
             participant_count=filters["participant_count"],
             search_terms=filters["search_terms"],
         )
+        has_room_criteria = any((
+            filters["faculty"], filters["building"], filters["min_capacity"],
+            filters["facilities"], filters["search_terms"],
+        ))
+        partial_rooms = (
+            _room_candidates(
+                db,
+                faculty=filters["faculty"],
+                building=filters["building"],
+                min_capacity=filters["min_capacity"],
+                facilities=filters["facilities"],
+                search_terms=filters["search_terms"],
+            )
+            if has_room_criteria else []
+        )
+        partial_room_data = [serialize_room(room) for room in partial_rooms[:10]]
+        clarification = (
+            "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
+        )
+        detection = IntentDetection(
+            intent=detection.intent,
+            matched_rule=detection.matched_rule,
+            requires_clarification=True,
+            clarification_message=clarification,
+            response_variant=detection.response_variant,
+        )
+        partial_message = (
+            f"Aku menemukan {len(partial_room_data)} ruangan yang sesuai sebagai kandidat awal. "
+            "Jadwal kosongnya belum bisa dipastikan sebelum tanggal dan jam penggunaan diperiksa."
+            if partial_room_data else
+            (
+                "Aku belum bisa memastikan ruangan yang kosong tanpa tanggal dan rentang waktu. "
+                "Kirim tanggal, jam mulai, dan jam selesai sekaligus, misalnya besok 09.00–11.00."
+                if not has_room_criteria else
+                "Belum ada ruangan yang cocok dengan kriteria awal. Coba longgarkan fakultas, gedung, "
+                "kapasitas, atau fasilitas; setelah itu aku bisa periksa slot waktunya."
+            )
+        )
         response = _intent_only_response(
             payload, normalization, detection,
             missing_fields=["date", "start_time", "end_time"],
@@ -667,13 +750,15 @@ def room_assistant_chat(
             confidence=confidence,
             confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
             engine="HYBRID" if ai_fallback_used else "RULE_BASED",
+            message_override=partial_message,
+            rooms=partial_room_data,
+            result_type="ROOMS_FOUND" if partial_room_data else "NO_RESULTS",
+            requires_clarification=True,
             privacy_message=(
-                "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
-                "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
-                "sementara selama maksimal 30 menit."
-            ) if ai_fallback_used else (
-                "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit."
-            ),
+                "Pesan saat ini dikirim ke penyedia AI untuk interpretasi dan penyusunan jawaban berdasarkan "
+                "ringkasan fakta ruangan yang cocok. Riwayat percakapan, identitas akun, dan data reservasi "
+                "pribadi tidak dikirim."
+            ) if ai_fallback_used else None,
             ai_fallback_used=ai_fallback_used,
             slots_override=pending_slots,
         )
@@ -708,7 +793,7 @@ def room_assistant_chat(
     else:
         rooms = []
 
-    if detection.intent == "ROOM_AVAILABILITY" and has_complete_availability_window:
+    if detection.intent in {"ROOM_AVAILABILITY", "ROOM_SEARCH"} and has_complete_availability_window:
         rooms = [
             room for room in rooms
             if check_room_availability(
@@ -758,13 +843,12 @@ def room_assistant_chat(
     follow_up = []
     if not has_effective_search_criteria:
         follow_up.append(
-            "Kamu ingin mencari berdasarkan fakultas, gedung, fasilitas, kapasitas, "
-            "atau kata kunci ruangan? Untuk cek jadwal, tambahkan tanggal dan rentang waktu."
+            "Kira-kira ruangan dibutuhkan untuk kegiatan apa atau untuk berapa orang?"
         )
-    elif detection.intent == "ROOM_SEARCH" and not has_complete_availability_window:
-        follow_up.append("Untuk mengecek ketersediaan, kirim tanggal, jam mulai, dan jam selesai.")
-    if detection.intent == "ROOM_SEARCH" and has_effective_search_criteria and not filters["min_capacity"]:
-        follow_up.append("Berapa jumlah peserta yang akan menggunakan ruangan?")
+    elif not has_complete_availability_window:
+        follow_up.append(
+            "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
+        )
 
     room_data = [serialize_room(room) for room in rooms[:10]]
     legacy_filters = {
@@ -799,6 +883,18 @@ def room_assistant_chat(
         else "ALTERNATIVE_SLOTS" if alternatives
         else "NO_RESULTS"
     )
+    ai_response_used = False
+    if not ai_fallback_used:
+        response_message, ai_response_used = _maybe_generate_ai_message(
+            message=payload.message,
+            intent=detection.intent,
+            deterministic_message=response_message,
+            filters=legacy_filters,
+            rooms=room_data,
+            alternative_slots=alternatives,
+            follow_up_questions=follow_up,
+            availability_checked=has_complete_availability_window,
+        )
     structured_response = AssistantChatResponseData(
         message=response_message,
         conversation_id=conversation.id,
@@ -818,16 +914,18 @@ def room_assistant_chat(
             filters=slots,
         ),
         normalization=normalization,
-        engine="HYBRID" if ai_fallback_used else "RULE_BASED",
+        engine="HYBRID" if ai_fallback_used or ai_response_used else "RULE_BASED",
         filters=legacy_filters,
         rooms=room_data,
         alternative_slots=alternatives,
         follow_up_questions=follow_up,
         reservation_action="NOT_CREATED",
         privacy=(
-            "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
-            "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
-            "sementara selama maksimal 30 menit."
+            "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
+            "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+        ) if ai_response_used else (
+            "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
+            "identitas akun, dan data reservasi pribadi tidak dikirim."
         ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit.",
     )
     save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
@@ -838,7 +936,7 @@ def room_assistant_chat(
         confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
         result_type=result_type,
         requires_clarification=bool(follow_up),
-        ai_fallback_used=ai_fallback_used,
+        ai_fallback_used=ai_fallback_used or ai_response_used,
     )
     db.commit()
     return success(
