@@ -81,6 +81,7 @@ function ThemeButton({ theme, toggle }: { theme: "light" | "dark"; toggle: () =>
 function pageLabel(path: string, role: AppRole) {
   const root = role === "Student" ? "/student" : "/admin";
   if (/^\/student\/rooms\/[^/]+\/book$/.test(path)) return "Ajukan reservasi";
+  if (path === "/admin/guide") return "Panduan Staff TU";
   if (path === "/admin/rooms/new") return "Tambah ruangan";
   if (/^\/admin\/rooms\/[^/]+\/edit$/.test(path)) return "Edit ruangan";
   if (/^\/(student|admin)\/rooms\/[^/]+$/.test(path)) return "Detail ruangan";
@@ -88,7 +89,7 @@ function pageLabel(path: string, role: AppRole) {
   const items: Array<[string, string]> = [
     [root + "/dashboard", "Dashboard"], [root + "/rooms", "Ruang kampus"],
     [root + "/reservations", role === "Student" ? "Reservasi saya" : "Permohonan reservasi"],
-    [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"], [root + "/guide", "Panduan Staff TU"],
+    [root + "/notifications", "Notifikasi"], [root + "/profile", "Profil"],
     [root + "/availability", "Ketersediaan ruangan"],
     [root + "/alternatives", "Slot alternatif"], [root + "/schedules", "Jadwal ruang"], ["/admin/data-imports", "Impor data kampus"],
   ];
