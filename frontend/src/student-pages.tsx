@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ArrowLeft, ArrowRight, Bell, Building2, CalendarDays, CalendarCheck, Check, Clock3, MapPin,
-  Search, Users, XCircle,
+  Eye, EyeOff, Search, Users, XCircle,
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
@@ -553,6 +553,8 @@ export function ProfilePage({ role }: { role: AppRole }) {
   const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
   useEffect(() => {
     const syncTheme = () => setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
@@ -629,8 +631,34 @@ export function ProfilePage({ role }: { role: AppRole }) {
         </section>
         <form className="panel stack-form" onSubmit={savePassword}>
           <h2>Ubah password</h2>
-          <Field label="Password saat ini"><input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required /></Field>
-          <Field label="Password baru" hint="Minimal 8 karakter."><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></Field>
+          <Field label="Password saat ini">
+            <div className="input-with-action">
+              <input type={showCurrentPassword ? "text" : "password"} autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+              <button
+                className="field-action"
+                type="button"
+                aria-label={showCurrentPassword ? "Sembunyikan password saat ini" : "Tampilkan password saat ini"}
+                aria-pressed={showCurrentPassword}
+                onClick={() => setShowCurrentPassword((visible) => !visible)}
+              >
+                {showCurrentPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+              </button>
+            </div>
+          </Field>
+          <Field label="Password baru" hint="Minimal 8 karakter.">
+            <div className="input-with-action">
+              <input type={showNewPassword ? "text" : "password"} minLength={8} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+              <button
+                className="field-action"
+                type="button"
+                aria-label={showNewPassword ? "Sembunyikan password baru" : "Tampilkan password baru"}
+                aria-pressed={showNewPassword}
+                onClick={() => setShowNewPassword((visible) => !visible)}
+              >
+                {showNewPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+              </button>
+            </div>
+          </Field>
           <Button type="submit" variant="secondary" disabled={saving}>Ubah password</Button>
         </form>
       </div>

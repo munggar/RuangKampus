@@ -163,6 +163,33 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     await expect(page.getByRole("status")).toContainText("Profil berhasil diperbarui");
     expect(api.calls).toContain("PATCH /users/me");
   });
+
+  test("toggles current and new password visibility independently", async ({ page }) => {
+    await installMockApi(page, "Student");
+    await page.goto("/student/profile");
+    await waitForPageReady(page);
+
+    const currentPassword = page.locator('input[autocomplete="current-password"]');
+    const newPassword = page.locator('input[autocomplete="new-password"]');
+    await currentPassword.fill("current-secret-123");
+    await newPassword.fill("new-secret-123");
+
+    await expect(currentPassword).toHaveAttribute("type", "password");
+    await expect(newPassword).toHaveAttribute("type", "password");
+
+    await page.getByRole("button", { name: "Tampilkan password saat ini" }).click();
+    await expect(currentPassword).toHaveAttribute("type", "text");
+    await expect(currentPassword).toHaveValue("current-secret-123");
+    await expect(newPassword).toHaveAttribute("type", "password");
+
+    await page.getByRole("button", { name: "Tampilkan password baru" }).click();
+    await expect(newPassword).toHaveAttribute("type", "text");
+    await expect(newPassword).toHaveValue("new-secret-123");
+
+    await page.getByRole("button", { name: "Sembunyikan password saat ini" }).click();
+    await expect(currentPassword).toHaveAttribute("type", "password");
+    await expect(newPassword).toHaveAttribute("type", "text");
+  });
 });
 
 test.describe("Staff Sekretariat workflows — fixture-backed browser E2E", () => {
