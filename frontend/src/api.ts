@@ -194,6 +194,7 @@ export const reservationApi = {
   reject: (id: string, rejection_reason: string) => apiRequest<Reservation>("/reservations/" + encodeURIComponent(id) + "/reject", {
     method: "PATCH", body: { rejection_reason },
   }),
+  complete: (id: string) => apiRequest<Reservation>("/reservations/" + encodeURIComponent(id) + "/complete", { method: "PATCH" }),
 };
 
 export const notificationApi = {
