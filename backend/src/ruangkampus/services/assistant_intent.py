@@ -35,7 +35,7 @@ class IntentDetection:
 
 
 ROOM_TERMS = (
-    "ruang", "ruangan", "kelas", "room", "lab", "laboratorium", "tempat",
+    "ruang", "ruangan", "rgn", "rgnya", "kelas", "room", "lab", "laboratorium", "tempat",
 )
 RESERVATION_TERMS = (
     "reservasi", "booking", "peminjaman", "pinjaman",
@@ -43,10 +43,12 @@ RESERVATION_TERMS = (
 AVAILABILITY_TERMS = (
     "kosong", "tersedia", "available", "availability", "bebas", "nganggur",
     "dipakai", "digunakan", "terpakai", "bentrok", "free",
+    "masih ada yang kosong", "ada yang kosong", "masih tersedia", "ada yang tersedia",
 )
 SEARCH_VERBS = (
     "cari", "carikan", "mencari", "nyari", "temukan", "mencarikan",
-    "butuh", "perlu", "find", "search",
+    "butuh", "perlu", "meminjam", "pinjam", "booking", "pesan",
+    "find", "search",
 )
 ALTERNATIVE_PHRASES = (
     "slot alternatif", "alternatif slot", "waktu alternatif", "jam alternatif",

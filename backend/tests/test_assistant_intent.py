@@ -82,3 +82,17 @@ def test_empty_message_returns_clarification_without_a_numeric_confidence():
     result = detect_assistant_intent("")
     assert result.intent == "OUT_OF_SCOPE"
     assert result.requires_clarification is True
+
+
+
+def test_compact_room_abbreviation_and_availability_follow_up_are_understood():
+    result = detect_assistant_intent(
+        "gw mau meminjam rgn buat rapat besok, masih ada yang kosong tidak"
+    )
+    assert result.intent == "ROOM_AVAILABILITY"
+    assert result.requires_clarification is True
+
+
+def test_casual_request_without_search_criteria_does_not_require_room_catalog_match():
+    result = detect_assistant_intent("woy rukka kamu bisa bantu mencari ruangan tidak")
+    assert result.intent == "ROOM_SEARCH"

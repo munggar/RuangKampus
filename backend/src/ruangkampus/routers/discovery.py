@@ -134,6 +134,49 @@ STOP_WORDS = {
     "jan", "feb", "mar", "apr", "may", "jun", "jul", "agu", "aug", "sep", "okt", "oct", "nov", "des", "dec",
 }
 STOP_WORDS.update(PARSER_STOP_WORDS)
+
+SEARCH_INTENTS = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+_CONTEXTUAL_AVAILABILITY_FOLLOW_UPS = (
+    "masih ada yang kosong",
+    "ada yang kosong",
+    "masih kosong",
+    "yang kosong",
+    "masih tersedia",
+    "ada yang tersedia",
+    "masih ada",
+)
+
+
+def _is_contextual_availability_follow_up(message: str) -> bool:
+    normalized = " ".join(message.casefold().split())
+    return any(
+        re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", normalized)
+        for phrase in _CONTEXTUAL_AVAILABILITY_FOLLOW_UPS
+    )
+
+
+def _missing_availability_fields(filters: dict) -> list[str]:
+    fields = (
+        ("date", "date"),
+        ("start_time", "start_time"),
+        ("end_time", "end_time"),
+    )
+    return [name for key, name in fields if filters.get(key) is None]
+
+
+def _availability_clarification(filters: dict) -> str:
+    missing = set(_missing_availability_fields(filters))
+    if missing == {"start_time", "end_time"} and filters.get("date") is not None:
+        return "Tanggalnya sudah aku catat. Jam mulai dan selesai berapa? Contoh: 09.00–11.00."
+    if missing == {"date"}:
+        return "Jamnya sudah aku catat. Tanggal pemakaiannya kapan?"
+    if missing == {"start_time"}:
+        return "Jam mulai sudah aku catat. Jam selesai berapa?"
+    if missing == {"end_time"}:
+        return "Jam selesai sudah aku catat. Jam mulainya pukul berapa?"
+    return "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
+
+
 def _parse_time(value: str | time) -> time:
     return value if isinstance(value, time) else time.fromisoformat(value)
 
@@ -158,7 +201,12 @@ def _room_candidates(
     if min_capacity:
         stmt = stmt.where(Room.capacity >= min_capacity)
     for facility in facilities or []:
-        stmt = stmt.where(func.lower(Room.facilities.cast(String)).like(f"%{facility.lower()}%"))
+        aliases = FACILITY_TERMS.get(facility.casefold(), (facility,))
+        facility_conditions = [
+            func.lower(Room.facilities.cast(String)).like(f"%{alias.casefold()}%")
+            for alias in aliases
+        ]
+        stmt = stmt.where(or_(*facility_conditions))
     for term in search_terms or []:
         pattern = f"%{term}%"
         stmt = stmt.where(or_(
@@ -252,7 +300,15 @@ def _parse_message_filters(
     catalog = catalog if catalog is not None else build_assistant_data_catalog(db)
     min_capacity = payload.min_capacity
     if min_capacity is None:
-        capacity_match = re.search(r"\b(\d{1,4})\s*(?:orang|peserta|pax|people|person)\b", message)
+        capacity_match = re.search(
+            r"\b(\d{1,4})\s*(?:orang|org|peserta|pax|people|person|mahasiswa|mhs|students?)\b",
+            message,
+        )
+        if capacity_match is None:
+            capacity_match = re.search(
+                r"\b(?:muat|kapasitas(?:\s+minimal)?|minimal)\s+(\d{1,4})\b",
+                message,
+            )
         if capacity_match:
             min_capacity = int(capacity_match.group(1))
 
@@ -288,7 +344,14 @@ def _parse_message_filters(
             start_time = time(int(time_match.group(1)), int(time_match.group(2)))
             end_time = time(int(time_match.group(3)), int(time_match.group(4)))
 
-    message_tokens = re.findall(r"[a-z0-9-]+", message)
+    # An activity's purpose is not always a room-name/description filter.
+    # Keep explicit types ("ruang rapat") searchable but ignore "buat rapat".
+    search_message = re.sub(
+        r"\b(?:buat|untuk|keperluan)\s+(?:rapat|meeting|diskusi|brainstorming|seminar|presentasi|kuliah|organisasi|acara|kegiatan)\b",
+        " ",
+        message,
+    )
+    message_tokens = re.findall(r"[a-z0-9-]+", search_message)
     expanded_tokens = []
     for token in message_tokens:
         if "-" in token and not any(character.isdigit() for character in token):
@@ -618,6 +681,19 @@ def room_assistant_chat(
         has_structured_room_filters=has_structured_filters,
         has_complete_availability_window=has_complete_availability_window,
     )
+    contextual_followup_used = False
+    if (
+        detection.intent == "OUT_OF_SCOPE"
+        and conversation.last_intent in SEARCH_INTENTS
+        and _is_contextual_availability_follow_up(normalization.parser_text)
+    ):
+        detection = IntentDetection(
+            intent="ROOM_AVAILABILITY",
+            matched_rule="CONTEXTUAL_AVAILABILITY_FOLLOW_UP",
+            requires_clarification=True,
+        )
+        contextual_followup_used = True
+
     ai_fallback_used = False
     if detection.intent == "OUT_OF_SCOPE":
         interpretation = interpret_with_ai_fallback(payload.message, catalog, get_settings())
@@ -675,7 +751,7 @@ def room_assistant_chat(
         )
         ai_fallback_used = False
 
-    search_intents = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+    search_intents = SEARCH_INTENTS
     if detection.intent in search_intents:
         filters = merge_room_slots(
             filters,
@@ -707,7 +783,7 @@ def room_assistant_chat(
                     if missing_ai_window else None
                 ),
             )
-        else:
+        elif not contextual_followup_used:
             detection = detect_assistant_intent(
                 normalization.normalized_text,
                 catalog,
@@ -836,9 +912,8 @@ def room_assistant_chat(
             if has_room_criteria else []
         )
         partial_room_data = [serialize_room(room) for room in partial_rooms[:10]]
-        clarification = (
-            "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
-        )
+        missing_availability_fields = _missing_availability_fields(filters)
+        clarification = _availability_clarification(filters)
         detection = IntentDetection(
             intent=detection.intent,
             matched_rule=detection.matched_rule,
@@ -847,20 +922,17 @@ def room_assistant_chat(
             response_variant=detection.response_variant,
         )
         partial_message = (
-            f"Aku menemukan {len(partial_room_data)} ruangan yang sesuai sebagai kandidat awal. "
-            "Jadwal kosongnya belum bisa dipastikan sebelum tanggal dan jam penggunaan diperiksa."
+            f"Aku menemukan {len(partial_room_data)} kandidat ruangan. Jadwalnya belum bisa dipastikan. {clarification}"
             if partial_room_data else
             (
-                "Aku belum bisa memastikan ruangan yang kosong tanpa tanggal dan rentang waktu. "
-                "Kirim tanggal, jam mulai, dan jam selesai sekaligus, misalnya besok 09.00–11.00."
+                f"Aku paham kamu mau cek ruangan kosong. {clarification}"
                 if not has_room_criteria else
-                "Belum ada ruangan yang cocok dengan kriteria awal. Coba longgarkan fakultas, gedung, "
-                "kapasitas, atau fasilitas; setelah itu aku bisa periksa slot waktunya."
+                f"Belum ada kandidat yang cocok dengan kriteria awal. Coba longgarkan fakultas, gedung, kapasitas, atau fasilitas. {clarification}"
             )
         )
         response = _intent_only_response(
             payload, normalization, detection,
-            missing_fields=["date", "start_time", "end_time"],
+            missing_fields=missing_availability_fields,
             conversation_id=conversation.id,
             db=db,
             user_id=user.id,
