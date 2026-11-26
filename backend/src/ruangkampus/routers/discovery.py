@@ -2,11 +2,12 @@ import re
 from datetime import date, datetime, time, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy import String, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
+from ruangkampus.config import get_settings
 from ruangkampus.database import get_db
 from ruangkampus.dependencies import require_student
-from ruangkampus.models import Room, User
+from ruangkampus.models import Reservation, Room, User
 from ruangkampus.responses import success
 from ruangkampus.schemas import (
     AlternativeSlotsIn,
@@ -24,7 +25,22 @@ from ruangkampus.services.indonesian_normalizer import (
     find_positive_facility_filters,
     normalize_indonesian_message,
 )
-from ruangkampus.services.assistant_intent import detect_assistant_intent
+from ruangkampus.services.assistant_intent import IntentDetection, detect_assistant_intent
+from ruangkampus.services.assistant_ai_fallback import interpret_with_ai_fallback
+from ruangkampus.services.assistant_confidence import evaluate_rule_confidence
+from ruangkampus.services.assistant_function_registry import get_assistant_function
+from ruangkampus.services.assistant_response import (
+    compose_intent_response,
+    compose_reservation_result,
+    compose_room_detail,
+    compose_search_result,
+)
+from ruangkampus.services.assistant_analytics import record_assistant_outcome
+from ruangkampus.services.assistant_conversation import (
+    load_or_create_conversation,
+    merge_room_slots,
+    save_conversation_state,
+)
 
 
 router = APIRouter(tags=["Room discovery and assistant"])
@@ -304,61 +320,50 @@ def _assistant_legacy_filters(slots: AssistantChatSlots) -> dict:
     }
 
 
-def _intent_response_message(intent: str, response_variant: str | None = None) -> str:
-    if intent == "RESERVATION_HELP":
-        return (
-            "Untuk mengajukan reservasi, pilih ruangan, tentukan tanggal dan jam "
-            "mulai/selesai, isi jumlah peserta serta tujuan kegiatan, lalu kirim "
-            "permohonan melalui fitur Reservasi. Permohonan yang dikirim berstatus "
-            "menunggu persetujuan TU/Admin. Aku belum membuat reservasi dari chat ini."
-        )
-    if intent == "MY_RESERVATIONS":
-        return (
-            "Aku paham kamu ingin melihat daftar reservasi. Pembacaan riwayat "
-            "reservasi melalui chat belum diaktifkan. Kamu bisa memeriksanya melalui "
-            "fitur Reservasi di aplikasi; aku tidak mengambil data reservasi pribadi "
-            "pada respons ini."
-        )
-    if intent == "RESERVATION_STATUS":
-        return (
-            "Aku paham kamu ingin mengecek status reservasi. Status reservasi melalui "
-            "chat belum diaktifkan. Periksa melalui fitur Reservasi di aplikasi agar "
-            "informasi tetap terikat pada akunmu."
-        )
-    if intent == "RESERVATION_CREATE_PREVIEW":
-        return (
-            "Aku bisa membantu mencari ruangan terlebih dahulu. Pengajuan reservasi "
-            "belum dibuat melalui chat ini. Setelah memilih ruangan dan jadwal, "
-            "lanjutkan pengajuan melalui fitur Reservasi di aplikasi."
-        )
-    if intent == "RESERVATION_CANCEL_PREVIEW":
-        return (
-            "Aku belum membatalkan reservasi apa pun. Pembatalan harus dilakukan "
-            "melalui detail reservasi di aplikasi dan dikonfirmasi oleh pemilik "
-            "reservasi sesuai aturan sistem."
-        )
-    if intent == "ROOM_DETAIL":
-        return (
-            "Aku bisa membantu mencari informasi ruangan. Sebutkan nama atau kode "
-            "ruangan yang ingin kamu ketahui, misalnya kapasitas, fasilitas, gedung, "
-            "atau lokasinya."
-        )
-    if intent == "FAQ":
-        return (
-            "Aku bisa membantu mencari ruangan, memeriksa ketersediaan berdasarkan "
-            "tanggal dan waktu, menemukan alternatif slot, serta menjelaskan alur "
-            "pengajuan reservasi RuangKampus."
-        )
-    if intent == "SMALLTALK":
-        if response_variant == "THANKS":
-            return "Sama-sama! Semoga kegiatan kampusmu lancar. Ada yang bisa kubantu lagi?"
-        if response_variant == "GREETING":
-            return "Halo! Mau mencari ruangan, mengecek ketersediaan, atau bertanya tentang fasilitas?"
-        return "Wkwk, aku asisten virtual RuangKampus. Aku siap membantu urusan ruangan kampus."
-    return (
-        "Aku fokus membantu urusan ruangan kampus: pencarian, ketersediaan, "
-        "fasilitas, alternatif waktu, dan informasi reservasi."
+def _owned_reservation_summaries(db: Session, user: User, intent: str) -> list[dict]:
+    """Read only the authenticated student's own reservations."""
+    stmt = (
+        select(Reservation)
+        .options(joinedload(Reservation.room))
+        .where(Reservation.user_id == user.id)
+        .order_by(Reservation.submitted_at.desc())
+        .limit(5)
     )
+    records = db.scalars(stmt).unique().all()
+    return [
+        {
+            "id": str(item.id),
+            "room_name": item.room.room_name,
+            "building": item.room.building,
+            "date": item.reservation_date.isoformat(),
+            "start_time": item.start_time.isoformat(),
+            "end_time": item.end_time.isoformat(),
+            "participant_count": item.participant_count,
+            "status": item.status,
+            "purpose": item.purpose,
+        }
+        for item in records
+    ]
+
+
+def _room_detail_matches(catalog: dict, normalized_text: str) -> list[dict]:
+    """Resolve room names/codes only from the active-room catalogue."""
+    matches = []
+    for entry in catalog.get("rooms", []):
+        if not isinstance(entry, dict):
+            continue
+        for label in (entry.get("room_code"), entry.get("room_name")):
+            if not isinstance(label, str) or not label.strip():
+                continue
+            pattern = rf"(?<![a-z0-9]){re.escape(label.casefold())}(?![a-z0-9])"
+            if re.search(pattern, normalized_text.casefold()):
+                matches.append(entry)
+                break
+    return matches
+
+
+def _intent_response_message(intent: str, response_variant: str | None = None) -> str:
+    return compose_intent_response(intent, response_variant)
 
 
 def _intent_only_response(
@@ -367,36 +372,61 @@ def _intent_only_response(
     detection,
     *,
     missing_fields: list[str] | None = None,
+    conversation_id=None,
+    confidence: float | None = None,
+    confidence_basis: str = "RULE_HEURISTIC",
+    engine: str = "RULE_BASED",
+    privacy_message: str | None = None,
+    message_override: str | None = None,
+    rooms: list[dict] | None = None,
+    reservations: list[dict] | None = None,
+    result_type: str = "NO_RESULTS",
+    requires_clarification: bool | None = None,
+    ai_fallback_used: bool = False,
+    slots_override: AssistantChatSlots | None = None,
 ):
-    slots = _assistant_empty_slots(payload)
+    slots = slots_override or _assistant_empty_slots(payload)
     follow_up = [detection.clarification_message] if detection.clarification_message else []
     structured_response = AssistantChatResponseData(
-        message=_intent_response_message(detection.intent, detection.response_variant),
-        conversation_id=None,
+        message=message_override or detection.clarification_message or _intent_response_message(detection.intent, detection.response_variant),
+        conversation_id=conversation_id,
         intent=detection.intent,
         slots=slots,
-        confidence=None,
+        confidence=confidence,
+        confidence_basis=confidence_basis if confidence is not None else None,
         missing_fields=missing_fields or [],
-        requires_clarification=detection.requires_clarification,
+        requires_clarification=(
+            detection.requires_clarification if requires_clarification is None else requires_clarification
+        ),
         clarification_message=detection.clarification_message,
-        result_type="NO_RESULTS",
+        result_type=result_type,
         requires_confirmation=False,
         data=AssistantChatStructuredData(
-            rooms=[],
+            rooms=rooms or [],
             alternative_slots=[],
+            reservations=reservations or [],
             filters=slots,
         ),
         normalization=normalization,
-        engine="RULE_BASED",
+        engine=engine,
         filters=_assistant_legacy_filters(slots),
-        rooms=[],
+        rooms=rooms or [],
         alternative_slots=[],
         follow_up_questions=follow_up,
         reservation_action="NOT_CREATED",
-        privacy=(
-            "Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim "
-            "ke penyedia AI eksternal."
+        privacy=privacy_message or (
+            "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara "
+            "selama maksimal 30 menit untuk menjaga konteks percakapan."
         ),
+    )
+    record_assistant_outcome(
+        intent=detection.intent,
+        matched_rule=detection.matched_rule,
+        confidence=confidence,
+        confidence_basis=confidence_basis,
+        result_type=result_type,
+        requires_clarification=structured_response.requires_clarification,
+        ai_fallback_used=ai_fallback_used,
     )
     return success(
         structured_response.model_dump(mode="json", by_alias=True),
@@ -410,45 +440,246 @@ def room_assistant_chat(
     user: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
+    conversation = load_or_create_conversation(
+        db, user_id=user.id, requested_id=payload.conversation_id
+    )
     catalog = build_assistant_data_catalog(db)
     normalization = normalize_indonesian_message(payload.message, catalog)
     normalized_payload = payload.model_copy(update={"message": normalization.parser_text})
     filters = _parse_message_filters(db, normalized_payload, catalog)
 
+    explicit_fields = set(payload.model_fields_set)
+    if "requested_date" in explicit_fields:
+        explicit_fields.add("date")
+    has_structured_filters = any((
+        filters["faculty"], filters["building"], filters["min_capacity"],
+        filters["facilities"], filters["date"], filters["start_time"],
+        filters["end_time"], payload.faculty, payload.building,
+        payload.min_capacity, payload.facilities,
+    ))
     has_complete_availability_window = bool(
         filters["date"] and filters["start_time"] and filters["end_time"]
     )
-    has_structured_filters = any((
-        filters["faculty"],
-        filters["building"],
-        filters["min_capacity"],
-        filters["facilities"],
-        filters["date"],
-        filters["start_time"],
-        filters["end_time"],
-        payload.faculty,
-        payload.building,
-        payload.min_capacity,
-        payload.facilities,
-    ))
     detection = detect_assistant_intent(
         normalization.normalized_text,
         catalog,
         has_structured_room_filters=has_structured_filters,
         has_complete_availability_window=has_complete_availability_window,
     )
+    ai_fallback_used = False
+    if detection.intent == "OUT_OF_SCOPE":
+        interpretation = interpret_with_ai_fallback(payload.message, catalog, get_settings())
+        if interpretation is not None:
+            ai_fallback_used = True
+            ai_updates = {
+                "faculty": interpretation.faculty,
+                "building": interpretation.building,
+                "min_capacity": interpretation.min_capacity,
+                "facilities": interpretation.facilities,
+                "requested_date": interpretation.date,
+                "start_time": interpretation.start_time,
+                "end_time": interpretation.end_time,
+                "participant_count": interpretation.participant_count,
+            }
+            ai_payload = payload.model_copy(update=ai_updates)
+            normalized_payload = ai_payload.model_copy(update={"message": normalization.parser_text})
+            filters = _parse_message_filters(db, normalized_payload, catalog)
+            explicit_fields.update(
+                field for field, value in {
+                    "faculty": interpretation.faculty,
+                    "building": interpretation.building,
+                    "min_capacity": interpretation.min_capacity,
+                    "facilities": interpretation.facilities,
+                    "date": interpretation.date,
+                    "start_time": interpretation.start_time,
+                    "end_time": interpretation.end_time,
+                    "participant_count": interpretation.participant_count,
+                }.items() if value is not None and value != []
+            )
+            has_complete_availability_window = bool(
+                filters["date"] and filters["start_time"] and filters["end_time"]
+            )
+            missing_ai_window = (
+                interpretation.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+                and not has_complete_availability_window
+            )
+            detection = IntentDetection(
+                intent=interpretation.intent,
+                matched_rule="AI_INTENT_FALLBACK",
+                requires_clarification=missing_ai_window,
+                clarification_message=(
+                    "Untuk memeriksa ketersediaan, sebutkan tanggal, jam mulai, dan jam selesai."
+                    if missing_ai_window else None
+                ),
+            )
+
+    function_spec = get_assistant_function(detection.intent)
+    if function_spec is None:
+        detection = IntentDetection(
+            intent="OUT_OF_SCOPE",
+            matched_rule="NO_REGISTERED_FUNCTION",
+            requires_clarification=True,
+            clarification_message="Maaf, permintaan itu belum tersedia pada asisten RuangKampus.",
+        )
+        ai_fallback_used = False
 
     search_intents = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+    if detection.intent in search_intents:
+        filters = merge_room_slots(
+            filters,
+            conversation.state,
+            message=normalization.normalized_text,
+            explicitly_supplied=explicit_fields,
+        )
+        if filters.get("min_capacity") is not None and "participant_count" not in explicit_fields:
+            filters["participant_count"] = filters["min_capacity"]
+        has_complete_availability_window = bool(
+            filters["date"] and filters["start_time"] and filters["end_time"]
+        )
+        has_structured_filters = any((
+            filters["faculty"], filters["building"], filters["min_capacity"],
+            filters["facilities"], filters["date"], filters["start_time"],
+            filters["end_time"],
+        ))
+        if ai_fallback_used:
+            missing_ai_window = (
+                detection.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+                and not has_complete_availability_window
+            )
+            detection = IntentDetection(
+                intent=detection.intent,
+                matched_rule="AI_INTENT_FALLBACK",
+                requires_clarification=missing_ai_window,
+                clarification_message=(
+                    "Untuk memeriksa ketersediaan, sebutkan tanggal, jam mulai, dan jam selesai."
+                    if missing_ai_window else None
+                ),
+            )
+        else:
+            detection = detect_assistant_intent(
+                normalization.normalized_text,
+                catalog,
+                has_structured_room_filters=has_structured_filters,
+                has_complete_availability_window=has_complete_availability_window,
+            )
+
+    confidence = evaluate_rule_confidence(
+        detection,
+        has_catalog_match=bool(filters["faculty"] or filters["building"] or filters["facilities"]),
+        has_complete_availability_window=has_complete_availability_window,
+    )
+
+    if detection.intent in {"MY_RESERVATIONS", "RESERVATION_STATUS"}:
+        reservations = _owned_reservation_summaries(db, user, detection.intent)
+        if reservations:
+            result_type = "RESERVATIONS_FOUND"
+        else:
+            result_type = "NO_RESULTS"
+        message = compose_reservation_result(
+            reservations,
+            status_only=detection.intent == "RESERVATION_STATUS",
+        )
+        response = _intent_only_response(
+            payload, normalization, detection,
+            conversation_id=conversation.id,
+            confidence=confidence,
+            message_override=message,
+            reservations=reservations,
+            result_type=result_type,
+            requires_clarification=False,
+        )
+        db.commit()
+        return response
+
+    if detection.intent == "ROOM_DETAIL":
+        matches = _room_detail_matches(catalog, normalization.normalized_text)
+        if len(matches) == 1:
+            from uuid import UUID
+
+            room = db.scalar(
+                select(Room).where(
+                    Room.id == UUID(matches[0]["id"]),
+                    Room.deleted_at.is_(None),
+                    Room.room_status == "ACTIVE",
+                )
+            )
+            if room is not None:
+                room_data = [serialize_room(room)]
+                message = compose_room_detail(room_data[0])
+                response = _intent_only_response(
+                    payload, normalization, detection,
+                    conversation_id=conversation.id,
+                    confidence=confidence,
+                    message_override=message,
+                    rooms=room_data,
+                    result_type="ROOM_DETAILS",
+                    requires_clarification=False,
+                )
+                db.commit()
+                return response
+        clarify = (
+            "Aku menemukan lebih dari satu kemungkinan ruangan. Sebutkan kode ruangan agar tidak tertukar."
+            if len(matches) > 1
+            else "Ruangan yang dimaksud belum dapat dipastikan. Sebutkan nama atau kode ruangannya."
+        )
+        detection = detection.__class__(
+            intent=detection.intent,
+            matched_rule=detection.matched_rule,
+            requires_clarification=True,
+            clarification_message=clarify,
+            response_variant=detection.response_variant,
+        )
+        confidence = evaluate_rule_confidence(detection)
+        response = _intent_only_response(
+            payload, normalization, detection,
+            conversation_id=conversation.id,
+            confidence=confidence,
+            message_override=clarify,
+        )
+        db.commit()
+        return response
+
     if detection.intent not in search_intents:
-        return _intent_only_response(payload, normalization, detection)
+        response = _intent_only_response(
+            payload, normalization, detection,
+            conversation_id=conversation.id,
+            confidence=confidence,
+        )
+        db.commit()
+        return response
 
     if detection.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"} and not has_complete_availability_window:
-        return _intent_only_response(
-            payload,
-            normalization,
-            detection,
-            missing_fields=["date", "start_time", "end_time"],
+        pending_slots = AssistantChatSlots(
+            faculty=filters["faculty"],
+            building=filters["building"],
+            min_capacity=filters["min_capacity"],
+            facilities=filters["facilities"],
+            requested_date=filters["date"],
+            start_time=filters["start_time"],
+            end_time=filters["end_time"],
+            participant_count=filters["participant_count"],
+            search_terms=filters["search_terms"],
         )
+        response = _intent_only_response(
+            payload, normalization, detection,
+            missing_fields=["date", "start_time", "end_time"],
+            conversation_id=conversation.id,
+            confidence=confidence,
+            confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
+            engine="HYBRID" if ai_fallback_used else "RULE_BASED",
+            privacy_message=(
+                "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
+                "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
+                "sementara selama maksimal 30 menit."
+            ) if ai_fallback_used else (
+                "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit."
+            ),
+            ai_fallback_used=ai_fallback_used,
+            slots_override=pending_slots,
+        )
+        save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
+        db.commit()
+        return response
 
     has_room_criteria = any((
         filters["faculty"],
@@ -516,27 +747,13 @@ def room_assistant_chat(
                 limit=5,
             ))
 
-    if not has_effective_search_criteria:
-        response_message = (
-            "Aku bisa bantu mencari ruangan. Beri tahu fakultas atau gedung, "
-            "fasilitas, kapasitas, atau kata kunci ruangan yang kamu butuhkan. "
-            "Untuk mengecek ketersediaan, sertakan tanggal serta jam mulai dan selesai."
-        )
-    elif detection.intent == "ALTERNATIVE_SLOTS":
-        response_message = (
-            f"Aku menemukan {len(alternatives)} pilihan slot alternatif."
-            if alternatives else
-            "Belum menemukan slot alternatif yang cocok. Coba ubah fakultas, gedung, "
-            "fasilitas, tanggal, atau durasi penggunaan."
-        )
-    elif rooms:
-        response_message = f"Saya menemukan {len(rooms)} ruangan yang sesuai dengan kriteria pencarian."
-        if has_complete_availability_window:
-            response_message += " Slot tersebut lolos pemeriksaan ketersediaan saat ini."
-    elif alternatives:
-        response_message = "Tidak ada ruangan yang tersedia pada slot persis tersebut. Berikut beberapa alternatif tanggal, waktu, atau ruangan."
-    else:
-        response_message = "Belum ada ruangan yang cocok. Coba ubah fakultas, gedung, kapasitas, fasilitas, atau waktu."
+    response_message = compose_search_result(
+        intent=detection.intent,
+        room_count=len(rooms),
+        alternative_count=len(alternatives),
+        has_complete_availability_window=has_complete_availability_window,
+        has_effective_search_criteria=has_effective_search_criteria,
+    )
 
     follow_up = []
     if not has_effective_search_criteria:
@@ -584,10 +801,11 @@ def room_assistant_chat(
     )
     structured_response = AssistantChatResponseData(
         message=response_message,
-        conversation_id=None,
+        conversation_id=conversation.id,
         intent=detection.intent,
         slots=slots,
-        confidence=None,
+        confidence=confidence,
+        confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
         missing_fields=missing_fields,
         requires_clarification=bool(follow_up),
         clarification_message=follow_up[0] if follow_up else None,
@@ -596,20 +814,33 @@ def room_assistant_chat(
         data=AssistantChatStructuredData(
             rooms=room_data,
             alternative_slots=alternatives,
+            reservations=[],
             filters=slots,
         ),
         normalization=normalization,
-        engine="RULE_BASED",
+        engine="HYBRID" if ai_fallback_used else "RULE_BASED",
         filters=legacy_filters,
         rooms=room_data,
         alternative_slots=alternatives,
         follow_up_questions=follow_up,
         reservation_action="NOT_CREATED",
         privacy=(
-            "Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim "
-            "ke penyedia AI eksternal."
-        ),
+            "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
+            "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
+            "sementara selama maksimal 30 menit."
+        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit.",
     )
+    save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
+    record_assistant_outcome(
+        intent=detection.intent,
+        matched_rule=detection.matched_rule,
+        confidence=confidence,
+        confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
+        result_type=result_type,
+        requires_clarification=bool(follow_up),
+        ai_fallback_used=ai_fallback_used,
+    )
+    db.commit()
     return success(
         structured_response.model_dump(mode="json", by_alias=True),
         "Room assistant response generated",

@@ -436,10 +436,11 @@ class AssistantChatSlots(BaseModel):
 
 
 class AssistantChatStructuredData(BaseModel):
-    """Backend facts returned by the room-search engine."""
+    """Backend facts returned by allowlisted assistant functions."""
 
     rooms: list[RoomOut] = Field(default_factory=list)
     alternative_slots: list[dict[str, Any]] = Field(default_factory=list)
+    reservations: list[dict[str, Any]] = Field(default_factory=list)
     filters: AssistantChatSlots
 
 
@@ -475,16 +476,17 @@ class AssistantChatResponseData(BaseModel):
     intent: Literal["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL", "RESERVATION_HELP", "MY_RESERVATIONS", "RESERVATION_STATUS", "RESERVATION_CREATE_PREVIEW", "RESERVATION_CANCEL_PREVIEW", "FAQ", "SMALLTALK", "OUT_OF_SCOPE"]
     slots: AssistantChatSlots
     confidence: float | None = Field(default=None, ge=0, le=1)
+    confidence_basis: Literal["RULE_HEURISTIC", "AI_FALLBACK"] | None = None
     missing_fields: list[str] = Field(default_factory=list)
     requires_clarification: bool = False
     clarification_message: str | None = None
-    result_type: Literal["ROOMS_FOUND", "ALTERNATIVE_SLOTS", "NO_RESULTS"]
+    result_type: Literal["ROOMS_FOUND", "ALTERNATIVE_SLOTS", "RESERVATIONS_FOUND", "ROOM_DETAILS", "NO_RESULTS"]
     requires_confirmation: bool = False
     data: AssistantChatStructuredData
     normalization: AssistantNormalizationResult | None = None
 
     # Backward-compatible fields consumed by the current frontend.
-    engine: Literal["RULE_BASED"]
+    engine: Literal["RULE_BASED", "HYBRID"]
     filters: dict[str, Any]
     rooms: list[RoomOut] = Field(default_factory=list)
     alternative_slots: list[dict[str, Any]] = Field(default_factory=list)

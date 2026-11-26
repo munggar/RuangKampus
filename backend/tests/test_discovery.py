@@ -156,10 +156,12 @@ def test_old_assistant_contract_remains_and_new_structured_fields_are_present(
     assert data["reservation_action"] == "NOT_CREATED"
 
     # Structured response fields are validated by the Pydantic response model.
-    assert data["conversation_id"] is None
+    assert data["conversation_id"]
+    assert data["confidence"] is not None
+    assert data["confidence_basis"] == "RULE_HEURISTIC"
     assert data["slots"]["faculty"] == "FTII"
     assert data["slots"]["min_capacity"] == 20
-    assert data["confidence"] is None
+    assert 0 <= data["confidence"] <= 1
     assert data["requires_clarification"] is True
     assert data["clarification_message"] == data["follow_up_questions"][0]
     assert data["result_type"] == "ROOMS_FOUND"
@@ -180,7 +182,8 @@ def test_assistant_accepts_reserved_conversation_id_but_does_not_claim_memory(
     )
 
     assert result.status_code == 200, result.text
-    assert result.json()["data"]["conversation_id"] is None
+    assert result.json()["data"]["conversation_id"] == requested_id
+    assert result.json()["data"]["confidence_basis"] == "RULE_HEURISTIC"
 
 
 def test_assistant_student_response_does_not_expose_admin_schedule_details(
@@ -488,3 +491,203 @@ def test_room_assistant_endpoint_is_student_only(client, auth_headers, admin):
         headers=auth_headers("admin.uhamka"),
     )
     assert response.status_code == 403
+
+
+def test_assistant_conversation_carries_forward_owned_search_slots(
+    client, auth_headers, student, admin, room_payload
+):
+    room = create_located_room(client, auth_headers, room_payload, faculty="FTII")
+    first = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan untuk 20 orang di FTII"},
+        headers=auth_headers(),
+    )
+    assert first.status_code == 200, first.text
+    first_data = first.json()["data"]
+    conversation_id = first_data["conversation_id"]
+    assert conversation_id
+    assert room["id"] in {item["id"] for item in first_data["rooms"]}
+
+    follow_up = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "yang ada proyektor",
+            "conversation_id": conversation_id,
+        },
+        headers=auth_headers(),
+    )
+    assert follow_up.status_code == 200, follow_up.text
+    data = follow_up.json()["data"]
+    assert data["conversation_id"] == conversation_id
+    assert data["slots"]["faculty"] == "FTII"
+    assert data["slots"]["min_capacity"] == 20
+    assert data["slots"]["participant_count"] == 20
+    assert data["slots"]["facilities"] == ["projector"]
+    assert room["id"] in {item["id"] for item in data["rooms"]}
+
+
+def test_assistant_conversation_isolated_between_students(
+    client, auth_headers, student, admin
+):
+    first = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Cari ruangan di FTII"},
+        headers=auth_headers(),
+    )
+    assert first.status_code == 200, first.text
+    conversation_id = first.json()["data"]["conversation_id"]
+
+    other = client.post(
+        "/api/v1/auth/register",
+        json={
+            "name": "Other Conversation Student",
+            "email": "other.conversation.student@example.com",
+            "student_identifier": "2403045201",
+            "password": "OtherStrongPass123!",
+        },
+    )
+    assert other.status_code == 201, other.text
+    other_headers = {"Authorization": f"Bearer {other.json()['access_token']}"}
+    denied = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan", "conversation_id": conversation_id},
+        headers=other_headers,
+    )
+    assert denied.status_code == 404
+
+
+def test_assistant_returns_only_authenticated_students_reservations(
+    client, auth_headers, student, admin, create_room
+):
+    room = create_room()
+    booking_date = future_weekday(2)
+    own = client.post(
+        "/api/v1/reservations",
+        json={
+            "room_id": room["id"],
+            "purpose": "My private student meeting",
+            "date": booking_date.isoformat(),
+            "start_time": "09:00:00",
+            "end_time": "10:00:00",
+            "participant_count": 5,
+            "notes": "My own private notes",
+        },
+        headers=auth_headers(),
+    )
+    assert own.status_code == 201, own.text
+
+    other = client.post(
+        "/api/v1/auth/register",
+        json={
+            "name": "Reservation Owner",
+            "email": "reservation.owner@example.com",
+            "student_identifier": "2403045202",
+            "password": "OtherStrongPass123!",
+        },
+    )
+    assert other.status_code == 201, other.text
+    other_headers = {"Authorization": f"Bearer {other.json()['access_token']}"}
+    other_reservation = client.post(
+        "/api/v1/reservations",
+        json={
+            "room_id": room["id"],
+            "purpose": "Other student's private meeting",
+            "date": booking_date.isoformat(),
+            "start_time": "10:00:00",
+            "end_time": "11:00:00",
+            "participant_count": 3,
+            "notes": "Other private notes",
+        },
+        headers=other_headers,
+    )
+    assert other_reservation.status_code == 201, other_reservation.text
+
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Lihat reservasi saya"},
+        headers=auth_headers(),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["intent"] == "MY_RESERVATIONS"
+    assert data["result_type"] == "RESERVATIONS_FOUND"
+    assert any(item["id"] == own.json()["data"]["id"] for item in data["data"]["reservations"])
+    assert other_reservation.json()["data"]["id"] not in response.text
+    assert "Other student's private meeting" not in response.text
+    assert "Other private notes" not in response.text
+
+
+def test_assistant_returns_grounded_room_details_from_catalog(
+    client, auth_headers, student, admin, room_payload
+):
+    room = create_located_room(client, auth_headers, room_payload)
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Apa fasilitas ruang RK-FTII-101?"},
+        headers=auth_headers(),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["intent"] == "ROOM_DETAIL"
+    assert data["result_type"] == "ROOM_DETAILS"
+    assert data["rooms"][0]["id"] == room["id"]
+    assert room["room_name"] in data["message"]
+
+
+def test_ai_fallback_is_used_only_after_rule_engine_cannot_classify(
+    client, auth_headers, student, admin, monkeypatch
+):
+    from ruangkampus.config import Settings
+    from ruangkampus.routers import discovery
+    from ruangkampus.services.assistant_ai_fallback import AIIntentInterpretation
+
+    settings = Settings(
+        assistant_ai_enabled=True,
+        assistant_ai_endpoint_url="https://ai.example.test/v1/chat/completions",
+        assistant_ai_model="test-model",
+    )
+    calls = []
+
+    def fake_interpretation(message, catalog, provider_settings):
+        calls.append((message, provider_settings.assistant_ai_enabled))
+        return AIIntentInterpretation(intent="ROOM_AVAILABILITY")
+
+    monkeypatch.setattr(discovery, "get_settings", lambda: settings)
+    monkeypatch.setattr(discovery, "interpret_with_ai_fallback", fake_interpretation)
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "what should I do with my day?"},
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert calls == [("what should I do with my day?", True)]
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["engine"] == "HYBRID"
+    assert data["confidence_basis"] == "AI_FALLBACK"
+    assert data["requires_clarification"] is True
+    assert data["rooms"] == []
+    assert "endpoint AI" in data["privacy"]
+
+
+def test_ai_fallback_is_not_called_when_rule_engine_recognizes_smalltalk(
+    client, auth_headers, student, admin, monkeypatch
+):
+    from ruangkampus.routers import discovery
+
+    def fail_interpretation(*args, **kwargs):
+        raise AssertionError("AI fallback must not run for rule-recognized smalltalk")
+
+    monkeypatch.setattr(discovery, "interpret_with_ai_fallback", fail_interpretation)
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Halo kak"},
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["intent"] == "SMALLTALK"
+    assert data["engine"] == "RULE_BASED"
+    assert data["confidence_basis"] == "RULE_HEURISTIC"
