@@ -26,7 +26,7 @@ The Pydantic request model is `AssistantChatIn` in `backend/src/ruangkampus/sche
 | Field | Type | Required | Meaning |
 |---|---|---:|---|
 | `message` | string, 3–1000 chars | Yes | User's current message |
-| `conversation_id` | UUID or null | No | Reserved for future conversation support; currently accepted but not stored or used |
+| `conversation_id` | UUID or null | No | Opaque identifier for the authenticated student's short-lived conversation; server rotates it after expiry |
 | `faculty` | string or null, max 160 | No | Explicit faculty text filter |
 | `building` | string or null, max 160 | No | Explicit building text filter |
 | `min_capacity` | integer 1–10000 or null | No | Minimum room capacity filter |
@@ -57,7 +57,7 @@ The existing frontend request `discoveryApi.chat({ message })` remains valid. Th
 }
 ```
 
-The supplied identifier is accepted for forward compatibility, but the current implementation does not persist conversation state and returns `conversation_id: null`. It must not be interpreted as a working conversation session.
+The supplied identifier is scoped to the authenticated Student. The backend persists only bounded structured search slots and last intent for up to 30 minutes of inactivity; raw messages and generated replies are not stored. An ID owned by another user returns 404.
 
 ## 3. Response schema
 
@@ -78,7 +78,7 @@ The inner Pydantic response model is `AssistantChatResponseData`. The response c
 | Field | Type | Current behavior |
 |---|---|---|
 | `message` | string | Existing rule-based response text |
-| `conversation_id` | UUID or null | Always null; no backend conversation store exists |
+| `conversation_id` | UUID or null | Opaque ID for the current short-lived user-owned conversation |
 | `intent` | allowlisted intent string | Determined by the Rule-Based Intent Engine; see section 11 |
 | `slots` | object | Search filters extracted by the current parser |
 | `confidence` | number 0–1 or null | Always null; no confidence model is implemented |
@@ -175,7 +175,7 @@ This is an illustrative no-result response shape, not a claim about current prod
 }
 ```
 
-The `confidence` and `conversation_id` null values are deliberate. The system must not fabricate a confidence score or imply that conversation memory is available.
+The confidence field is a deterministic rule-strength score, not a calibrated probability. confidence_basis identifies RULE_HEURISTIC or AI_FALLBACK. Conversation state stores only structured slots with a 30-minute inactivity TTL.
 
 ## 4. Result and clarification semantics
 
@@ -342,3 +342,37 @@ Execution boundaries in this stage:
 - Private reservation data is not returned by the assistant at this stage. Read-only reservation intents are recognized but explicitly report that chat retrieval is not yet enabled.
 
 The intent value is an expanded response field; legacy fields, Student-only authorization, room availability logic, and the reservation workflow remain in place.
+
+## 11. Conversation state, intent confidence, and AI fallback
+
+### Conversation state (Stage 2.4)
+
+- A Student-only conversation is identified by an opaque UUID and owned by the authenticated user.
+- Conversation state expires after 30 minutes of inactivity.
+- Only structured slots and the last intent are stored. Raw or normalized user messages, provider prompts, model output, and generated response content are not stored.
+- Missing slots in a follow-up may be carried forward from the same active conversation. New explicit values override older values. Reset phrases discard prior search criteria. Negated faculty/building/facility mentions do not re-add the old positive filter.
+- An identifier owned by another student is not accessible and returns 404.
+- Alembic revision f7c2a91d6e40 creates the conversation-state table.
+
+### Function registry and backend execution
+
+The rule engine and optional AI fallback can select only registered Student capabilities. The AI provider cannot name Python functions, provide SQL, access the database, view another user's records, or execute mutations. Room search, availability and alternative slots continue to call existing backend services. Room detail is resolved against the active-room catalogue. Reservation list/status reads are filtered by the authenticated user's ID.
+
+Reservation create/cancel intents remain previews; the assistant does not create or cancel a reservation. The user must continue through the existing reservation workflow, where the backend rechecks availability and authorization.
+
+### Confidence and analytics
+
+confidence represents deterministic rule strength when confidence_basis is RULE_HEURISTIC; it is not a probability. When an enabled external AI provider supplies an accepted interpretation, the basis is AI_FALLBACK. Aggregate telemetry records intent, rule, confidence basis, result type, clarification and whether the fallback was used. It excludes raw message text, user IDs and reservation contents.
+
+### Optional AI provider
+
+AI fallback is disabled by default. It is called only when the deterministic intent engine returns OUT_OF_SCOPE, uses one request with a short timeout and no automatic retry, and accepts a strict JSON schema for room search/availability/alternative intents only. Faculty, building and facility values must match the active Assistant Data Catalog. The endpoint is operator-configured through environment variables; using a hosted provider may incur charges or rate limits. With no provider configured, the deterministic assistant continues to operate normally.
+
+Configuration:
+- ASSISTANT_AI_ENABLED=false by default.
+- ASSISTANT_AI_ENDPOINT_URL: OpenAI-compatible chat-completions endpoint configured by the operator.
+- ASSISTANT_AI_MODEL: model identifier expected by that endpoint.
+- ASSISTANT_AI_API_KEY: optional secret for the configured provider.
+- ASSISTANT_AI_TIMEOUT_SECONDS: 4 seconds by default; maximum 8 seconds.
+
+When enabled, only the current message and bounded observed catalogue vocabulary are sent for intent interpretation. Conversation history, user ID, reservation records and room result records are not sent. Provider configuration must be reviewed under the institution's privacy requirements before enabling it.
