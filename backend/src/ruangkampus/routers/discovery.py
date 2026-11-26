@@ -534,13 +534,13 @@ def _intent_only_response(
     engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
-        "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+        "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_response_used else
         "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
-        "identitas akun, dan data reservasi pribadi tidak dikirim."
+        "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_fallback_used else
         "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara "
-        "selama maksimal 30 menit untuk menjaga konteks percakapan."
+        "selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
     )
     structured_response = AssistantChatResponseData(
         message=final_message,
@@ -873,7 +873,7 @@ def room_assistant_chat(
             requires_clarification=True,
             privacy_message=(
                 "Pesan saat ini yang telah disamarkan dikirim ke penyedia AI hanya untuk interpretasi intent. "
-                "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+                "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
             ) if ai_fallback_used else None,
             ai_fallback_used=ai_fallback_used,
             slots_override=pending_slots,
@@ -1041,11 +1041,11 @@ def room_assistant_chat(
         reservation_action="NOT_CREATED",
         privacy=(
             "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
-            "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+            "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         ) if ai_response_used else (
             "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
-            "identitas akun, dan data reservasi pribadi tidak dikirim."
-        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit.",
+            "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
+        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan.",
     )
     save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
     record_assistant_outcome(
