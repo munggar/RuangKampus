@@ -20,7 +20,7 @@ export interface Reservation {
   status: ReservationStatus; admin_id: string | null; rejection_reason: string | null;
   submitted_at: string; approved_at: string | null; cancelled_at: string | null;
   cancellation_reason: string | null;
-  room?: Pick<Room, "id" | "room_name" | "building" | "capacity">;
+  room?: Pick<Room, "id" | "room_name" | "building" | "capacity" | "photo_url">;
   applicant?: { id: string; name: string; email: string };
 }
 export interface AvailabilityResult { room_id: string; available: boolean; reasons: string[]; checked_at: string; }
