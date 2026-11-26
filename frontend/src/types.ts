@@ -87,6 +87,19 @@ export interface AssistantChatRequest {
   end_time?: string | null;
   participant_count?: number;
 }
+export type AssistantFeedbackReason =
+  | "TOO_FORMAL"
+  | "TOO_LONG"
+  | "TOO_SHORT"
+  | "WRONG_INTENT"
+  | "WRONG_NORMALIZATION"
+  | "RESULTS_NOT_RELEVANT"
+  | "OTHER";
+export interface AssistantFeedbackRequest {
+  intent: string;
+  rating: "HELPFUL" | "NOT_HELPFUL";
+  reason_code?: AssistantFeedbackReason;
+}
 export interface AssistantChatSlots {
   faculty: string | null;
   building: string | null;
