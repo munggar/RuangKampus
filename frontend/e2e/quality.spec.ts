@@ -3,21 +3,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { test, expect, installMockApi, SCREEN_ROUTES, waitForPageReady } from "./support";
 
-const accessibilityRouteIds = [
-  "login", "register", "forgot-password", "reset-password",
-  "student-dashboard", "student-rooms", "student-booking", "student-reservations",
-  "student-reservation-detail", "student-notifications", "student-profile", "student-assistant",
-  "admin-dashboard", "admin-reservations", "admin-reservation-detail", "admin-rooms",
-  "admin-room-create", "admin-room-edit", "admin-data-imports", "admin-schedules-maintenance",
-  "admin-notifications", "admin-profile", "admin-assistant",
-];
-
 const darkAccessibilityIds = new Set([
   "login", "student-dashboard", "student-booking",
   "admin-dashboard", "admin-data-imports", "admin-schedules-maintenance",
 ]);
 
-for (const screen of SCREEN_ROUTES.filter((item) => accessibilityRouteIds.includes(item.id))) {
+for (const screen of SCREEN_ROUTES) {
   test("axe WCAG 2.1 A/AA: " + screen.id + " light", async ({ page }, testInfo) => {
     test.setTimeout(60000);
     await installMockApi(page, screen.role);
