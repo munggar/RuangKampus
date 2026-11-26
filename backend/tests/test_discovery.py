@@ -466,3 +466,4 @@ def test_assistant_does_not_return_unfiltered_rooms_for_conversational_messages(
         assert data["result_type"] == "NO_RESULTS", message
         assert data["requires_clarification"] is True, message
         assert data["clarification_message"], message
+        assert data["slots"]["search_terms"] == [], message
