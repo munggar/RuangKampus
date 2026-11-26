@@ -313,3 +313,32 @@ Known facility aliases are selected only when their canonical alias group is pre
 
 The Stage 2.2 normalizer preserves negative wording and prevents a negated facility from becoming a positive facility filter. It does not yet implement full negative-filter semantics such as returning only rooms without AC or a projector. The endpoint still supports only `ROOM_SEARCH`; no additional intent, reservation action, confidence engine, memory, LLM adapter, or frontend chatbot change is introduced.
 
+## 11. Rule-Based Intent Detection (Stage 2.3)
+
+The Student assistant now classifies normalized messages into an allowlisted set of deterministic intents before selecting an execution path.
+
+Supported intent names:
+- ROOM_SEARCH
+- ROOM_AVAILABILITY
+- ALTERNATIVE_SLOTS
+- ROOM_DETAIL
+- RESERVATION_HELP
+- MY_RESERVATIONS
+- RESERVATION_STATUS
+- RESERVATION_CREATE_PREVIEW
+- RESERVATION_CANCEL_PREVIEW
+- FAQ
+- SMALLTALK
+- OUT_OF_SCOPE
+
+The intent engine consumes normalized text and the current active-room catalogue. It uses exact phrase boundaries and context-aware checks for cancellation wording. It does not call a language model and does not assign a numeric confidence score; confidence calibration is a separate stage.
+
+Execution boundaries in this stage:
+- ROOM_SEARCH reuses the existing deterministic room parser and room query.
+- ROOM_AVAILABILITY requires a complete date, start time, and end time before the availability engine is queried. Missing values produce a clarification instead of a broad query.
+- ALTERNATIVE_SLOTS requires a complete date/time window and reuses the existing alternative-slot service.
+- Informational, reservation-related, small-talk, and out-of-scope intents receive deterministic text responses and do not query the room catalogue.
+- Reservation creation and cancellation are not performed by intent classification. Their existing application endpoints and confirmation/authorization rules remain authoritative.
+- Private reservation data is not returned by the assistant at this stage. Read-only reservation intents are recognized but explicitly report that chat retrieval is not yet enabled.
+
+The intent value is an expanded response field; legacy fields, Student-only authorization, room availability logic, and the reservation workflow remain in place.

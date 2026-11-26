@@ -380,7 +380,7 @@ def test_assistant_uses_only_positive_faculty_from_a_contrast_clause(
 
     result = client.post(
         "/api/v1/assistant/chat",
-        json={"message": "Bukan FTII, tetapi FKIP"},
+        json={"message": "Cari ruangan bukan FTII, tetapi FKIP"},
         headers=auth_headers(),
     )
     assert result.status_code == 200, result.text
