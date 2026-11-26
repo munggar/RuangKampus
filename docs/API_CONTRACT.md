@@ -231,7 +231,7 @@ The following is the backend contract that the frontend must follow. The backend
 
 ### Assistant request
 
-`POST /api/v1/assistant/chat` accepts `message` plus optional `faculty`, `building`, `min_capacity`, `facilities`, `date`, `start_time`, `end_time`, and `participant_count`. Date and time filters must be complete as a group. The response includes `engine`, `intent`, `filters`, `rooms`, `alternative_slots`, `follow_up_questions`, and `reservation_action: NOT_CREATED`. `engine=RULE_BASED` identifies the current non-LLM implementation accurately; no external provider receives user chat messages.
+`POST /api/v1/assistant/chat` accepts `message` plus optional `faculty`, `building`, `min_capacity`, `facilities`, `date`, `start_time`, `end_time`, and `participant_count`. Date and time filters must be complete as a group. The response includes `engine`, `intent`, `filters`, `rooms`, `alternative_slots`, `follow_up_questions`, and `reservation_action: NOT_CREATED`. The additive structured response fields and current conversation limitations are documented in [AI_ASSISTANT_API_CONTRACT.md](AI_ASSISTANT_API_CONTRACT.md). `engine=RULE_BASED` identifies the current non-LLM implementation accurately; no external provider receives user chat messages.
 
 ### Room search time filter
 

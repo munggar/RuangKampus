@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, TypeAdapter, field_validator, model_validator
@@ -419,8 +419,59 @@ class AlternativeSlotsIn(BaseModel):
     limit: int = Field(default=10, ge=1, le=50)
 
 
+class AssistantChatSlots(BaseModel):
+    """Structured filters extracted by the current deterministic room-search flow."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    faculty: str | None = None
+    building: str | None = None
+    min_capacity: int | None = None
+    facilities: list[str] = Field(default_factory=list)
+    requested_date: date | None = Field(default=None, alias="date")
+    start_time: time | None = None
+    end_time: time | None = None
+    participant_count: int = 1
+    search_terms: list[str] = Field(default_factory=list)
+
+
+class AssistantChatStructuredData(BaseModel):
+    """Backend facts returned by the room-search engine."""
+
+    rooms: list[RoomOut] = Field(default_factory=list)
+    alternative_slots: list[dict[str, Any]] = Field(default_factory=list)
+    filters: AssistantChatSlots
+
+
+class AssistantChatResponseData(BaseModel):
+    """Structured inner response; existing legacy fields remain present."""
+
+    message: str
+    conversation_id: UUID | None = None
+    intent: Literal["ROOM_SEARCH"]
+    slots: AssistantChatSlots
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    missing_fields: list[str] = Field(default_factory=list)
+    requires_clarification: bool = False
+    clarification_message: str | None = None
+    result_type: Literal["ROOMS_FOUND", "ALTERNATIVE_SLOTS", "NO_RESULTS"]
+    requires_confirmation: bool = False
+    data: AssistantChatStructuredData
+
+    # Backward-compatible fields consumed by the current frontend.
+    engine: Literal["RULE_BASED"]
+    filters: dict[str, Any]
+    rooms: list[RoomOut] = Field(default_factory=list)
+    alternative_slots: list[dict[str, Any]] = Field(default_factory=list)
+    follow_up_questions: list[str] = Field(default_factory=list)
+    reservation_action: Literal["NOT_CREATED"]
+    privacy: str
+
+
 class AssistantChatIn(BaseModel):
     message: str = Field(min_length=3, max_length=1000)
+    # Reserved for a future backend conversation store. Currently accepted but not persisted.
+    conversation_id: UUID | None = None
     faculty: str | None = Field(default=None, max_length=160)
     building: str | None = Field(default=None, max_length=160)
     min_capacity: int | None = Field(default=None, ge=1, le=10000)

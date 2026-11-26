@@ -1,5 +1,7 @@
 from sqlalchemy import select
 
+from ruangkampus.models import Room
+
 from ruangkampus import cli
 from ruangkampus.models import User
 from ruangkampus.security import verify_password
@@ -75,3 +77,28 @@ def test_bootstrap_requires_strong_temporary_password(monkeypatch):
         assert "at least 16 characters" in str(exc)
     else:
         raise AssertionError("Bootstrap must reject short passwords")
+
+
+def test_assistant_data_quality_cli_is_read_only(db_session, room_payload, monkeypatch, capsys):
+    import json
+
+    payload = {
+        **room_payload,
+        "faculty": "FTII",
+        "location_description": "Lantai 2, dekat lobby",
+    }
+    room = Room(**payload)
+    db_session.add(room)
+    db_session.commit()
+    before_count = db_session.query(Room).count()
+    monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
+
+    cli.assistant_data_quality()
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["verification_status"] == "VERIFIED"
+    assert report["active_room_count"] == 1
+    assert db_session.query(Room).count() == before_count
+    assert not db_session.new
+    assert not db_session.dirty
+    assert not db_session.deleted

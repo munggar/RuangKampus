@@ -76,6 +76,8 @@ export interface AlternativeSlotsResult {
 }
 export interface AssistantChatRequest {
   message: string;
+  /** Accepted for forward compatibility; the current backend does not persist conversations. */
+  conversation_id?: string | null;
   faculty?: string | null;
   building?: string | null;
   min_capacity?: number | null;
@@ -85,7 +87,33 @@ export interface AssistantChatRequest {
   end_time?: string | null;
   participant_count?: number;
 }
+export interface AssistantChatSlots {
+  faculty: string | null;
+  building: string | null;
+  min_capacity: number | null;
+  facilities: string[];
+  date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  participant_count: number;
+  search_terms: string[];
+}
+export type AssistantResultType = "ROOMS_FOUND" | "ALTERNATIVE_SLOTS" | "NO_RESULTS";
 export interface AssistantChatResult {
+  /** Structured fields are optional so the client remains compatible with an older API deployment. */
+  conversation_id?: string | null;
+  slots?: AssistantChatSlots;
+  confidence?: number | null;
+  missing_fields?: string[];
+  requires_clarification?: boolean;
+  clarification_message?: string | null;
+  result_type?: AssistantResultType;
+  requires_confirmation?: boolean;
+  data?: {
+    rooms: Room[];
+    alternative_slots: AlternativeSlot[];
+    filters: AssistantChatSlots;
+  };
   engine: string;
   intent: string;
   message: string;
