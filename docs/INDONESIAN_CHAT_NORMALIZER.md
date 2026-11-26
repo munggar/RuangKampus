@@ -170,7 +170,7 @@ The code and date/time tokens remain intact for the existing parser. They are no
 ## 9. Limitations
 
 - The slang/typo dictionary is deliberately finite and requires an explicit code change to add entries.
-- `lagi` maps to `sedang` per the supplied Stage 2.2 dictionary; in a sentence where `lagi` means "again", this can be context-sensitive.
+- The abbreviation `lg` expands to `lagi`; the full word `lagi` is preserved because it can mean "currently" or "again" depending on context. It is excluded only from the current ROOM_SEARCH free-text filter tokens, not rewritten in the normalized message.
 - Fuzzy correction is one-edit, one-token, and only applies to a unique active-catalogue candidate of at least five characters.
 - Ambiguous abbreviations such as a short faculty prefix are left as typed.
 - Negated facility wording is preserved and not treated as a positive requirement, but full negative-result semantics are not implemented.
