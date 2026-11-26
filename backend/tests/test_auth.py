@@ -107,3 +107,51 @@ def test_register_rejects_password_shorter_than_eight_characters(client):
         },
     )
     assert rejected.status_code == 422
+
+
+
+def test_admin_can_update_profile_email_and_username_remains_unchanged(client, admin, auth_headers):
+    headers = auth_headers("admin.uhamka")
+    response = client.patch(
+        "/api/v1/users/me",
+        json={"email": "Admin.Updated@Example.com"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["email"] == "admin.updated@example.com"
+    assert response.json()["data"]["student_identifier"] == "admin.uhamka"
+
+
+def test_profile_email_cannot_duplicate_another_account_case_insensitively(client, admin, student, auth_headers):
+    headers = auth_headers("admin.uhamka")
+    response = client.patch(
+        "/api/v1/users/me",
+        json={"email": "STUDENT@EXAMPLE.COM"},
+        headers=headers,
+    )
+    assert response.status_code == 409
+
+
+def test_change_password_accepts_eight_characters(client, admin, auth_headers):
+    headers = auth_headers("admin.uhamka")
+    changed = client.patch(
+        "/api/v1/users/me/password",
+        json={"current_password": "StrongPass123!", "new_password": "Pass123!"},
+        headers=headers,
+    )
+    assert changed.status_code == 200, changed.text
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"identifier": "admin.uhamka", "password": "Pass123!"},
+    )
+    assert login.status_code == 200
+
+
+def test_change_password_rejects_fewer_than_eight_characters(client, admin, auth_headers):
+    headers = auth_headers("admin.uhamka")
+    response = client.patch(
+        "/api/v1/users/me/password",
+        json={"current_password": "StrongPass123!", "new_password": "Pass12!"},
+        headers=headers,
+    )
+    assert response.status_code == 422
