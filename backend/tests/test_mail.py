@@ -140,3 +140,30 @@ def test_brevo_delivery_falls_back_to_escaped_html(monkeypatch):
 
     assert mail.send_email("student@example.test", "Notice", "<hello>") is True
     assert "&lt;hello&gt;" in captured["payload"]["htmlContent"]
+
+
+
+def test_brevo_uses_legacy_sender_mail_setting(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, *, headers, json, timeout):
+        captured["payload"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(mail.httpx, "post", fake_post)
+    monkeypatch.setattr(mail, "get_settings", lambda: SimpleNamespace(
+        email_backend="brevo",
+        brevo_api_key="xkeysib-test-secret",
+        brevo_sender_email=None,
+        brevo_sender_mail="notifications@example.test",
+        brevo_sender_address="notifications@example.test",
+        brevo_sender_name="RuangKampus",
+        smtp_timeout_seconds=9,
+    ))
+
+    assert mail.send_email("student@example.test", "Notice", "Body") is True
+    assert captured["payload"]["sender"]["email"] == "notifications@example.test"
