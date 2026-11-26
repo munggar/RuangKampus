@@ -47,7 +47,7 @@ def test_forgot_password_response_does_not_disclose_account(client, student):
 def test_admin_login_returns_frontend_role_label(client, admin):
     response = client.post("/api/v1/auth/login", json={"identifier": "admin.uhamka", "password": "StrongPass123!"})
     assert response.status_code == 200
-    assert response.json()["user"]["role"] == "TU/Admin"
+    assert response.json()["user"]["role"] == "Staff Sekretariat"
 
 
 def test_register_requires_unique_nim(client):
