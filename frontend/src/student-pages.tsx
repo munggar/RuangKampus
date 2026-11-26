@@ -605,14 +605,14 @@ export function ProfilePage({ role }: { role: AppRole }) {
     <PageTitle eyebrow="YOUR ACCOUNT" title="Profil" description="Kelola informasi akun dan preferensi tampilan Anda." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {message ? <Notice tone="success">{message}</Notice> : null}
-    <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "TU / Administrator"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
+    <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "Staff Sekretariat"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
     <div className="profile-grid">
       <form className="panel stack-form" onSubmit={saveProfile}>
         <h2>Informasi profil</h2>
         <Field label="Nama lengkap"><input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={160} required /></Field>
         <Field label="Email"><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={320} required /></Field>
         <Field label="Nomor telepon"><input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
-        {role === "TU/Admin"
+        {role === "Staff Sekretariat"
           ? <Field label="Username admin"><input value={profile?.student_identifier || ""} autoComplete="username" disabled readOnly /></Field>
           : profile?.student_identifier
             ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field>
