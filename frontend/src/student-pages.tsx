@@ -548,6 +548,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
   const { user, replaceUser, logout } = useAuth();
   const [profile, setProfile] = useState<AuthUser | null>(user);
   const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -565,14 +566,18 @@ export function ProfilePage({ role }: { role: AppRole }) {
 
   useEffect(() => {
     let active = true;
-    profileApi.me().then((item) => { if (!active) return; setProfile(item); setName(item.name); setPhone(item.phone || ""); replaceUser(item); })
+    profileApi.me().then((item) => { if (!active) return; setProfile(item); setName(item.name); setEmail(item.email); setPhone(item.phone || ""); replaceUser(item); })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Profil belum dapat dimuat."); });
     return () => { active = false; };
   }, [replaceUser]);
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(""); setMessage("");
-    try { const updated = await profileApi.update({ name: name.trim(), phone: phone.trim() || null }); setProfile(updated); replaceUser(updated); setMessage("Profil berhasil diperbarui."); }
+    try {
+      const updated = await profileApi.update({ name: name.trim(), email: email.trim(), phone: phone.trim() || null });
+      setProfile(updated); setName(updated.name); setEmail(updated.email); setPhone(updated.phone || "");
+      replaceUser(updated); setMessage("Profil berhasil diperbarui.");
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Profil belum berhasil disimpan."); }
     finally { setSaving(false); }
   }
@@ -604,9 +609,13 @@ export function ProfilePage({ role }: { role: AppRole }) {
       <form className="panel stack-form" onSubmit={saveProfile}>
         <h2>Informasi profil</h2>
         <Field label="Nama lengkap"><input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={160} required /></Field>
-        <Field label="Email"><input type="email" value={profile?.email || ""} readOnly disabled /></Field>
-        <Field label="Nomor telepon"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
-        {profile?.student_identifier ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field> : null}
+        <Field label="Email"><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={320} required /></Field>
+        <Field label="Nomor telepon"><input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
+        {role === "TU/Admin"
+          ? <Field label="Username admin"><input value={profile?.student_identifier || ""} autoComplete="username" disabled readOnly /></Field>
+          : profile?.student_identifier
+            ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field>
+            : null}
         <Button type="submit" disabled={saving}>{saving ? "Menyimpan…" : "Simpan perubahan"}</Button>
       </form>
       <div className="stack-form">
@@ -620,7 +629,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
         <form className="panel stack-form" onSubmit={savePassword}>
           <h2>Ubah password</h2>
           <Field label="Password saat ini"><input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required /></Field>
-          <Field label="Password baru" hint="Minimal 10 karakter sesuai validasi server."><input type="password" minLength={10} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></Field>
+          <Field label="Password baru" hint="Minimal 8 karakter."><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required /></Field>
           <Button type="submit" variant="secondary" disabled={saving}>Ubah password</Button>
         </form>
       </div>

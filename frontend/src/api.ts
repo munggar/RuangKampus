@@ -146,7 +146,7 @@ export const authApi = {
 
 export const profileApi = {
   me: () => apiRequest<AuthUser>("/users/me"),
-  update: (payload: { name?: string; phone?: string | null; profile_image_url?: string | null }) =>
+  update: (payload: { name?: string; email?: string; phone?: string | null; profile_image_url?: string | null }) =>
     apiRequest<AuthUser>("/users/me", { method: "PATCH", body: payload }),
   changePassword: (current_password: string, new_password: string) =>
     apiRequest<unknown>("/users/me/password", { method: "PATCH", body: { current_password, new_password } }),
