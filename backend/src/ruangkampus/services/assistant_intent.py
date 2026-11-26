@@ -340,12 +340,9 @@ def detect_assistant_intent(
             ),
         )
 
+    # An unrecognized utterance is eligible for general conversation generation.
+    # Missing or ambiguous room-search information is clarified by the room-specific branches above.
     return IntentDetection(
         intent="OUT_OF_SCOPE",
-        matched_rule="NO_SUPPORTED_INTENT",
-        requires_clarification=True,
-        clarification_message=(
-            "Aku fokus membantu urusan ruangan kampus: pencarian, ketersediaan, "
-            "fasilitas, alternatif waktu, dan informasi reservasi."
-        ),
+        matched_rule="GENERAL_CONVERSATION_REQUEST",
     )
