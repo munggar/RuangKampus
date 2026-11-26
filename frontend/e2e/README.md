@@ -19,7 +19,7 @@ There is no standalone maintenance route. Maintenance is a workflow inside `/adm
 - TypeScript `tsc --noEmit`: passed as part of the production build.
 - Vite production build: passed; 14 original brand assets verified/extracted.
 - Browser target: Ubuntu GitHub Actions runner; the browser navigated to the production Vite preview over loopback HTTP (not `file://`).
-- CI run: https://github.com/munggar/RuangKampus/actions/runs/45838979092
+- CI run: https://github.com/munggar/RuangKampus/actions/runs/45839852350
 - Complete browser artifact (screenshots, HTML report, result JSON, browser diagnostics and performance JSON; 14-day retention): https://github.com/munggar/RuangKampus/actions/runs/45838979092/artifacts/15127670187
 
 ## Screenshot coverage
@@ -42,11 +42,11 @@ The six responsive viewports are 1440×900, 1024×768, 820×1180, 768×1024, 390
 - Staff UI workflow: approval, rejection with reason, room creation/editing, academic schedule, maintenance/unavailability, import preview/confirmation, and mobile access to Jadwal and Impor.
 - Theme: light/dark route rendering and theme persistence across navigation and public authentication pages.
 - Responsive behavior: all 25 routes are rendered at the six target viewport sizes; page/body overflow and the main mobile navigation layout are checked. Jadwal and Impor are explicitly checked in Staff mobile navigation.
-- Accessibility: 50 axe scans (25 routes × two themes), scoped to WCAG 2.0/2.1 A/AA tags; **no critical or serious axe violations**. Keyboard checks cover skip-link/main landmark focus, account-menu Escape handling, approval-dialog focus trap/restoration, and reduced-motion CSS behavior.
+- Accessibility: 50 axe scans (25 routes × two themes), scoped to WCAG 2.0/2.1 A/AA tags; **zero axe violations across all impact levels**. Keyboard checks cover skip-link/main landmark focus, account-menu Escape handling, approval-dialog focus trap/restoration, and reduced-motion CSS behavior.
 - Browser diagnostics: per-test console, page-error, failed-request, and HTTP-response diagnostics are attached and written as JSON; unexpected errors fail the test run.
 - Performance sample: navigation, first paint/FCP, LCP when available, layout shifts, long tasks, loaded/broken images, and transferred resources are recorded in `test-results/diagnostics/performance.json`.
 
-The #192 performance sample was captured against a local preview and in-memory fixtures: load event end 74 ms, FCP 76 ms, observed LCP 76 ms, CLS estimate 0.03, zero observed long tasks, two of two images loaded, zero broken images, and 401,513 bytes of measured resource transfer. This is a repeatable local fixture sample, **not** production user telemetry, a Lighthouse score, or Core Web Vitals certification.
+The #198 performance sample was captured against a local preview and in-memory fixtures: load event end 98.7 ms, FCP 92 ms, observed LCP 92 ms, CLS estimate 0.03, zero observed long tasks, two of two images loaded, zero broken images, and 401,513 bytes of measured resource transfer. This is a repeatable local fixture sample, **not** production user telemetry, a Lighthouse score, or Core Web Vitals certification.
 
 The production build emitted 405.73 kB JavaScript (118.49 kB gzip) and 82.68 kB CSS (14.73 kB gzip). These are build artifact sizes, not full-page transfer totals.
 
@@ -75,7 +75,7 @@ The workbook upload test submits a small browser fixture named `.xlsx` to a mock
 
 Client role redirects and protected-page visibility are frontend checks, **not proof of server-side RBAC**. Real authentication/session refresh against a backend, server-side authorization, reservation conflict enforcement, database persistence, email delivery, actual assistant-provider behavior, import parsing/storage/transaction, and staging cleanup remain **NOT TESTED** until a dedicated staging URL and non-production accounts/secrets are available.
 
-The axe gate explicitly fails on critical/serious findings; moderate/minor findings, where present, are attached in the individual test report for review. Automated axe scans do not replace manual screen-reader testing or a full WCAG conformance audit. Keyboard coverage is limited to the named flows above.
+The axe gate explicitly fails on critical/serious findings; the successful #198 artifact was also inspected and contained zero moderate/minor findings. Automated axe scans do not replace manual screen-reader testing or a full WCAG conformance audit. Keyboard coverage is limited to the named flows above.
 
 No test mutates production data. No real credentials, passwords, access tokens, refresh tokens, or cookies are printed or included in artifacts. Traces are retained on test failure; the successful #192 run had no failing tests and therefore no failure trace files.
 
