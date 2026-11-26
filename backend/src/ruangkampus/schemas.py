@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, TypeAdapter, field_validator, model_validator
 
 
 class Role(str, Enum):
@@ -136,7 +136,7 @@ def validate_room_photo_url_value(value: str | None) -> str | None:
             raise ValueError("photo_url must reference a valid room media file")
         return cleaned
     try:
-        return str(HttpUrl(cleaned))
+        return str(TypeAdapter(HttpUrl).validate_python(cleaned))
     except Exception:
         raise ValueError("photo_url must be an HTTP(S) URL or /media/rooms/<filename>") from None
 
