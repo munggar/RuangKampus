@@ -38,6 +38,13 @@ SLANG_DICTIONARY: dict[str, str] = {
     "dipake": "digunakan",
     "pake": "pakai",
     "dongg": "dong",
+    "lu": "kamu",
+    "lo": "kamu",
+    "elu": "kamu",
+    "elo": "kamu",
+    "gue": "aku",
+    "gua": "aku",
+    "sokap": "siapa",
 }
 
 # Only the requested, high-certainty spelling corrections are hard-coded.
