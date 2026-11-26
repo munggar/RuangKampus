@@ -167,3 +167,24 @@ def test_brevo_uses_legacy_sender_mail_setting(monkeypatch):
 
     assert mail.send_email("student@example.test", "Notice", "Body") is True
     assert captured["payload"]["sender"]["email"] == "notifications@example.test"
+
+
+
+def test_branded_email_includes_details_button_and_fallback_link():
+    result = mail.render_html_email(
+        "Reservasi kamu disetujui",
+        "Kabar baik! Ruangan sudah disiapkan untuk jadwalmu.",
+        "https://ruangkampus.example/student/reservations/abc-123",
+        "Lihat detail reservasi",
+        preheader="Reservasi disetujui.",
+        eyebrow="RESERVASI DISETUJUI",
+        details=[("Ruangan", "Lab Komputer"), ("Tanggal", "30/11/2026")],
+        accent_color="#159b70",
+    )
+    assert "RuangKampus" in result
+    assert "RESERVASI DISETUJUI" in result
+    assert "Lab Komputer" in result
+    assert "30/11/2026" in result
+    assert 'href="https://ruangkampus.example/student/reservations/abc-123"' in result
+    assert "Lihat detail reservasi" in result
+    assert "salin tautan berikut" in result
