@@ -363,6 +363,8 @@ export function AdminRoomEditorPage() {
 export function AdminSchedulesPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [items, setItems] = useState<Schedule[]>([]);
+  const [schedulePage, setSchedulePage] = useState(1);
+  const [scheduleTotalPages, setScheduleTotalPages] = useState(1);
   const [blocks, setBlocks] = useState<RoomUnavailability[]>([]);
   const [roomId, setRoomId] = useState("");
   const [course, setCourse] = useState("");
@@ -384,17 +386,18 @@ export function AdminSchedulesPage() {
     setLoading(true);
     Promise.all([
       roomApi.list(new URLSearchParams({ page: "1", limit: "100" })),
-      scheduleApi.list(),
+      scheduleApi.list(new URLSearchParams({ page: String(schedulePage), limit: "20" })),
       scheduleApi.listUnavailability(),
     ]).then(([roomData, scheduleData, blockData]) => {
       setRooms(roomData.items);
       setItems(scheduleData.items);
+      setScheduleTotalPages(scheduleData.meta?.total_pages || 1);
       setBlocks(blockData);
       if (!roomId && roomData.items.length) setRoomId(roomData.items[0].id);
     }).catch((cause) => setError(cause instanceof Error ? cause.message : "Data jadwal belum dapat dimuat."))
       .finally(() => setLoading(false));
   }
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(); }, [schedulePage]);
 
   async function create(event: FormEvent) {
     event.preventDefault(); setError(""); setSuccess("");
@@ -489,6 +492,11 @@ export function AdminSchedulesPage() {
           <td><Button variant="ghost" onClick={() => void cancel(item.id)}>Batalkan</Button></td>
         </tr>)}</tbody>
       </table></div> : <EmptyState title="Belum ada jadwal" description="Jadwal yang ditambahkan di sini akan digunakan backend saat mengevaluasi benturan reservasi." icon={<CalendarClock size={22} />} />}
+      <div className="form-actions">
+        <Button variant="secondary" disabled={schedulePage <= 1 || loading} onClick={() => setSchedulePage((value) => value - 1)}>Sebelumnya</Button>
+        <span className="muted">Halaman {schedulePage} dari {scheduleTotalPages}</span>
+        <Button variant="secondary" disabled={schedulePage >= scheduleTotalPages || loading} onClick={() => setSchedulePage((value) => value + 1)}>Berikutnya</Button>
+      </div>
     </PageSection>
     <PageSection title="Periode pemeliharaan / tidak tersedia">
       {loading ? <Loading label="Memuat periode…" /> : blocks.length ? <div className="table-wrap"><table className="data-table">
