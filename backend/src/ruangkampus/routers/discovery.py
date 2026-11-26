@@ -8,7 +8,15 @@ from ruangkampus.database import get_db
 from ruangkampus.dependencies import require_student
 from ruangkampus.models import Room, User
 from ruangkampus.responses import success
-from ruangkampus.schemas import AlternativeSlotsIn, AssistantChatIn, serialize_room
+from ruangkampus.schemas import (
+    AlternativeSlotsIn,
+    AssistantChatIn,
+    AssistantChatResponseData,
+    AssistantChatSlots,
+    AssistantChatStructuredData,
+    serialize_room,
+)
+from ruangkampus.services.assistant_catalog import FACILITY_TERMS
 from ruangkampus.services.availability import check_room_availability, campus_today
 
 
@@ -29,16 +37,6 @@ STOP_WORDS = {
     "dengan", "yang", "ada", "buat", "booking", "reservasi", "peminjaman",
     "gedung", "fakultas", "dan", "atau", "butuh", "bisa", "apakah",
 }
-FACILITY_TERMS = {
-    "projector": ("projector", "proyektor"),
-    "whiteboard": ("whiteboard", "papan tulis"),
-    "wifi": ("wifi", "wi-fi", "internet"),
-    "air conditioner": ("ac", "air conditioner", "pendingin"),
-    "sound system": ("sound system", "speaker", "audio"),
-    "computer": ("komputer", "computer", "pc"),
-}
-
-
 def _parse_time(value: str | time) -> time:
     return value if isinstance(value, time) else time.fromisoformat(value)
 
@@ -299,24 +297,61 @@ def room_assistant_chat(
         follow_up.append("Untuk mengecek ketersediaan, kirim tanggal, jam mulai, dan jam selesai.")
     if not filters["min_capacity"]:
         follow_up.append("Berapa jumlah peserta yang akan menggunakan ruangan?")
-    data = {
-        "engine": "RULE_BASED",
-        "intent": "ROOM_SEARCH",
-        "message": response_message,
-        "filters": {
-            "faculty": filters["faculty"],
-            "building": filters["building"],
-            "min_capacity": filters["min_capacity"],
-            "facilities": filters["facilities"],
-            "date": filters["date"].isoformat() if filters["date"] else None,
-            "start_time": filters["start_time"].isoformat() if filters["start_time"] else None,
-            "end_time": filters["end_time"].isoformat() if filters["end_time"] else None,
-            "participant_count": filters["participant_count"],
-        },
-        "rooms": [serialize_room(room) for room in rooms[:10]],
-        "alternative_slots": alternatives,
-        "follow_up_questions": follow_up,
-        "reservation_action": "NOT_CREATED",
-        "privacy": "Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim ke penyedia AI eksternal.",
+    room_data = [serialize_room(room) for room in rooms[:10]]
+    legacy_filters = {
+        "faculty": filters["faculty"],
+        "building": filters["building"],
+        "min_capacity": filters["min_capacity"],
+        "facilities": filters["facilities"],
+        "date": filters["date"].isoformat() if filters["date"] else None,
+        "start_time": filters["start_time"].isoformat() if filters["start_time"] else None,
+        "end_time": filters["end_time"].isoformat() if filters["end_time"] else None,
+        "participant_count": filters["participant_count"],
     }
-    return success(data, "Room assistant response generated")
+    slots = AssistantChatSlots(
+        faculty=filters["faculty"],
+        building=filters["building"],
+        min_capacity=filters["min_capacity"],
+        facilities=filters["facilities"],
+        requested_date=filters["date"],
+        start_time=filters["start_time"],
+        end_time=filters["end_time"],
+        participant_count=filters["participant_count"],
+        search_terms=filters["search_terms"],
+    )
+    missing_fields = []
+    if not (filters["date"] and filters["start_time"] and filters["end_time"]):
+        missing_fields.extend(["date", "start_time", "end_time"])
+    if not filters["min_capacity"]:
+        missing_fields.append("min_capacity")
+
+    result_type = (
+        "ROOMS_FOUND" if room_data
+        else "ALTERNATIVE_SLOTS" if alternatives
+        else "NO_RESULTS"
+    )
+    structured_response = AssistantChatResponseData(
+        message=response_message,
+        conversation_id=None,
+        intent="ROOM_SEARCH",
+        slots=slots,
+        confidence=None,
+        missing_fields=missing_fields,
+        requires_clarification=bool(follow_up),
+        clarification_message=follow_up[0] if follow_up else None,
+        result_type=result_type,
+        requires_confirmation=False,
+        data=AssistantChatStructuredData(
+            rooms=room_data,
+            alternative_slots=alternatives,
+            filters=slots,
+        ),
+        engine="RULE_BASED",
+        filters=legacy_filters,
+        rooms=room_data,
+        alternative_slots=alternatives,
+        follow_up_questions=follow_up,
+        reservation_action="NOT_CREATED",
+        privacy="Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim ke penyedia AI eksternal.",
+    )
+    return success(structured_response.model_dump(mode="json", by_alias=True), "Room assistant response generated")

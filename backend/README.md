@@ -92,6 +92,18 @@ PYTHONPATH=src python -m ruangkampus.cli create-admin
 
 The command prompts for the administrator contact email, name, and password; the administrator login username is reserved as `admin.uhamka`. The one-time production bootstrap used `admin.uhamka@example.com` as a reserved example contact alias because no deliverable contact address was supplied; configure a real contact email and SMTP before relying on email-based password recovery. The operator-only `create-admin-from-env` command supports a one-time bootstrap using `RUANGKAMPUS_BOOTSTRAP_ADMIN_NAME` and `RUANGKAMPUS_BOOTSTRAP_ADMIN_PASSWORD`; an optional `RUANGKAMPUS_BOOTSTRAP_ADMIN_EMAIL` overrides the deliberately non-deliverable default alias. It refuses to create a new administrator if an active TU/Admin already exists, will not promote an existing Student, and never prints the password. Remove temporary variables and restore the migration-only pre-deploy command immediately after a successful bootstrap. Public self-registration cannot create TU/Admin accounts.
 
+## Assistant room-data quality (read-only)
+
+Run the read-only assessment against the database selected by `DATABASE_URL`:
+
+```bash
+PYTHONPATH=src python -m ruangkampus.cli assistant-data-quality
+```
+
+The command reads only active, non-deleted rows from `rooms`, prints a JSON quality report, and does not update room records or run migrations. Verify `DATABASE_URL` before running it so the report is associated with the intended environment. A database query failure is reported as `UNABLE_TO_VERIFY`.
+
+See [AI Assistant API Contract](../docs/AI_ASSISTANT_API_CONTRACT.md) for the structured chat response and compatibility details.
+
 ## Run and inspect the API
 
 ```bash

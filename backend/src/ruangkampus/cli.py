@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from getpass import getpass
 
@@ -8,6 +9,7 @@ from sqlalchemy import func, select
 from ruangkampus.database import SessionLocal
 from ruangkampus.models import User
 from ruangkampus.security import hash_password
+from ruangkampus.services.assistant_catalog import assess_assistant_data_quality
 
 
 def create_admin():
@@ -93,14 +95,31 @@ def create_admin_from_env():
         db.close()
 
 
+def assistant_data_quality():
+    """Print a read-only quality assessment of active room metadata as JSON."""
+    db = SessionLocal()
+    try:
+        report = assess_assistant_data_quality(db)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        if report["verification_status"] != "VERIFIED":
+            raise SystemExit(2)
+    finally:
+        db.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description="RuangKampus backend administration commands")
-    parser.add_argument("command", choices=["create-admin", "create-admin-from-env"])
+    parser.add_argument(
+        "command",
+        choices=["create-admin", "create-admin-from-env", "assistant-data-quality"],
+    )
     args = parser.parse_args()
     if args.command == "create-admin":
         create_admin()
     elif args.command == "create-admin-from-env":
         create_admin_from_env()
+    elif args.command == "assistant-data-quality":
+        assistant_data_quality()
 
 
 if __name__ == "__main__":
