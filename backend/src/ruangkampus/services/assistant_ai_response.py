@@ -184,5 +184,5 @@ def generate_grounded_assistant_message(
         cleaned = " ".join(parsed.message.split()).strip()
         return cleaned if 8 <= len(cleaned) <= 900 else None
     except (httpx.HTTPError, ValidationError, ValueError, KeyError, TypeError, IndexError):
-        logger.info("RAKA generated response unavailable; deterministic response retained")
+        logger.info("RUKKA AI generated response unavailable; deterministic response retained")
         return None
