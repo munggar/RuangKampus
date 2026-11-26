@@ -312,20 +312,36 @@ def find_positive_catalog_values(message: str, entries: list[dict[str, Any]]) ->
 
 
 def find_positive_facility_filters(message: str, catalog: dict[str, Any]) -> list[str]:
+    """Use canonical names only for verified aliases; keep unknown observed labels raw."""
     matches: set[str] = set()
     for entry in catalog.get("facilities", []):
         canonical = entry.get("canonical_name")
-        if not canonical:
-            continue
-        candidates = [canonical, *entry.get("source_values", []), *entry.get("aliases", [])]
-        if any(
-            not is_negated_phrase(message, match.start())
-            for candidate in candidates
-            if isinstance(candidate, str)
-            for match in _phrase_occurrences(message, candidate)
-        ):
-            matches.add(canonical)
-    return sorted(matches)
+        source_values = [
+            value for value in entry.get("source_values", [])
+            if isinstance(value, str) and value.strip()
+        ]
+        aliases = [
+            value for value in entry.get("aliases", [])
+            if isinstance(value, str) and value.strip()
+        ]
+        if canonical:
+            candidates = [canonical, *source_values, *aliases]
+            if any(
+                not is_negated_phrase(message, match.start())
+                for candidate in candidates
+                for match in _phrase_occurrences(message, candidate)
+            ):
+                matches.add(canonical)
+        else:
+            # An unmapped facility may still be filtered by its exact observed
+            # database label; it is never assigned to a different canonical term.
+            for source_value in source_values:
+                if any(
+                    not is_negated_phrase(message, match.start())
+                    for match in _phrase_occurrences(message, source_value)
+                ):
+                    matches.add(source_value)
+    return sorted(matches, key=lambda item: (item.casefold(), item))
 
 
 def normalize_indonesian_message(
@@ -355,8 +371,7 @@ def normalize_indonesian_message(
     parser_tokens = [token for token in normalized_tokens if token not in CONVERSATIONAL_FILLERS]
     parser_text = " ".join(parser_tokens)
 
-    catalog_tokens, _ = _catalog_vocabulary(catalog)
-    known_tokens = COMMON_TOKENS | catalog_tokens | set(SLANG_DICTIONARY) | set(SLANG_DICTIONARY.values())
+    known_tokens = COMMON_TOKENS | vocabulary | set(SLANG_DICTIONARY) | set(SLANG_DICTIONARY.values())
     known_tokens |= set(TYPO_DICTIONARY) | set(TYPO_DICTIONARY.values())
     unknown = sorted({
         token for token in normalized_tokens
