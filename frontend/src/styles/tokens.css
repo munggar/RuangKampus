@@ -3,6 +3,8 @@
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --brand-primary: #005a9c;
   --brand-primary-hover: #004a82;
+  --brand-primary-solid: #005a9c;
+  --brand-primary-solid-hover: #004a82;
   --brand-primary-soft: #eaf4fa;
   --brand-red: #8e1523;
   --surface-background: #f5f8fc;
@@ -57,8 +59,10 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand-primary: #2878f0;
-  --brand-primary-hover: #4b8df3;
+  --brand-primary: #86b8ff;
+  --brand-primary-hover: #a5cbff;
+  --brand-primary-solid: #1b62d1;
+  --brand-primary-solid-hover: #1758bd;
   --brand-primary-soft: #1d2430;
   --brand-red: #8e1523;
   --surface-background: #090b10;

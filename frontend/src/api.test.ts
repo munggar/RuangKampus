@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { initialsFromName } from "./ui";
 import {
   availabilityReasonLabel,
   authApi,
@@ -27,5 +28,13 @@ describe("frontend API display helpers", () => {
     expect(availabilityReasonLabel("CAPACITY_EXCEEDED")).toContain("kapasitas");
     expect(availabilityReasonLabel("RESERVATION_CONFLICT")).toContain("reservasi");
     expect(availabilityReasonLabel("UNKNOWN_REASON")).toBe("UNKNOWN_REASON");
+  });
+});
+describe("shared UI helpers", () => {
+  it("builds initials from whitespace-separated names", () => {
+    expect(initialsFromName("Adil Muslim Saputra")).toBe("AM");
+    expect(initialsFromName("  Adil   Saputra ")).toBe("AS");
+    expect(initialsFromName("Adil")).toBe("A");
+    expect(initialsFromName("")).toBe("RK");
   });
 });
