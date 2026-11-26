@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowRight, Bot, Building2, CalendarDays, CheckCircle2, Clock3,
-  MessageCircle, Search, Send, Sparkles, Users, WandSparkles,
+  MessageCircle, Search, Send, Sparkles, ThumbsDown, ThumbsUp, Users, WandSparkles,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import {
@@ -9,7 +9,7 @@ import {
 } from "./api";
 import type {
   AlternativeSlot, AlternativeSlotsResult, AssistantChatResult,
-  AvailabilityResult, Room,
+  AssistantFeedbackReason, AvailabilityResult, Room,
 } from "./types";
 import { PageTitle } from "./layout";
 import { Button, EmptyState, Field, Loading, Notice, PageSection } from "./ui";
@@ -153,6 +153,7 @@ export function StudentRoomAvailabilityPage() {
         <Field label="Fasilitas wajib"><input value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="Contoh: proyektor, Wi-Fi" /></Field>
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
+      {feedbackError ? <Notice tone="error">{feedbackError}</Notice> : null}
       <Button type="submit" disabled={loading}><Search size={16} />{loading ? "Memeriksa..." : "Cari ruangan tersedia"}</Button>
     </form>
     {loading ? <Loading label="Memeriksa jadwal dan ketersediaan ruangan..." /> : null}
@@ -255,7 +256,17 @@ type AssistantTurn = {
   reservations?: import("./types").AssistantReservationSummary[];
   followUps?: string[];
   engine?: string;
+  intent?: string;
 };
+const feedbackReasons: Array<{ code: AssistantFeedbackReason; label: string }> = [
+  { code: "TOO_FORMAL", label: "Bahasanya terlalu formal" },
+  { code: "TOO_LONG", label: "Jawabannya terlalu panjang" },
+  { code: "TOO_SHORT", label: "Jawabannya kurang detail" },
+  { code: "WRONG_INTENT", label: "Salah memahami permintaan" },
+  { code: "WRONG_NORMALIZATION", label: "Salah memahami bahasa gaul" },
+  { code: "RESULTS_NOT_RELEVANT", label: "Hasil ruangan kurang sesuai" },
+  { code: "OTHER", label: "Alasan lainnya" },
+];
 const assistantPrompts = [
   "Cari ruang 20 orang + proyektor",
   "Cek ruang kosong besok 10.00–12.00",
@@ -271,6 +282,25 @@ export function RoomAssistantPage() {
   }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [feedbackOpenFor, setFeedbackOpenFor] = useState<number | null>(null);
+  const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});
+  const [feedbackBusyFor, setFeedbackBusyFor] = useState<number | null>(null);
+  const [feedbackError, setFeedbackError] = useState("");
+
+  async function submitFeedback(turn: AssistantTurn, rating: "HELPFUL" | "NOT_HELPFUL", reason_code?: AssistantFeedbackReason) {
+    if (!turn.intent || feedbackSent[turn.id] || feedbackBusyFor === turn.id) return;
+    setFeedbackBusyFor(turn.id);
+    setFeedbackError("");
+    try {
+      await discoveryApi.feedback({ intent: turn.intent, rating, reason_code });
+      setFeedbackSent((current) => ({ ...current, [turn.id]: true }));
+      setFeedbackOpenFor(null);
+    } catch (cause) {
+      setFeedbackError(cause instanceof Error ? cause.message : "Feedback belum dapat dikirim.");
+    } finally {
+      setFeedbackBusyFor(null);
+    }
+  }
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
@@ -292,6 +322,7 @@ export function RoomAssistantPage() {
         reservations: response.data?.reservations || [],
         followUps: response.follow_up_questions,
         engine: response.engine,
+        intent: response.intent,
       }]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
@@ -317,6 +348,32 @@ export function RoomAssistantPage() {
               <small className={"assistant-message__engine assistant-message__engine--" + turn.engine.toLowerCase()}>
                 {turn.engine === "HYBRID" ? "AI aktif" : "Mode standar"}
               </small>
+            ) : null}
+            {turn.sender === "assistant" && turn.intent ? (
+              <div className="assistant-feedback">
+                {feedbackSent[turn.id] ? (
+                  <small className="assistant-feedback__thanks">Makasih! Masukanmu membantu RUKKA belajar.</small>
+                ) : (
+                  <>
+                    <div className="assistant-feedback__actions">
+                      <span>Jawaban ini membantu?</span>
+                      <button type="button" aria-label="Jawaban membantu" title="Membantu" disabled={feedbackBusyFor === turn.id}
+                        onClick={() => void submitFeedback(turn, "HELPFUL")}><ThumbsUp size={13} /></button>
+                      <button type="button" aria-label="Jawaban kurang membantu" title="Kurang membantu" disabled={feedbackBusyFor === turn.id}
+                        onClick={() => setFeedbackOpenFor(feedbackOpenFor === turn.id ? null : turn.id)}><ThumbsDown size={13} /></button>
+                    </div>
+                    {feedbackOpenFor === turn.id ? (
+                      <div className="assistant-feedback__reasons">
+                        <small>Apa yang perlu diperbaiki?</small>
+                        {feedbackReasons.map((reason) => (
+                          <button type="button" key={reason.code} disabled={feedbackBusyFor === turn.id}
+                            onClick={() => void submitFeedback(turn, "NOT_HELPFUL", reason.code)}>{reason.label}</button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
             ) : null}
             {turn.rooms?.length ? <div className="assistant-inline-results">
               {turn.rooms.map((room) => <Link className="assistant-room-link" key={room.id} to={"/student/rooms/" + room.id}>
