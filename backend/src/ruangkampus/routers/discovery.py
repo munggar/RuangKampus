@@ -763,8 +763,8 @@ def room_assistant_chat(
                 response = _intent_only_response(
                     payload, normalization, detection,
                     conversation_id=conversation.id,
-            db=db,
-            user_id=user.id,
+                    db=db,
+                    user_id=user.id,
                     confidence=confidence,
                     message_override=message,
                     rooms=room_data,
