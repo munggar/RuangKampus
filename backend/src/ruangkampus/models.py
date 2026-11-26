@@ -74,6 +74,7 @@ class Room(Base):
     floor: Mapped[str | None] = mapped_column(String(40), nullable=True)
     location_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    capacity_estimate: Mapped[str | None] = mapped_column(String(40), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     facilities: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     operating_hours: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
@@ -201,6 +202,28 @@ class ScheduleImportBatch(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    created_by: Mapped[User] = relationship()
+
+
+class RoomImportBatch(Base):
+    __tablename__ = "room_import_batches"
+    __table_args__ = (
+        CheckConstraint("status IN ('PREVIEWED', 'COMPLETED', 'FAILED')", name="ck_room_import_status"),
+        CheckConstraint("row_count >= 0 AND valid_count >= 0 AND invalid_count >= 0", name="ck_room_import_counts"),
+        Index("ix_room_import_creator_created", "created_by_id", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_by_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PREVIEWED")
+    source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    valid_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    invalid_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    parsed_rows: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    row_results: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[User] = relationship()
 
 
