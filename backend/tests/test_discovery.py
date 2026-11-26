@@ -161,7 +161,7 @@ def test_old_assistant_contract_remains_and_new_structured_fields_are_present(
     assert data["confidence_basis"] == "RULE_HEURISTIC"
     assert data["slots"]["faculty"] == "FTII"
     assert data["slots"]["min_capacity"] == 20
-    assert data["confidence"] is None
+    assert 0 <= data["confidence"] <= 1
     assert data["requires_clarification"] is True
     assert data["clarification_message"] == data["follow_up_questions"][0]
     assert data["result_type"] == "ROOMS_FOUND"
