@@ -107,12 +107,13 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [meta, setMeta] = useState<{ total: number } | undefined>();
+  const [meta, setMeta] = useState<{ total: number; totalPages: number } | undefined>();
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let active = true;
     setLoading(true); setError("");
-    const params = new URLSearchParams({ page: "1", limit: "100", sortBy: "room_name", sortOrder: "asc" });
+    const params = new URLSearchParams({ page: String(page), limit: "20", sortBy: "room_name", sortOrder: "asc" });
     if (applied.search) params.set("search", applied.search);
     if (applied.faculty) params.set("faculty", applied.faculty);
     if (applied.building) params.set("building", applied.building);
@@ -121,20 +122,22 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     if (applied.facility) params.append("facilities", applied.facility);
     roomApi.list(params).then((result) => {
       if (!active) return;
-      setRooms(result.items); setMeta(result.meta ? { total: result.meta.total } : undefined);
+      setRooms(result.items); setMeta(result.meta ? { total: result.meta.total, totalPages: result.meta.total_pages || 1 } : undefined);
     }).catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : "Daftar ruangan belum dapat dimuat.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [applied]);
+  }, [applied, page]);
 
   function applyFilters(event: FormEvent) {
     event.preventDefault();
+    setPage(1);
     setApplied({ search: search.trim(), faculty: faculty.trim(), building: building.trim(),
       location: location.trim(), capacity, facility: facility.trim() });
   }
   function resetFilters() {
     setSearch(""); setFaculty(""); setBuilding(""); setLocation(""); setCapacity(""); setFacility("");
+    setPage(1);
     setApplied({ search: "", faculty: "", building: "", location: "", capacity: "", facility: "" });
   }
 
@@ -174,6 +177,11 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
         </article>)}
       </div>
     ) : <EmptyState title="Tidak ada ruangan yang cocok" description="Coba ubah kata kunci, fakultas, gedung, kapasitas, atau fasilitas pencarian." icon={<Search size={22} />} />}
+    <div className="form-actions">
+      <Button type="button" variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {meta?.totalPages || 1}</span>
+      <Button type="button" variant="secondary" disabled={page >= (meta?.totalPages || 1) || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
   </div>;
 }
 
@@ -325,18 +333,20 @@ export function StudentReservationsPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<Reservation[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true; setLoading(true); setError("");
-    const params = new URLSearchParams({ page: "1", limit: "100" });
+    const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status) params.set("status", status);
-    reservationApi.list(params).then((result) => { if (active) setItems(result.items); })
+    reservationApi.list(params).then((result) => { if (active) { setItems(result.items); setTotalPages(result.meta?.total_pages || 1); } })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Riwayat belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [status]);
+  }, [status, page]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -349,12 +359,17 @@ export function StudentReservationsPage() {
   return <div className="page-stack">
     <PageTitle eyebrow="YOUR CAMPUS PLANS, IN ONE PLACE" title="Reservasi saya" description="Pantau permohonan, keputusan, dan persiapan sesi kampus Anda." action={<Link className="button button--primary" to="/student/rooms">+ Pesan ruangan</Link>} />
     <div className="panel reservation-filters">
-      <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.id || "all"} type="button" className={status === tab.id ? "is-active" : ""} onClick={() => setStatus(tab.id)}>{tab.label}</button>)}</div>
+      <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.id || "all"} type="button" className={status === tab.id ? "is-active" : ""} onClick={() => { setStatus(tab.id); setPage(1); }}>{tab.label}</button>)}</div>
       <Field label="Cari reservasi"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari ruang, tujuan, atau ID reservasi" /></Field>
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} />)}</div>
       : <EmptyState title="Belum ada reservasi" description="Belum ada permohonan yang sesuai dengan filter Anda." action={<Link to="/student/rooms" className="button button--primary">Cari ruangan</Link>} icon={<CalendarCheck size={22} />} />}
+    <div className="form-actions">
+      <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {totalPages}</span>
+      <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
   </div>;
 }
 
