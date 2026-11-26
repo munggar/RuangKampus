@@ -186,6 +186,7 @@ async def preview_room_import(
         "errors": row["errors"],
         "has_photo": bool(row["photo_key"]),
         "capacity_estimate": row["capacity_estimate"],
+        "floor": row["floor"],
     } for row in rows]
     valid = sum(1 for item in results if item["status"] == "VALID")
     batch = RoomImportBatch(
