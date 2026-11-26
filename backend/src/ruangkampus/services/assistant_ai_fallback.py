@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, time
+from datetime import date as DateValue, time as TimeValue
 from typing import Any, Literal
 
 import httpx
@@ -23,9 +23,9 @@ class AIIntentInterpretation(BaseModel):
     building: str | None = Field(default=None, max_length=160)
     min_capacity: int | None = Field(default=None, ge=1, le=10000)
     facilities: list[str] = Field(default_factory=list, max_length=20)
-    date: date | None = None
-    start_time: time | None = None
-    end_time: time | None = None
+    date: DateValue | None = None
+    start_time: TimeValue | None = None
+    end_time: TimeValue | None = None
     participant_count: int = Field(default=1, ge=1, le=10000)
 
 
