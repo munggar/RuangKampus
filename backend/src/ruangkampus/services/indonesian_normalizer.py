@@ -39,6 +39,7 @@ SLANG_DICTIONARY: dict[str, str] = {
     "pake": "pakai",
     "dongg": "dong",
     "lu": "kamu",
+    "lau": "kamu",
     "lo": "kamu",
     "elu": "kamu",
     "elo": "kamu",
