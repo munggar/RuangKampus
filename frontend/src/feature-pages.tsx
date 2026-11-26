@@ -313,6 +313,11 @@ export function RoomAssistantPage() {
           <div className="assistant-message__body">
             {turn.sender === "assistant" ? <small className="assistant-message__name">{turn.assistantName || "RUKKA AI"}</small> : null}
             <p>{turn.message}</p>
+            {turn.sender === "assistant" && turn.engine ? (
+              <small className={"assistant-message__engine assistant-message__engine--" + turn.engine.toLowerCase()}>
+                {turn.engine === "HYBRID" ? "AI aktif" : "Mode standar"}
+              </small>
+            ) : null}
             {turn.rooms?.length ? <div className="assistant-inline-results">
               {turn.rooms.map((room) => <Link className="assistant-room-link" key={room.id} to={"/student/rooms/" + room.id}>
                 <span><b>{room.room_name}</b><small>{roomLocation(room) || room.building} · {room.capacity} orang</small></span><ArrowRight size={16} />

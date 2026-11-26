@@ -413,6 +413,7 @@ class AlternativeSlotsIn(BaseModel):
     faculty: str | None = Field(default=None, max_length=160)
     building: str | None = Field(default=None, max_length=160)
     facilities: list[str] = Field(default_factory=list, max_length=25)
+    search_terms: list[str] = Field(default_factory=list, max_length=10)
     preferred_start_time: time | None = None
     search_days: int = Field(default=7, ge=0, le=14)
     slot_step_minutes: int = Field(default=30, ge=5, le=120)

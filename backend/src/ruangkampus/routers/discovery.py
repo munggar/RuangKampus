@@ -17,7 +17,7 @@ from ruangkampus.schemas import (
     AssistantChatStructuredData,
     serialize_room,
 )
-from ruangkampus.services.assistant_catalog import build_assistant_data_catalog
+from ruangkampus.services.assistant_catalog import FACILITY_TERMS, build_assistant_data_catalog
 from ruangkampus.services.availability import check_room_availability, campus_today
 from ruangkampus.services.indonesian_normalizer import (
     PARSER_STOP_WORDS,
@@ -126,6 +126,9 @@ STOP_WORDS = {
     "untuk", "orang", "peserta", "kapasitas", "di", "pada", "hari", "tanggal",
     "dengan", "yang", "ada", "buat", "booking", "reservasi", "peminjaman",
     "gedung", "fakultas", "dan", "atau", "butuh", "bisa", "apakah",
+    "cek", "benar", "wajib", "januari", "februari", "maret", "april", "mei",
+    "juni", "juli", "agustus", "september", "oktober", "november", "desember",
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "agu", "aug", "sep", "okt", "oct", "nov", "des", "dec",
 }
 STOP_WORDS.update(PARSER_STOP_WORDS)
 def _parse_time(value: str | time) -> time:
@@ -174,6 +177,7 @@ def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dic
         building=request.building,
         min_capacity=request.participant_count,
         facilities=request.facilities,
+        search_terms=request.search_terms,
     )
     ranked: list[tuple[tuple[int, int, int, int], dict]] = []
     preferred_minutes = (
@@ -195,6 +199,14 @@ def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dic
                 while current + timedelta(minutes=request.duration_minutes) <= window_finish:
                     start_time = current.time()
                     end_time = (current + timedelta(minutes=request.duration_minutes)).time()
+                    # Do not label the exact requested date/time as an alternative.
+                    if (
+                        day_offset == 0
+                        and request.preferred_start_time is not None
+                        and start_time == request.preferred_start_time
+                    ):
+                        current += timedelta(minutes=request.slot_step_minutes)
+                        continue
                     availability = check_room_availability(
                         db, room, candidate_date, start_time, end_time, request.participant_count
                     )
@@ -302,6 +314,9 @@ def _parse_message_filters(
         for value in values:
             if isinstance(value, str):
                 metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
+    for canonical, aliases in FACILITY_TERMS.items():
+        for value in (canonical, *aliases):
+            metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
     tokens = [
         token for token in tokens
         if token not in metadata_tokens
@@ -320,7 +335,11 @@ def _parse_message_filters(
         "date": requested_date,
         "start_time": start_time,
         "end_time": end_time,
-        "participant_count": payload.participant_count,
+        "participant_count": (
+            payload.participant_count
+            if "participant_count" in payload.model_fields_set
+            else min_capacity or payload.participant_count
+        ),
         "search_terms": list(dict.fromkeys(tokens))[:5],
     }
 
@@ -881,6 +900,7 @@ def room_assistant_chat(
                 building=filters["building"],
                 facilities=filters["facilities"],
                 preferred_start_time=filters["start_time"],
+                search_terms=filters["search_terms"],
                 search_days=7,
                 slot_step_minutes=30,
                 limit=5,

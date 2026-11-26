@@ -551,6 +551,8 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 .assistant-message--user .assistant-message__body { border-color: color-mix(in srgb, var(--brand-primary) 24%, var(--border-default)); border-radius: 15px 4px 15px 15px; background: var(--brand-primary-soft); }
 .assistant-message__body > p { margin: 0; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
 .assistant-message__name { color: var(--brand-primary); font-size: 10px; font-weight: 780; letter-spacing: .015em; }
+.assistant-message__engine { width: fit-content; color: var(--text-tertiary); font-size: 9px; font-weight: 650; letter-spacing: .015em; }
+.assistant-message__engine--hybrid { color: var(--status-success, #27845b); }
 .assistant-inline-results { display: flex; flex-direction: column; gap: 7px; }
 .assistant-room-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 11px; border: 1px solid var(--border-default); border-radius: 10px; color: var(--text-primary); background: var(--surface-card); text-decoration: none; }
 .assistant-room-link span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }

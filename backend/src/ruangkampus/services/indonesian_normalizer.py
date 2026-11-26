@@ -4,6 +4,7 @@ import re
 import unicodedata
 from typing import Any
 
+from ruangkampus.services.assistant_catalog import FACILITY_TERMS
 from ruangkampus.schemas import (
     AssistantNormalizationResult,
     AssistantTextCorrection,
@@ -82,6 +83,9 @@ PARSER_STOP_WORDS = frozenset({
     "pukul", "sampai", "hingga", "berapa", "kapan", "siapa", "apa", "mana",
     "pagi", "siang", "sore", "malam", "perlu", "mohon", "selamat", "informasi",
     "tetapi", "melainkan", "namun", "lagi", "kamu", "robot", "ya",
+    "cek", "benar", "wajib", "januari", "februari", "maret", "april",
+    "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember",
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "agu", "aug", "sep", "okt", "oct", "nov", "des", "dec",
 })
 
 COMMON_TOKENS = PARSER_STOP_WORDS | frozenset({
@@ -320,8 +324,20 @@ def find_positive_catalog_values(message: str, entries: list[dict[str, Any]]) ->
 
 
 def find_positive_facility_filters(message: str, catalog: dict[str, Any]) -> list[str]:
-    """Use canonical names only for verified aliases; keep unknown observed labels raw."""
+    """Preserve known facility requests even when no active room currently advertises them.
+
+    Known aliases remain explicit constraints so an unavailable facility returns no match
+    instead of silently being dropped from alternative-slot recommendations.
+    """
     matches: set[str] = set()
+    for canonical, aliases in FACILITY_TERMS.items():
+        for candidate in (canonical, *aliases):
+            if any(
+                not is_negated_phrase(message, match.start())
+                for match in _phrase_occurrences(message, candidate)
+            ):
+                matches.add(canonical)
+
     for entry in catalog.get("facilities", []):
         canonical = entry.get("canonical_name")
         source_values = [
