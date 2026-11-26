@@ -518,3 +518,40 @@ class AssistantChatIn(BaseModel):
         if self.start_time is not None and self.end_time is not None and self.end_time <= self.start_time:
             raise ValueError("end_time must be later than start_time")
         return self
+
+
+class AssistantFeedbackIn(BaseModel):
+    """Feedback is limited to allowlisted codes; never accepts a raw message or free text."""
+
+    intent: Literal[
+        "ROOM_SEARCH",
+        "ROOM_AVAILABILITY",
+        "ALTERNATIVE_SLOTS",
+        "ROOM_DETAIL",
+        "RESERVATION_HELP",
+        "MY_RESERVATIONS",
+        "RESERVATION_STATUS",
+        "RESERVATION_CREATE_PREVIEW",
+        "RESERVATION_CANCEL_PREVIEW",
+        "FAQ",
+        "SMALLTALK",
+        "OUT_OF_SCOPE",
+    ]
+    rating: Literal["HELPFUL", "NOT_HELPFUL"]
+    reason_code: Literal[
+        "TOO_FORMAL",
+        "TOO_LONG",
+        "TOO_SHORT",
+        "WRONG_INTENT",
+        "WRONG_NORMALIZATION",
+        "RESULTS_NOT_RELEVANT",
+        "OTHER",
+    ] | None = None
+
+    @model_validator(mode="after")
+    def validate_feedback_reason(self):
+        if self.rating == "NOT_HELPFUL" and self.reason_code is None:
+            raise ValueError("A reason_code is required for not-helpful feedback")
+        if self.rating == "HELPFUL" and self.reason_code is not None:
+            raise ValueError("Helpful feedback cannot include a negative reason_code")
+        return self
