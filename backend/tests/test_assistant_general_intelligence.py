@@ -439,7 +439,7 @@ def test_recommendation_follow_up_uses_database_verified_room_context(
     assert follow_data["engine"] == "HYBRID"
 
     latest_user_content = posted[-1]["messages"][-1]["content"]
-    marker = "\\n\\nPESAN TERBARU DAN FAKTA BACKEND:\\n"
+    marker = "\n\nPESAN TERBARU DAN FAKTA BACKEND:\n"
     current_payload = json.loads(latest_user_content.split(marker, 1)[1])
     evidence = current_payload["verified_backend_facts"]
     assert evidence["filters"]["min_capacity"] == 35
