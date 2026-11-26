@@ -11,7 +11,7 @@ from ruangkampus.database import get_db
 from ruangkampus.dependencies import get_optional_user, require_admin
 from ruangkampus.models import LectureSchedule, Reservation, Room, RoomUpdateLog, User, utcnow
 from ruangkampus.responses import success
-from ruangkampus.schemas import AvailabilityOut, RoomBulkStatusUpdateIn, RoomCreateIn, RoomUpdateIn, serialize_room
+from ruangkampus.schemas import AvailabilityOut, RoomBulkOperatingHoursUpdateIn, RoomBulkStatusUpdateIn, RoomCreateIn, RoomUpdateIn, serialize_room
 from ruangkampus.services.availability import campus_today, check_room_availability
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
