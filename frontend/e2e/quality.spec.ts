@@ -105,12 +105,53 @@ test("reduced motion preference is respected by the application styles", async (
   expect(Number.parseFloat(transitionDuration)).toBeLessThanOrEqual(0.00001);
 });
 
-test("performance: records repeatable navigation, paint and asset transfer measurements", async ({ page }, testInfo) => {
+test("performance: records navigation, paint, layout shift, long task and asset metrics", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    type ObservedEntry = PerformanceEntry & { value?: number; hadRecentInput?: boolean };
+    type WindowWithMetrics = Window & {
+      __rkPerformanceEntries?: Array<{
+        entryType: string;
+        startTime: number;
+        duration: number;
+        value?: number;
+        hadRecentInput?: boolean;
+      }>;
+    };
+    const target = window as WindowWithMetrics;
+    target.__rkPerformanceEntries = [];
+    for (const entryType of ["layout-shift", "longtask", "largest-contentful-paint"]) {
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            const observed = entry as ObservedEntry;
+            target.__rkPerformanceEntries?.push({
+              entryType: observed.entryType,
+              startTime: observed.startTime,
+              duration: observed.duration,
+              ...(typeof observed.value === "number" ? { value: observed.value } : {}),
+              ...(typeof observed.hadRecentInput === "boolean" ? { hadRecentInput: observed.hadRecentInput } : {}),
+            });
+          }
+        });
+        observer.observe({ type: entryType, buffered: true });
+      } catch {
+        // Unsupported entry types are reported as unavailable in the metrics below.
+      }
+    }
+  });
+
   await installMockApi(page, "Student");
   await page.goto("/student/dashboard");
   await waitForPageReady(page);
 
   const metrics = await page.evaluate(() => {
+    type ObservedEntry = {
+      entryType: string;
+      startTime: number;
+      duration: number;
+      value?: number;
+      hadRecentInput?: boolean;
+    };
     const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
     const paints = performance.getEntriesByType("paint").map((item) => ({
       name: item.name,
@@ -119,8 +160,15 @@ test("performance: records repeatable navigation, paint and asset transfer measu
     const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
     const scripts = resources.filter((item) => item.initiatorType === "script");
     const styles = resources.filter((item) => item.initiatorType === "link" || item.name.endsWith(".css"));
+    const images = Array.from(document.images);
+    const observed = (window as typeof window & { __rkPerformanceEntries?: ObservedEntry[] }).__rkPerformanceEntries || [];
+    const shifts = observed.filter((item) => item.entryType === "layout-shift" && !item.hadRecentInput);
+    const longTasks = observed.filter((item) => item.entryType === "longtask");
+    const largestPaint = observed.filter((item) => item.entryType === "largest-contentful-paint")
+      .reduce<number | null>((latest, item) => latest === null || item.startTime > latest ? item.startTime : latest, null);
     const totalBytes = (items: PerformanceResourceTiming[]) =>
       items.reduce((sum, item) => sum + (item.transferSize || item.encodedBodySize || 0), 0);
+    const round = (value: number) => Math.round(value * 100) / 100;
 
     return {
       capturedAt: new Date().toISOString(),
@@ -128,16 +176,36 @@ test("performance: records repeatable navigation, paint and asset transfer measu
       viewport: { width: window.innerWidth, height: window.innerHeight },
       documentReadyState: document.readyState,
       navigation: nav ? {
-        responseStartMs: Math.round(nav.responseStart * 100) / 100,
-        domContentLoadedMs: Math.round(nav.domContentLoadedEventEnd * 100) / 100,
-        loadEventEndMs: Math.round(nav.loadEventEnd * 100) / 100,
+        responseStartMs: round(nav.responseStart),
+        domInteractiveMs: round(nav.domInteractive),
+        domContentLoadedMs: round(nav.domContentLoadedEventEnd),
+        loadEventEndMs: round(nav.loadEventEnd),
         transferSizeBytes: nav.transferSize,
       } : null,
-      paint: paints,
+      paint: {
+        entries: paints,
+        largestContentfulPaintMs: largestPaint === null ? null : round(largestPaint),
+      },
+      layout: {
+        layoutShiftCount: shifts.length,
+        cumulativeLayoutShiftEstimate: round(shifts.reduce((sum, item) => sum + (item.value || 0), 0)),
+      },
+      longTasks: {
+        count: longTasks.length,
+        totalDurationMs: round(longTasks.reduce((sum, item) => sum + item.duration, 0)),
+        maxDurationMs: round(longTasks.reduce((maximum, item) => Math.max(maximum, item.duration), 0)),
+      },
+      images: {
+        count: images.length,
+        loaded: images.filter((image) => image.complete && image.naturalWidth > 0).length,
+        broken: images.filter((image) => image.complete && image.naturalWidth === 0).length,
+        pending: images.filter((image) => !image.complete).length,
+      },
       resources: {
         count: resources.length,
         scriptCount: scripts.length,
         styleCount: styles.length,
+        imageResourceCount: resources.filter((item) => item.initiatorType === "img").length,
         scriptTransferBytes: totalBytes(scripts),
         styleTransferBytes: totalBytes(styles),
         totalTransferBytes: totalBytes(resources),
@@ -157,4 +225,5 @@ test("performance: records repeatable navigation, paint and asset transfer measu
   expect(metrics.navigation?.loadEventEndMs || 0).toBeGreaterThan(0);
   expect(metrics.navigation?.loadEventEndMs || 0).toBeLessThan(30000);
   expect(metrics.resources.scriptTransferBytes).toBeLessThan(8 * 1024 * 1024);
+  expect(metrics.images.broken).toBe(0);
 });

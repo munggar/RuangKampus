@@ -12,7 +12,7 @@ There is no separate maintenance route: maintenance is a workflow inside /admin/
 
 The suite captures every route in light and dark theme, checks all protected routes at 1440x900, 1024x768, 820x1180, 768x1024, 390x844 and 320x800, and saves responsive captures for every Student and Staff Sekretariat route.
 
-It also covers browser interactions for login/registration/password flows, role redirects, Student availability and reservation submission, notifications, the Student assistant, profile editing, Staff approval/rejection, room create/edit, academic schedule and maintenance forms, workbook preview/commit UI, keyboard behavior, reduced motion, axe accessibility, console/network diagnostics and navigation/asset timing.
+It also covers browser interactions for Student and Staff login, registration/password flows, role redirects, Student availability and reservation submission, notifications, the Student assistant, profile editing, Staff approval/rejection, room create/edit, academic schedule and maintenance forms, workbook preview/commit UI, keyboard behavior, reduced motion, axe accessibility, console/network diagnostics and navigation/asset timing.
 
 ## Run locally
 
