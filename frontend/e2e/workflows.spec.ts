@@ -190,6 +190,97 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     expect(api.calls).toContain("PATCH /notifications/read-all");
   });
 
+  test("refreshes the notification inbox automatically when a new event arrives", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-11-26T09:00:00+07:00") });
+    await installMockApi(page, "Student");
+    let includeNewNotification = false;
+    const notificationRows = [
+      {
+        id: "notification-refresh-old",
+        notification_type: "RESERVATION_APPROVED",
+        title: "Reservasi disetujui",
+        message: "Pembaruan reservasi lama.",
+        read_at: null,
+        delivery_status: "IN_APP_CREATED",
+        email_delivery_status: "NOT_CONFIGURED",
+        email_attempt_count: 0,
+        email_sent_at: null,
+        action_url: "/student/reservations/reservation-approved-e2e",
+        created_at: "2026-11-26T08:55:00+07:00",
+      },
+    ];
+    await page.route("**/api/v1/notifications?*", async (route) => {
+      const url = new URL(route.request().url());
+      const rows = includeNewNotification ? [
+        {
+          ...notificationRows[0],
+          id: "notification-refresh-new",
+          title: "Reservasi selesai",
+          message: "Reservasi kamu telah selesai.",
+          created_at: "2026-11-26T09:00:01+07:00",
+        },
+        ...notificationRows,
+      ] : notificationRows;
+      const filtered = url.searchParams.get("unreadOnly") === "true" ? rows.filter((item) => !item.read_at) : rows;
+      const currentPage = Number(url.searchParams.get("page") || 1);
+      const limit = Number(url.searchParams.get("limit") || 20);
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: filtered.slice((currentPage - 1) * limit, currentPage * limit),
+          meta: { page: currentPage, limit, total: filtered.length, total_pages: Math.ceil(filtered.length / limit) },
+        }),
+      });
+    });
+
+    await page.goto("/student/notifications");
+    await waitForPageReady(page);
+    await expect(page.getByText("Pembaruan reservasi lama.")).toBeVisible();
+
+    includeNewNotification = true;
+    await page.clock.fastForward(15_000);
+    await expect(page.getByText("Reservasi kamu telah selesai.")).toBeVisible();
+  });
+
+  test("loads older notifications in pages without losing the newest items", async ({ page }) => {
+    await installMockApi(page, "Student");
+    const rows = Array.from({ length: 25 }, (_, index) => ({
+      id: "notification-page-" + index,
+      notification_type: "TEST",
+      title: "Pembaruan " + index,
+      message: "Isi notifikasi " + index,
+      read_at: null,
+      delivery_status: "IN_APP_CREATED",
+      email_delivery_status: "NOT_CONFIGURED",
+      email_attempt_count: 0,
+      email_sent_at: null,
+      action_url: null,
+      created_at: new Date(Date.now() - index * 60_000).toISOString(),
+    }));
+    await page.route("**/api/v1/notifications?*", async (route) => {
+      const url = new URL(route.request().url());
+      const currentPage = Number(url.searchParams.get("page") || 1);
+      const limit = Number(url.searchParams.get("limit") || 20);
+      const filtered = url.searchParams.get("unreadOnly") === "true" ? rows : rows;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: filtered.slice((currentPage - 1) * limit, currentPage * limit),
+          meta: { page: currentPage, limit, total: filtered.length, total_pages: Math.ceil(filtered.length / limit) },
+        }),
+      });
+    });
+
+    await page.goto("/student/notifications");
+    await waitForPageReady(page);
+    await expect(page.locator(".notification-card")).toHaveCount(20);
+    await page.getByRole("button", { name: "Muat lebih banyak" }).click();
+    await expect(page.locator(".notification-card")).toHaveCount(25);
+    await expect(page.getByText("Isi notifikasi 24")).toBeVisible();
+  });
+
   test("sends a message to the Student assistant and renders a fixture reply", async ({ page }) => {
     const api = await installMockApi(page, "Student");
     await page.goto("/student/assistant");
