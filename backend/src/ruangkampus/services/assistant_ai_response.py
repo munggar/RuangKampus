@@ -164,8 +164,8 @@ def _extract_generated_message(envelope: dict[str, Any], *, intent: str) -> str 
     # Preserve paragraph and bullet line breaks for the chat UI (pre-wrap), while
     # normalizing incidental spaces and preventing excessive blank lines.
     normalized_lines = [
-        re.sub(r"[ \\t]+", " ", line).strip()
-        for line in generated_text.replace("\\r\\n", "\\n").replace("\\r", "\\n").split("\\n")
+        re.sub(r"[ \t]+", " ", line).strip()
+        for line in generated_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     ]
     cleaned_lines: list[str] = []
     blank_pending = False
@@ -177,7 +177,7 @@ def _extract_generated_message(envelope: dict[str, Any], *, intent: str) -> str 
             cleaned_lines.append("")
         cleaned_lines.append(line)
         blank_pending = False
-    cleaned = "\\n".join(cleaned_lines).strip()
+    cleaned = "\n".join(cleaned_lines).strip()
     if not 8 <= len(cleaned) <= 4000:
         logger.warning(
             "RUKKA AI provider content rejected length=%s intent=%s finish_reason=%s",
