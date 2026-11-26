@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "r
 import { AlertCircle, BookOpen, Building2, CalendarDays, CheckCircle2, FileSpreadsheet, GraduationCap, Info, UploadCloud } from "lucide-react";
 import { Link } from "react-router";
 import { PageTitle } from "./layout";
-import { roomImportApi, type RoomImportBatch } from "./api";
+import { formatDateTime, roomImportApi, type RoomImportBatch } from "./api";
 import { Button, Notice } from "./ui";
 
 type DatasetKey = "students" | "courses" | "rooms";
@@ -139,7 +139,7 @@ export function AdminDataImportsPage() {
     </section>
 
     <section className="panel data-import-history"><div className="data-import-step-title"><span>03</span><div><b>Riwayat impor ruangan</b><small>Proses impor yang dibuat oleh akun Admin ini</small></div></div>
-      {history.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>File</th><th>Tanggal</th><th>Baris</th><th>Valid</th><th>Gagal</th><th>Status</th></tr></thead><tbody>{history.map((item) => <tr key={item.batch_id}><td>{item.source_filename}</td><td>{new Date(item.created_at).toLocaleString("id-ID")}</td><td>{item.row_count}</td><td>{item.valid_count}</td><td>{item.invalid_count}</td><td>{item.status}</td></tr>)}</tbody></table></div> : <p className="muted">Belum ada riwayat impor.</p>}
+      {history.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>File</th><th>Tanggal</th><th>Baris</th><th>Valid</th><th>Gagal</th><th>Status</th></tr></thead><tbody>{history.map((item) => <tr key={item.batch_id}><td>{item.source_filename}</td><td>{formatDateTime(item.created_at)}</td><td>{item.row_count}</td><td>{item.valid_count}</td><td>{item.invalid_count}</td><td>{item.status}</td></tr>)}</tbody></table></div> : <p className="muted">Belum ada riwayat impor.</p>}
     </section>
     <section className="data-import-bottom"><div className="data-import-bottom__icon"><AlertCircle size={19} /></div><div><b>Data mahasiswa dan mata kuliah belum diproses</b><p>Hanya workbook ruangan yang tersedia saat ini. Modul mahasiswa dan mata kuliah akan diaktifkan setelah file resmi masing-masing diterima.</p></div></section>
   </div>;

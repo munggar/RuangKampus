@@ -232,7 +232,7 @@ export function AdminRequestsPage() {
       </article>)}
     </div> : <EmptyState title="Tidak ada permohonan yang cocok" description="Ubah filter atau kata kunci pencarian." icon={<ClipboardList size={22} />} />}
     <ConfirmModal open={action === "approve" && !!selected} title="Setujui permohonan?" description="Backend akan memeriksa kembali kapasitas, jam operasional, jadwal, dan benturan reservasi sebelum menyetujui." confirmText="Setujui permohonan" loading={busy} onClose={() => { setAction(null); setSelected(null); }} onConfirm={() => void runAction()} />
-    <Modal open={action === "reject" && !!selected} title="Tolak permohonan" description="Alasan penolakan wajib dicatat dan akan terlihat oleh pemohon." onClose={() => { setAction(null); setSelected(null); setReason(""); }}>
+    <Modal open={action === "reject" && !!selected} title="Tolak permohonan" description="Alasan penolakan wajib dicatat dan akan terlihat oleh pemohon." onClose={() => { setAction(null); setSelected(null); setReason(""); }} closeDisabled={busy}>
       <Field label="Alasan penolakan"><textarea rows={4} minLength={3} maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Jelaskan alasan penolakan dengan jelas…" /></Field>
       {error ? <Notice tone="error">{error}</Notice> : null}
       <div className="modal-actions"><Button variant="secondary" onClick={() => { setAction(null); setSelected(null); setReason(""); }} disabled={busy}>Kembali</Button><Button variant="danger" disabled={busy || reason.trim().length < 3} onClick={() => void runAction()}>{busy ? "Memproses…" : "Kirim penolakan"}</Button></div>
@@ -428,6 +428,7 @@ export function AdminRoomsPage() {
     />
     <Modal
       open={bulkHoursOpen}
+      closeDisabled={bulkUpdating}
       title={"Atur jam operasional " + selectedIds.length + " ruangan"}
       description="Hari dan jam yang dipilih akan langsung diterapkan ke seluruh ruangan terpilih setelah disimpan."
       onClose={() => { if (!bulkUpdating) setBulkHoursOpen(false); }}
