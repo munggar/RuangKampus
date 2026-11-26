@@ -222,7 +222,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="CAMPUS ROOM DIRECTORY" title="Direktori ruangan"
+    <PageTitle eyebrow="DIREKTORI RUANG KAMPUS" title="Direktori ruangan"
       description="Temukan ruang berdasarkan fakultas, gedung, lokasi, kapasitas, dan fasilitas yang dibutuhkan."
       action={role === "Student" ? <Link className="button button--primary" to="/student/availability"><CalendarDays size={16} />Cek ketersediaan</Link> : undefined} />
     <form className="filter-panel filter-panel--room" onSubmit={applyFilters}>
@@ -366,7 +366,7 @@ export function BookingPage() {
 
   return <div className="page-stack">
     <Link className="back-link" to={"/student/rooms/" + roomId}><ArrowLeft size={16} />Kembali ke {room.room_name}</Link>
-    <PageTitle eyebrow="YOUR NEXT COLLABORATION STARTS HERE" title="Ajukan reservasi ruangan" description="Isi kebutuhan kegiatan Anda. Permohonan akan ditinjau oleh TU/Admin." />
+    <PageTitle eyebrow="AJUKAN RESERVASI RUANG" title="Ajukan reservasi ruangan" description="Isi kebutuhan kegiatan Anda. Permohonan akan ditinjau oleh TU/Admin." />
     <div className="steps-indicator"><span className="is-complete"><Check size={14} />Pilih ruangan</span><i /><span className="is-current">2. Detail permohonan</span><i /><span>3. Tinjauan admin</span></div>
     <div className="booking-layout">
       <form className="panel stack-form" onSubmit={(event) => { event.preventDefault(); if (availability?.available) setConfirmOpen(true); else void checkAvailability(); }}>
@@ -430,7 +430,7 @@ export function StudentReservationsPage() {
 
   const tabs = [{ id: "", label: "Semua" }, { id: "PENDING", label: "Menunggu" }, { id: "APPROVED", label: "Disetujui" }, { id: "REJECTED", label: "Ditolak" }];
   return <div className="page-stack">
-    <PageTitle eyebrow="YOUR CAMPUS PLANS, IN ONE PLACE" title="Reservasi saya" description="Pantau permohonan, keputusan, dan persiapan sesi kampus Anda." action={<Link className="button button--primary" to="/student/rooms">+ Pesan ruangan</Link>} />
+    <PageTitle eyebrow="RIWAYAT RESERVASI ANDA" title="Reservasi saya" description="Pantau permohonan, keputusan, dan persiapan sesi kampus Anda." action={<Link className="button button--primary" to="/student/rooms">+ Pesan ruangan</Link>} />
     <div className="panel reservation-filters">
       <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.id || "all"} type="button" className={status === tab.id ? "is-active" : ""} onClick={() => setStatus(tab.id)}>{tab.label}</button>)}</div>
       <Field label="Cari reservasi"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari ruang, tujuan, atau ID reservasi" /></Field>
@@ -473,7 +473,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
   const root = role === "Student" ? "/student" : "/admin";
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>
-    <PageTitle eyebrow="RESERVATION DETAILS" title="Detail reservasi" description="Periksa informasi permohonan dan keputusan administrator." action={<StatusBadge status={item.status} />} />
+    <PageTitle eyebrow="DETAIL RESERVASI" title="Detail reservasi" description="Periksa informasi permohonan dan keputusan administrator." action={<StatusBadge status={item.status} />} />
     {success ? <Notice tone="success">Permohonan berhasil dikirim. Status awalnya menunggu peninjauan TU/Admin.</Notice> : null}
     {error ? <Notice tone="error">{error}</Notice> : null}
     {item.rejection_reason ? <Notice tone="warning"><b>Alasan penolakan:</b> {item.rejection_reason}</Notice> : null}
@@ -530,7 +530,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
     finally { setBusyId(""); }
   }
   return <div className="page-stack">
-    <PageTitle eyebrow="UPDATES" title="Notifikasi" description="Tetap terhubung dengan informasi terbaru reservasi ruangan." />
+    <PageTitle eyebrow="PEMBARUAN" title="Notifikasi" description="Tetap terhubung dengan informasi terbaru reservasi ruangan." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat notifikasi…" /> : items.length ? <div className="card-list">
       {items.map((item) => <article className={"notification-card" + (!item.read_at ? " is-unread" : "")} key={item.id}>
@@ -602,7 +602,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
   const initials = initialsFromName(profile?.name);
 
   return <div className="page-stack">
-    <PageTitle eyebrow="YOUR ACCOUNT" title="Profil" description="Kelola informasi akun dan preferensi tampilan Anda." />
+    <PageTitle eyebrow="AKUN ANDA" title="Profil" description="Kelola informasi akun dan preferensi tampilan Anda." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {message ? <Notice tone="success">{message}</Notice> : null}
     <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "TU / Administrator"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
@@ -641,7 +641,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
 
 export function AssistantUnavailablePage({ role }: { role: AppRole }) {
   return <div className="page-stack">
-    <PageTitle eyebrow="SMART CAMPUS SUPPORT" title={role === "Student" ? "AI Room Assistant" : "AI Facility Assistant"} description="Bantuan informasi ruang dan proses reservasi." />
+    <PageTitle eyebrow="BANTUAN LAYANAN KAMPUS" title={role === "Student" ? "AI Room Assistant" : "AI Facility Assistant"} description="Bantuan informasi ruang dan proses reservasi." />
     <div className="panel assistant-notice">
       <div className="assistant-notice__icon"><InfoIcon /></div>
       <h2>Asisten AI belum tersedia pada MVP</h2>
