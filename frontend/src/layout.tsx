@@ -27,7 +27,7 @@ function navigationFor(role: AppRole): NavigationItem[] {
   ];
 }
 function Brand() {
-  return <span className="brand-mark"><span className="brand-mark__symbol" aria-hidden="true"><span /></span><span className="brand-mark__copy"><strong>RuangKampus</strong><small>Find the Room. Book the Space.</small></span></span>;
+  return <img className="brand-logo brand-logo--navigation" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />;
 }
 function useTheme() {
   const [theme, setThemeState] = useState<"light" | "dark">(() => {
