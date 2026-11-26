@@ -435,7 +435,7 @@ export function AdminSchedulesPage() {
 
   const dayNames = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
   return <div className="page-stack">
-    <PageTitle eyebrow="ROOM SCHEDULES" title="Jadwal & pemeliharaan" description="Catat jadwal akademik dan periode ruangan tidak tersedia agar backend dapat memeriksa benturan reservasi." />
+    <PageTitle eyebrow="ROOM SCHEDULES" title="Jadwal & pemeliharaan" description="Catat jadwal akademik dan periode ruangan tidak tersedia agar backend dapat memeriksa benturan reservasi." action={<div className="form-actions"><Link className="button button--secondary" to="/admin/schedule-imports">Impor Excel/CSV</Link><Link className="button button--secondary" to="/admin/activity">Riwayat aktivitas</Link></div>} />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {success ? <Notice tone="success">{success}</Notice> : null}
     <form className="panel stack-form" onSubmit={create}>
