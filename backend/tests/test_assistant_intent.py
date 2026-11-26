@@ -25,6 +25,8 @@ from ruangkampus.services.assistant_intent import detect_assistant_intent
         ("Saya ingin buat reservasi ruangan", "RESERVATION_CREATE_PREVIEW"),
         ("Apa saja yang bisa kamu bantu?", "FAQ"),
         ("Halo kak", "SMALLTALK"),
+        ("Woy", "SMALLTALK"),
+        ("Woi bro", "SMALLTALK"),
         ("Wkwk kamu robot ya?", "SMALLTALK"),
         ("Makasih ya", "SMALLTALK"),
         ("Berapa harga laptop?", "OUT_OF_SCOPE"),
