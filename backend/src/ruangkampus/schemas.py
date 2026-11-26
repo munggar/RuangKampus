@@ -75,19 +75,21 @@ class TokenOut(BaseModel):
 
 class ProfileUpdateIn(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=160)
+    email: EmailStr | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=40)
     profile_image_url: HttpUrl | None = None
 
     @model_validator(mode="after")
-    def name_cannot_be_null(self):
-        if "name" in self.model_fields_set and self.name is None:
-            raise ValueError("name cannot be null")
+    def required_profile_fields_cannot_be_null(self):
+        for field_name in ("name", "email"):
+            if field_name in self.model_fields_set and getattr(self, field_name) is None:
+                raise ValueError(f"{field_name} cannot be null")
         return self
 
 
 class PasswordChangeIn(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=10, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class ForgotPasswordIn(BaseModel):
@@ -96,7 +98,7 @@ class ForgotPasswordIn(BaseModel):
 
 class ResetPasswordIn(BaseModel):
     token: str = Field(min_length=32, max_length=256)
-    new_password: str = Field(min_length=10, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class UserStatusUpdateIn(BaseModel):
