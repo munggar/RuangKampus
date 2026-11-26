@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from ruangkampus.config import get_settings
 from ruangkampus.database import get_db
 from ruangkampus.dependencies import require_student
 from ruangkampus.models import Reservation, Room, User
@@ -24,7 +25,8 @@ from ruangkampus.services.indonesian_normalizer import (
     find_positive_facility_filters,
     normalize_indonesian_message,
 )
-from ruangkampus.services.assistant_intent import detect_assistant_intent
+from ruangkampus.services.assistant_intent import IntentDetection, detect_assistant_intent
+from ruangkampus.services.assistant_ai_fallback import interpret_with_ai_fallback
 from ruangkampus.services.assistant_confidence import evaluate_rule_confidence
 from ruangkampus.services.assistant_conversation import (
     load_or_create_conversation,
@@ -417,6 +419,9 @@ def _intent_only_response(
     missing_fields: list[str] | None = None,
     conversation_id=None,
     confidence: float | None = None,
+    confidence_basis: str = "RULE_HEURISTIC",
+    engine: str = "RULE_BASED",
+    privacy_message: str | None = None,
     message_override: str | None = None,
     rooms: list[dict] | None = None,
     reservations: list[dict] | None = None,
@@ -431,7 +436,7 @@ def _intent_only_response(
         intent=detection.intent,
         slots=slots,
         confidence=confidence,
-        confidence_basis="RULE_HEURISTIC" if confidence is not None else None,
+        confidence_basis=confidence_basis if confidence is not None else None,
         missing_fields=missing_fields or [],
         requires_clarification=(
             detection.requires_clarification if requires_clarification is None else requires_clarification
@@ -446,15 +451,15 @@ def _intent_only_response(
             filters=slots,
         ),
         normalization=normalization,
-        engine="RULE_BASED",
+        engine=engine,
         filters=_assistant_legacy_filters(slots),
         rooms=rooms or [],
         alternative_slots=[],
         follow_up_questions=follow_up,
         reservation_action="NOT_CREATED",
-        privacy=(
-            "Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim "
-            "ke penyedia AI eksternal."
+        privacy=privacy_message or (
+            "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara "
+            "selama maksimal 30 menit untuk menjaga konteks percakapan."
         ),
     )
     return success(
@@ -495,6 +500,52 @@ def room_assistant_chat(
         has_structured_room_filters=has_structured_filters,
         has_complete_availability_window=has_complete_availability_window,
     )
+    ai_fallback_used = False
+    if detection.intent == "OUT_OF_SCOPE":
+        interpretation = interpret_with_ai_fallback(payload.message, catalog, get_settings())
+        if interpretation is not None:
+            ai_fallback_used = True
+            ai_updates = {
+                "faculty": interpretation.faculty,
+                "building": interpretation.building,
+                "min_capacity": interpretation.min_capacity,
+                "facilities": interpretation.facilities,
+                "requested_date": interpretation.date,
+                "start_time": interpretation.start_time,
+                "end_time": interpretation.end_time,
+                "participant_count": interpretation.participant_count,
+            }
+            ai_payload = payload.model_copy(update=ai_updates)
+            normalized_payload = ai_payload.model_copy(update={"message": normalization.parser_text})
+            filters = _parse_message_filters(db, normalized_payload, catalog)
+            explicit_fields.update(
+                field for field, value in {
+                    "faculty": interpretation.faculty,
+                    "building": interpretation.building,
+                    "min_capacity": interpretation.min_capacity,
+                    "facilities": interpretation.facilities,
+                    "date": interpretation.date,
+                    "start_time": interpretation.start_time,
+                    "end_time": interpretation.end_time,
+                    "participant_count": interpretation.participant_count,
+                }.items() if value is not None and value != []
+            )
+            has_complete_availability_window = bool(
+                filters["date"] and filters["start_time"] and filters["end_time"]
+            )
+            missing_ai_window = (
+                interpretation.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+                and not has_complete_availability_window
+            )
+            detection = IntentDetection(
+                intent=interpretation.intent,
+                matched_rule="AI_INTENT_FALLBACK",
+                requires_clarification=missing_ai_window,
+                clarification_message=(
+                    "Untuk memeriksa ketersediaan, sebutkan tanggal, jam mulai, dan jam selesai."
+                    if missing_ai_window else None
+                ),
+            )
 
     search_intents = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
     if detection.intent in search_intents:
@@ -622,6 +673,13 @@ def room_assistant_chat(
             missing_fields=["date", "start_time", "end_time"],
             conversation_id=conversation.id,
             confidence=confidence,
+            confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
+            engine="HYBRID" if ai_fallback_used else "RULE_BASED",
+            privacy_message=(
+            "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
+            "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
+            "sementara selama maksimal 30 menit."
+        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit.",
         )
         db.commit()
         return response
@@ -764,7 +822,7 @@ def room_assistant_chat(
         intent=detection.intent,
         slots=slots,
         confidence=confidence,
-        confidence_basis="RULE_HEURISTIC",
+        confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
         missing_fields=missing_fields,
         requires_clarification=bool(follow_up),
         clarification_message=follow_up[0] if follow_up else None,
@@ -777,16 +835,17 @@ def room_assistant_chat(
             filters=slots,
         ),
         normalization=normalization,
-        engine="RULE_BASED",
+        engine="HYBRID" if ai_fallback_used else "RULE_BASED",
         filters=legacy_filters,
         rooms=room_data,
         alternative_slots=alternatives,
         follow_up_questions=follow_up,
         reservation_action="NOT_CREATED",
         privacy=(
-            "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara "
-            "selama maksimal 30 menit untuk menjaga konteks percakapan."
-        ),
+            "Pesan saat ini dikirim ke endpoint AI yang dikonfigurasi hanya untuk interpretasi intent. "
+            "Riwayat percakapan dan data reservasi pribadi tidak dikirim; slot terstruktur disimpan "
+            "sementara selama maksimal 30 menit."
+        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit.",
     )
     save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
     db.commit()
