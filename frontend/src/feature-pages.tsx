@@ -259,13 +259,11 @@ const assistantPrompts = [
   "Cari ruang di fakultas saya dengan Wi-Fi",
 ];
 
-export function RoomAssistantPage({ role }: { role: AppRole }) {
+export function RoomAssistantPage() {
   const [message, setMessage] = useState("");
   const [turns, setTurns] = useState<AssistantTurn[]>([{
     id: 1, sender: "assistant",
-    message: role === "Student"
-      ? "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan."
-      : "Halo, administrator. Gunakan pintasan berikut untuk meninjau permohonan, mengelola ruangan, atau memperbarui jadwal fasilitas kampus.",
+    message: "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan.",
   }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -273,7 +271,7 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
     const text = message.trim();
-    if (text.length < 3 || loading || role !== "Student") return;
+    if (text.length < 3 || loading) return;
     setMessage(""); setError("");
     setTurns((current) => [...current, { id: Date.now(), sender: "user", message: text }]);
     setLoading(true);
@@ -288,8 +286,7 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
     } finally { setLoading(false); }
   }
 
-  if (role === "TU/Admin") {
-    return <div className="page-stack">
+  return <div className="page-stack">
       <PageTitle eyebrow="SMART CAMPUS SUPPORT" title="AI Facility Assistant"
         description="Pusat bantuan untuk alur persetujuan, pengelolaan fasilitas, dan informasi operasional ruangan." />
       <section className="panel assistant-intro">
