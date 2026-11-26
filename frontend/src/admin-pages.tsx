@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ArrowRight, Building2, CalendarClock, CalendarDays, CheckCircle2, Clock3, ClipboardList,
-  Edit3, Plus, Search, Trash2, Users,
+  Edit3, FileSpreadsheet, Plus, Search, Trash2, Users,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
@@ -175,6 +175,7 @@ export function AdminRoomsPage() {
       <Field label="Cari ruangan"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nama ruangan, gedung, atau kode" /></span></Field>
       <Field label="Status"><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Semua status</option><option value="ACTIVE">Aktif</option><option value="INACTIVE">Nonaktif</option><option value="MAINTENANCE">Pemeliharaan</option></select></Field>
       <Link className="button button--secondary" to="/admin/schedules"><CalendarDays size={16} />Jadwal & pemeliharaan</Link>
+      <Link className="button button--secondary" to="/admin/data-imports"><FileSpreadsheet size={16} />Impor data</Link>
     </div>
     <div className="list-summary"><b>{active} aktif</b><span>{rooms.length - active} nonaktif atau pemeliharaan</span></div>
     {error ? <Notice tone="error">{error}</Notice> : null}
