@@ -183,6 +183,7 @@ export function AppShell({ role }: { role: AppRole }) {
   }
 
   return <div className="app-shell">
+    <a className="skip-link" href="#main-content">Lewati ke konten utama</a>
     <svg className="brand-filter-defs" width="0" height="0" aria-hidden="true" focusable="false">
       <defs>
         <filter id="rk-dark-wordmark-filter" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
@@ -236,7 +237,7 @@ export function AppShell({ role }: { role: AppRole }) {
           </div>
         </div>
       </header>
-      <main className="main-content"><Outlet /></main>
+      <main id="main-content" className="main-content" tabIndex={-1}><Outlet /></main>
       <footer className="desktop-footer">© {new Date().getFullYear()} RuangKampus · Campus facilities</footer>
     </div>
     <div className="mobile-nav-shell"><Navigation items={items} mobile /></div>
