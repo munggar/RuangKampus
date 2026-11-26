@@ -158,6 +158,8 @@ def save_conversation_state(
         if isinstance(conversation.state, dict)
         else []
     )
+    if not isinstance(candidate_ids, list):
+        candidate_ids = []
     verified_room_ids: list[str] = []
     for item in candidate_ids[:10]:
         try:
