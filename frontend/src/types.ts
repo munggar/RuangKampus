@@ -74,10 +74,16 @@ export interface AlternativeSlotsResult {
   };
   availability_note: string;
 }
+export interface AssistantContextMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 export interface AssistantChatRequest {
   message: string;
   /** Opaque ID for the authenticated student's short-lived conversation state. */
   conversation_id?: string | null;
+  /** Up to ten previous turns from this browser tab; not persisted as raw chat by the API. */
+  context?: AssistantContextMessage[];
   faculty?: string | null;
   building?: string | null;
   min_capacity?: number | null;
@@ -86,6 +92,19 @@ export interface AssistantChatRequest {
   start_time?: string | null;
   end_time?: string | null;
   participant_count?: number;
+}
+export type AssistantFeedbackReason =
+  | "TOO_FORMAL"
+  | "TOO_LONG"
+  | "TOO_SHORT"
+  | "WRONG_INTENT"
+  | "WRONG_NORMALIZATION"
+  | "RESULTS_NOT_RELEVANT"
+  | "OTHER";
+export interface AssistantFeedbackRequest {
+  intent: string;
+  rating: "HELPFUL" | "NOT_HELPFUL";
+  reason_code?: AssistantFeedbackReason;
 }
 export interface AssistantChatSlots {
   faculty: string | null;
@@ -112,6 +131,7 @@ export interface AssistantReservationSummary {
 export type AssistantResultType = "ROOMS_FOUND" | "ALTERNATIVE_SLOTS" | "RESERVATIONS_FOUND" | "ROOM_DETAILS" | "NO_RESULTS";
 export interface AssistantChatResult {
   /** Structured fields are optional so the client remains compatible with an older API deployment. */
+  assistant_name?: string;
   conversation_id?: string | null;
   slots?: AssistantChatSlots;
   confidence?: number | null;

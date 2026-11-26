@@ -415,7 +415,8 @@ export async function installMockApi(page: Page, initialRole: NullableRole): Pro
 
     if (path === "/assistant/chat" && method === "POST") {
       return data(route, {
-        engine: "fixture",
+        assistant_name: "RUKKA AI",
+        engine: "HYBRID",
         intent: "ROOM_SEARCH",
         message: "Saya menemukan satu ruangan yang sesuai berdasarkan data fixture.",
         filters: {
@@ -428,6 +429,10 @@ export async function installMockApi(page: Page, initialRole: NullableRole): Pro
         reservation_action: "NONE",
         privacy: "Fixture only",
       });
+    }
+
+    if (path === "/assistant/feedback" && method === "POST") {
+      return data(route, { recorded: true });
     }
 
     if (path === "/admin/schedules" && method === "GET") {

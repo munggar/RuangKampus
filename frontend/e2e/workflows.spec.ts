@@ -144,14 +144,19 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     expect(api.calls).toContain("PATCH /notifications/notification-e2e-001/read");
   });
 
-  test("sends a message to the Student assistant and renders a fixture reply", async ({ page }) => {
+  test("renders generative HYBRID status and records assistant feedback", async ({ page }) => {
     const api = await installMockApi(page, "Student");
     await page.goto("/student/assistant");
     await waitForPageReady(page);
-    await page.getByLabel("Tulis pertanyaan").fill("Saya membutuhkan ruang untuk delapan orang besok.");
+    await page.getByLabel("Tulis pertanyaan").fill("Menurutmu bagaimana cara memilih ruang belajar yang tepat?");
     await page.getByRole("button", { name: "Kirim" }).click();
     await expect(page.getByText(/Saya menemukan satu ruangan yang sesuai/)).toBeVisible();
+    await expect(page.getByText("AI aktif", { exact: true })).toBeVisible();
+    await expect(page.getByText("RUKKA AI", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Jawaban membantu" }).click();
+    await expect(page.getByText("Makasih! Masukanmu membantu RUKKA belajar.")).toBeVisible();
     expect(api.calls).toContain("POST /assistant/chat");
+    expect(api.calls).toContain("POST /assistant/feedback");
   });
 
   test("updates profile details using the profile form", async ({ page }) => {
