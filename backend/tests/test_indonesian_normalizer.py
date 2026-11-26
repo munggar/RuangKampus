@@ -120,6 +120,7 @@ NORMALIZATION_CASES = [
     ("Ruang RK-FTII-101", "ruang rk-ftii-101"),
     ("Jadwal 2026-11-30 jam 09:00-11:00", "jadwal 2026-11-30 jam 09:00-11:00"),
     ("Tanggal 2026-12-01 pukul 13.30 sampai 15.00", "tanggal 2026-12-01 pukul 13.30 sampai 15.00"),
+    ("Tanggal 27 November 2026 pukul 10.00–12.00", "tanggal 27 november 2026 pukul 10.00–12.00"),
     ("Room A.2/101", "room a.2/101"),
     ("FTII-02", "ftii-02"),
     ("Bro, kak, dong, nih", "bro kak dong nih"),
