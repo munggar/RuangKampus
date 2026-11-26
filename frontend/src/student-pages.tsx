@@ -580,6 +580,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [allTotal, setAllTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadTotal, setUnreadTotal] = useState(0);
   const root = role === "Student" ? "/student" : "/admin";
@@ -592,8 +593,9 @@ export function NotificationsPage({ role }: { role: AppRole }) {
       try {
         const params = new URLSearchParams({ page: "1", limit: String(pageSize) });
         if (filter === "unread") params.set("unreadOnly", "true");
-        const [result, unread] = await Promise.all([
+        const [result, allNotifications, unread] = await Promise.all([
           notificationApi.list(params),
+          notificationApi.list(new URLSearchParams({ page: "1", limit: "1" })),
           notificationApi.list(new URLSearchParams({ unreadOnly: "true", page: "1", limit: "1" })),
         ]);
         if (!active) return;
@@ -606,6 +608,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
           );
         });
         setTotal(result.meta?.total ?? result.items.length);
+        setAllTotal(allNotifications.meta?.total ?? allNotifications.items.length);
         setTotalPages(result.meta?.total_pages ?? 1);
         setUnreadTotal(unread.meta?.total ?? unread.items.filter((item) => !item.read_at).length);
         setPage((current) => silent ? current : 1);
@@ -662,6 +665,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
       const updated = await notificationApi.markRead(id);
       setItems((current) => filter === "unread" ? current.filter((item) => item.id !== id) : current.map((item) => item.id === id ? updated : item));
       setUnreadTotal((current) => Math.max(0, current - 1));
+      setTotal((current) => filter === "unread" ? Math.max(0, current - 1) : current);
       window.dispatchEvent(new Event("rk-notifications-updated"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui.");
@@ -677,6 +681,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
       const result = await notificationApi.markAllRead();
       const readAt = result.read_at || new Date().toISOString();
       setItems((current) => filter === "unread" ? [] : current.map((item) => ({ ...item, read_at: item.read_at || readAt })));
+      if (filter === "unread") setTotal(0);
       setUnreadTotal(0);
       window.dispatchEvent(new Event("rk-notifications-updated"));
     } catch (cause) {
@@ -716,7 +721,7 @@ export function NotificationsPage({ role }: { role: AppRole }) {
     />
     <div className="panel notification-toolbar">
       <div className="segmented-tabs" aria-label="Filter notifikasi">
-        <button type="button" className={filter === "all" ? "is-active" : ""} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>Semua ({filter === "all" ? total : "—"})</button>
+        <button type="button" className={filter === "all" ? "is-active" : ""} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>Semua ({allTotal})</button>
         <button type="button" className={filter === "unread" ? "is-active" : ""} aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}>Belum dibaca ({unreadTotal})</button>
       </div>
       <span className="muted small">Diperbarui otomatis setiap 15 detik</span>
