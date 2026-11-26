@@ -10,7 +10,7 @@ export interface AuthUser {
 export interface TokenResponse { access_token: string; token_type: string; expires_in: number; user: AuthUser; }
 export interface Room {
   id: string; room_name: string; room_code: string | null; building: string; faculty: string | null;
-  floor: string | null; location_description: string | null; capacity: number; description: string | null; facilities: string[];
+  floor: string | null; location_description: string | null; capacity: number; capacity_estimate?: string | null; description: string | null; facilities: string[];
   operating_hours: Record<string, Array<{ start: string; end: string }>>;
   room_status: RoomStatus; photo_url: string | null; created_at?: string; updated_at?: string;
 }

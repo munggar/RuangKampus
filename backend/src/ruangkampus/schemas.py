@@ -181,6 +181,7 @@ class RoomOut(BaseOut):
     floor: str | None
     location_description: str | None
     capacity: int
+    capacity_estimate: str | None
     description: str | None
     facilities: list[str]
     operating_hours: dict[str, Any]

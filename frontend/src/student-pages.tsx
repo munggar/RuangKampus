@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  ApiError, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
+  ApiError, apiAssetUrl, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
 } from "./api";
 import { useAuth } from "./auth";
@@ -162,10 +162,10 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
           <Link className="room-card__media" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
-            {room.photo_url ? <img src={room.photo_url} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}
+            {room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}
           </Link>
           <div className="room-card__body">
-            <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang</span></div>
+            <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang{room.capacity_estimate ? " · estimasi " + room.capacity_estimate : ""}</span></div>
             <Link className="room-card__title" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>{room.room_name}</Link>
             <p>{[room.faculty, room.building, room.floor ? "Lantai " + room.floor : null, room.location_description].filter(Boolean).join(" · ")}</p>
             <div className="chip-list">{room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
@@ -203,7 +203,7 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
         <h1>{room.room_name}</h1>
         <p className="page-description">{room.description || "Informasi ruangan dikelola oleh administrator kampus."}</p>
         <StatusBadge status={room.room_status} />
-        {room.photo_url ? <img className="room-detail__image" src={room.photo_url} alt={room.room_name} /> : <div className="room-detail__image room-detail__image--empty"><Building2 size={48} /></div>}
+        {room.photo_url ? <img className="room-detail__image" src={apiAssetUrl(room.photo_url)} alt={room.room_name} /> : <div className="room-detail__image room-detail__image--empty"><Building2 size={48} /></div>}
         <section className="panel">
           <h2>Tentang ruangan ini</h2>
           <p>{room.description || "Belum ada deskripsi tambahan untuk ruangan ini."}</p>
@@ -212,7 +212,7 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
         </section>
       </div>
       <aside className="room-detail__side">
-        <div className="room-fact"><Users size={19} /><span>Kapasitas<b>{room.capacity} orang</b></span></div>
+        <div className="room-fact"><Users size={19} /><span>Kapasitas<b>{room.capacity} orang{room.capacity_estimate ? " (estimasi " + room.capacity_estimate + ")" : ""}</b></span></div>
         <div className="room-fact"><Clock3 size={19} /><span>Jam operasional<b>{Object.keys(room.operating_hours || {}).length ? "Mengikuti jadwal terdaftar" : "Belum diatur"}</b></span></div>
         <div className="room-fact"><MapPin size={19} /><span>Lokasi<b>{[room.building, room.floor ? "Lantai " + room.floor : null, room.location_description].filter(Boolean).join(" · ")}</b></span></div>
         {room.faculty ? <div className="room-fact"><Building2 size={19} /><span>Fakultas<b>{room.faculty}</b></span></div> : null}
@@ -288,7 +288,7 @@ export function BookingPage() {
     <div className="booking-layout">
       <form className="panel stack-form" onSubmit={(event) => { event.preventDefault(); if (availability?.available) setConfirmOpen(true); else void checkAvailability(); }}>
         <h2>Detail kegiatan</h2>
-        <div className="selected-room"><span className="eyebrow">RUANGAN PILIHAN</span><strong>{room.room_name}</strong><span>{room.building}{room.floor ? " · Lantai " + room.floor : ""} · Kapasitas {room.capacity} orang</span></div>
+        <div className="selected-room"><span className="eyebrow">RUANGAN PILIHAN</span><strong>{room.room_name}</strong><span>{room.building}{room.floor ? " · Lantai " + room.floor : ""} · Kapasitas {room.capacity} orang{room.capacity_estimate ? " (estimasi " + room.capacity_estimate + ")" : ""}</span></div>
         <div className="form-grid">
           <Field label="Tanggal"><input type="date" min={localToday()} value={date} onChange={(e) => { setDate(e.target.value); setAvailability(null); }} required /></Field>
           <Field label="Jumlah peserta"><input type="number" min="1" max={room.capacity} value={participants} onChange={(e) => { setParticipants(e.target.value); setAvailability(null); }} required /></Field>

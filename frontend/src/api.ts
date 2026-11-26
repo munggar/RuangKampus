@@ -10,6 +10,7 @@ export class ApiError extends Error {
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
 const API_BASE_URL = (configuredApiBase || (import.meta.env.DEV ? "http://localhost:8000/api/v1" : "")).replace(/\/+$/, "");
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1$/i, "");
 
 export function isApiConfigured() {
   return API_BASE_URL.length > 0;
@@ -24,6 +25,8 @@ export function buildApiUrl(path: string) {
   }
   return API_BASE_URL + "/" + path.replace(/^\/+/, "");
 }
+
+export function apiAssetUrl(path: string): string { return /^https?:\/\//i.test(path) ? path : API_ORIGIN + "/" + path.replace(/^\/+/, ""); }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -232,3 +235,24 @@ export function availabilityReasonLabel(reason: string): string {
   };
   return labels[reason] || reason;
 }
+
+export interface RoomImportRow {
+  row_number: number; room_name: string; room_code: string; capacity_estimate: string;
+  status: "VALID" | "INVALID"; errors: string[]; has_photo: boolean; floor: string | null;
+}
+export interface RoomImportBatch {
+  batch_id: string; status: string; source_filename: string; row_count: number;
+  valid_count: number; invalid_count: number; row_results: RoomImportRow[];
+  preview_rows?: Array<Record<string, unknown>>; created_at: string; completed_at: string | null;
+}
+export const roomImportApi = {
+  preview: (file: File) => {
+    const form = new FormData(); form.append("file", file);
+    return apiRequest<RoomImportBatch>("/admin/rooms/imports/preview", { method: "POST", body: form });
+  },
+  commit: (batch_id: string) =>
+    apiRequest<{ batch_id: string; status: string; inserted: number; row_count: number; invalid_count: number }>(
+      "/admin/rooms/imports/commit", { method: "POST", body: { batch_id } },
+    ),
+  list: (limit = 20) => apiRequest<RoomImportBatch[]>("/admin/rooms/imports?limit=" + limit),
+};

@@ -7,7 +7,7 @@ import {
   ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
   ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
   StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
-  AlternativeSlotsPage, RoomAssistantPage,
+  AlternativeSlotsPage, RoomAssistantPage, AdminDataImportsPage,
 } from "./pages";
 
 function FullScreenLoading() {
@@ -60,6 +60,7 @@ export function App() {
         <Route path="reservations" element={<AdminRequestsPage />} />
         <Route path="reservations/:reservationId" element={<ReservationDetailPage role="TU/Admin" />} />
         <Route path="rooms" element={<AdminRoomsPage />} />
+        <Route path="data-imports" element={<AdminDataImportsPage />} />
         <Route path="rooms/new" element={<AdminRoomEditorPage />} />
         <Route path="rooms/:roomId/edit" element={<AdminRoomEditorPage />} />
         <Route path="schedules" element={<AdminSchedulesPage />} />
