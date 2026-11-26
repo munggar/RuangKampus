@@ -38,11 +38,6 @@ SLANG_DICTIONARY: dict[str, str] = {
     "minjem": "meminjam",
     "dipake": "digunakan",
     "pake": "pakai",
-    "ruangn": "ruangan",
-    "kosng": "kosong",
-    "fasilits": "fasilitas",
-    "proyektorr": "proyektor",
-    "reservsi": "reservasi",
     "dongg": "dong",
 }
 
@@ -109,8 +104,12 @@ _REPEAT = re.compile(r"([^\W\d_])\1{2,}", re.IGNORECASE | re.UNICODE)
 _PHRASE_TOKEN = re.compile(r"[^\W\d_]+|[A-Za-z0-9]+(?:[-._/][A-Za-z0-9]+)+", re.UNICODE)
 
 
+def _raw_tokens(value: str) -> list[str]:
+    return [match.group(0) for match in _TOKEN_PATTERN.finditer(value)]
+
+
 def _tokens(value: str) -> list[str]:
-    return [match.group(0).casefold() for match in _TOKEN_PATTERN.finditer(value)]
+    return [token.casefold() for token in _raw_tokens(value)]
 
 
 def _catalog_vocabulary(catalog: dict[str, Any] | None) -> tuple[set[str], dict[str, set[str]]]:
@@ -198,29 +197,28 @@ def _dynamic_typo_candidate(token: str, vocabulary: set[str]) -> tuple[str, str]
 
 
 def _normalize_token(token: str, vocabulary: set[str]) -> tuple[list[str], AssistantTextCorrection | None]:
-    if _CODE_OR_TIME.fullmatch(token) or token.isdigit():
-        return [token.casefold()], None
-
+    original = token
     value = unicodedata.normalize("NFKC", token).casefold()
-    if value != token:
-        original = token
-        mapped = SLANG_DICTIONARY.get(value, value)
-        return mapped.split(), AssistantTextCorrection(
+    lowercased = value != original
+
+    if _CODE_OR_TIME.fullmatch(value) or value.isdigit():
+        correction = AssistantTextCorrection(
             original_token=original,
-            normalized_token=mapped,
+            normalized_token=value,
             correction_type="LOWERCASE_NORMALIZATION",
             source="preprocessing.casefold",
             confidence=None,
-        )
+        ) if lowercased else None
+        return [value], correction
 
     laughter = None
-    if re.fullmatch(r"(?:wkwk)+", value):
+    if re.fullmatch(r"(?:wkwk|wk){2,}", value):
         laughter = "wkwk"
-    elif re.fullmatch(r"(?:hehe)+", value):
+    elif re.fullmatch(r"(?:he){2,}", value):
         laughter = "hehe"
     if laughter and laughter != value:
         return [laughter], AssistantTextCorrection(
-            original_token=token,
+            original_token=original,
             normalized_token=laughter,
             correction_type="CONVERSATIONAL_VARIANT",
             source="normalizer.laughter_patterns",
@@ -230,7 +228,7 @@ def _normalize_token(token: str, vocabulary: set[str]) -> tuple[list[str], Assis
     if value in SLANG_DICTIONARY:
         mapped = SLANG_DICTIONARY[value]
         return mapped.split(), AssistantTextCorrection(
-            original_token=token,
+            original_token=original,
             normalized_token=mapped,
             correction_type="SLANG_ABBREVIATION",
             source="dictionary.indonesian_student_slang",
@@ -240,7 +238,7 @@ def _normalize_token(token: str, vocabulary: set[str]) -> tuple[list[str], Assis
     if value in TYPO_DICTIONARY:
         mapped = TYPO_DICTIONARY[value]
         return mapped.split(), AssistantTextCorrection(
-            original_token=token,
+            original_token=original,
             normalized_token=mapped,
             correction_type="STATIC_TYPO",
             source="dictionary.indonesian_typo",
@@ -251,7 +249,7 @@ def _normalize_token(token: str, vocabulary: set[str]) -> tuple[list[str], Assis
     if repeated != value:
         mapped = SLANG_DICTIONARY.get(repeated, repeated)
         return mapped.split(), AssistantTextCorrection(
-            original_token=token,
+            original_token=original,
             normalized_token=mapped,
             correction_type="REPEATED_CHARACTER",
             source="normalizer.repeated_character_rule",
@@ -262,14 +260,21 @@ def _normalize_token(token: str, vocabulary: set[str]) -> tuple[list[str], Assis
     if dynamic:
         mapped, source = dynamic
         return [mapped], AssistantTextCorrection(
-            original_token=token,
+            original_token=original,
             normalized_token=mapped,
             correction_type="DOMAIN_TYPO",
             source=source,
             confidence=None,
         )
 
-    return [value], None
+    correction = AssistantTextCorrection(
+        original_token=original,
+        normalized_token=value,
+        correction_type="LOWERCASE_NORMALIZATION",
+        source="preprocessing.casefold",
+        confidence=None,
+    ) if lowercased else None
+    return [value], correction
 
 
 def is_negated_phrase(message: str, phrase_start: int, lookback_tokens: int = 6) -> bool:
@@ -327,13 +332,14 @@ def normalize_indonesian_message(
 ) -> AssistantNormalizationResult:
     """Normalize student chat deterministically while retaining raw and negation context."""
     normalized_raw = unicodedata.normalize("NFKC", raw_text)
-    original_tokens = _tokens(normalized_raw)
+    raw_tokens = _raw_tokens(normalized_raw)
+    original_tokens = [token.casefold() for token in raw_tokens]
     vocabulary, _sources = _catalog_vocabulary(catalog)
 
     normalized_tokens: list[str] = []
     corrections: list[AssistantTextCorrection] = []
     fillers: list[str] = []
-    for original in original_tokens:
+    for original in raw_tokens:
         mapped_tokens, correction = _normalize_token(original, vocabulary)
         if correction:
             corrections.append(correction)
