@@ -961,6 +961,16 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 
 
 /* Admin live campus clock and reservation time monitor */
+.reservation-monitor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+@media (max-width: 680px) {
+  .reservation-monitor-toolbar { justify-content: flex-start; }
+}
 .campus-clock {
   display: inline-flex;
   min-width: 112px;
@@ -1111,22 +1121,4 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 }
 
 
-/* Subtle logo depth in light theme and restrained blue glow in dark theme. */
-.brand-logo {
-  filter: drop-shadow(0 2px 5px rgb(14 35 58 / 18%));
-  transition: filter .25s ease;
-}
-:root[data-theme="dark"] .brand-logo {
-  filter:
-    drop-shadow(0 0 6px rgb(75 151 255 / 38%))
-    drop-shadow(0 0 14px rgb(75 151 255 / 18%));
-}
-.loading-screen__brand img {
-  filter: drop-shadow(0 2px 5px rgb(14 35 58 / 18%));
-  transition: filter .25s ease;
-}
-:root[data-theme="dark"] .loading-screen__brand img {
-  filter:
-    drop-shadow(0 0 6px rgb(75 151 255 / 38%))
-    drop-shadow(0 0 14px rgb(75 151 255 / 18%));
-}
+/* Official logo assets are displayed without filters, shadows, or visual effects. */
