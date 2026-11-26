@@ -98,10 +98,18 @@ def _extract_generated_message(envelope: dict[str, Any], *, intent: str) -> str 
             if isinstance(part, dict) and isinstance(part.get("text"), str)
         ).strip()
     else:
+        usage = envelope.get("usage") if isinstance(envelope.get("usage"), dict) else {}
+        completion_details = usage.get("completion_tokens_details")
+        if not isinstance(completion_details, dict):
+            completion_details = {}
         logger.warning(
-            "RUKKA AI provider content rejected content_type=%s finish_reason=%s",
+            "RUKKA AI provider content rejected content_type=%s finish_reason=%s model=%s provider=%s completion_tokens=%s reasoning_tokens=%s",
             type(raw_content).__name__,
             finish_reason,
+            envelope.get("model"),
+            envelope.get("provider"),
+            usage.get("completion_tokens"),
+            completion_details.get("reasoning_tokens"),
         )
         return None
 
