@@ -6,15 +6,21 @@ RUKKA must support both (1) grounded RuangKampus actions and (2) natural convers
 
 ## Runtime configuration
 
-The LLM provider is deliberately opt-in. Configure these variables on the **backend service only** (for example, Railway backend Variables):
+RUKKA uses the OpenRouter Chat Completions API. The backend has a default endpoint and a free Gemma model, so the minimum production setup is one secret.
 
-- `ASSISTANT_AI_ENABLED=true`
-- `ASSISTANT_AI_ENDPOINT_URL`: OpenAI-compatible chat-completions endpoint
-- `ASSISTANT_AI_MODEL`: provider model identifier
-- `ASSISTANT_AI_API_KEY`: provider key; keep it secret and never commit it
+On the **RuangKampus backend service** in Railway, open **Variables** and add:
+
+- `OPENROUTER_API_KEY`: paste the secret generated in OpenRouter. Keep it private.
+- `ASSISTANT_AI_ENABLED=true`: optional when the existing service already has `ASSISTANT_AI_ENABLED=false`; otherwise the presence of `OPENROUTER_API_KEY` activates the default provider automatically.
+
+Defaults:
+- `ASSISTANT_AI_ENDPOINT_URL=https://openrouter.ai/api/v1/chat/completions`
+- `ASSISTANT_AI_MODEL=google/gemma-4-26b-a4b-it:free`
 - `ASSISTANT_AI_TIMEOUT_SECONDS=8`
 
-Do not put the provider key in a `VITE_*` frontend variable. If the provider is disabled, missing, or unavailable, the API deliberately falls back to deterministic responses and the UI will show **Mode standar**. A successful provider-generated response is identified as **AI aktif**. Merging code does not change Railway secrets or deploy the service.
+Optional override: `OPENROUTER_MODEL` selects another OpenRouter model. The legacy `ASSISTANT_AI_API_KEY` variable is still accepted, but prefer `OPENROUTER_API_KEY`. Never put the key in a `VITE_*` frontend variable, Git commit, screenshot, or chat message.
+
+The backend will not call OpenRouter without an API key. If the key is missing, rejected, the model is unavailable, or the provider times out, it safely falls back to deterministic behavior and reports **Mode standar**. A successful provider response is reported as **AI aktif**. After adding the Railway variable, trigger/redeploy the backend service; a successful RUKKA chat request should then change the OpenRouter key's **Last Used** value from **Never** and create a usage entry. Merging code does not change Railway secrets or deploy the service.
 
 ## Architecture and safety rules
 
