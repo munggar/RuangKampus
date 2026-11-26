@@ -88,7 +88,7 @@ The existing frontend auth client expects direct JSON bodies for login/register/
 ## Notifications and external services
 
 - In-app notifications are persisted in PostgreSQL. Email is attempted after the associated business transaction commits; email delivery state is recorded separately.
-- Email delivery is attempted only through a configured SMTP provider. Local development `console` writes to ignored `.local_mailbox/`; status is `LOCAL_MAILBOX_WRITTEN`, never reported as real email send.
+- Email delivery supports SMTP and the Brevo transactional email API. Local development `console` writes to ignored `.local_mailbox/`; status is `LOCAL_MAILBOX_WRITTEN`, never reported as real email send.
 - No AI provider, academic-system integration, or cloud storage is configured.
 
 ## Deployment and environment strategy
@@ -112,7 +112,7 @@ The existing frontend auth client expects direct JSON bodies for login/register/
 
 Schedule imports are a dedicated backend module and use a two-stage preview/commit process. The preview parser rejects unsupported formats, limits upload size and row count, resolves room references, validates date/time/weekdays, and reports row-specific errors. Commit locks all target room rows in deterministic order and revalidates conflicts before a single transaction writes the schedule rows and audit records.
 
-Notification event handlers use deterministic unique event keys for in-app idempotency. SMTP sends a multipart message with a shared HTML template and escaped content. Delivery is attempted once per notification record and recorded separately from in-app creation; automatic retries are intentionally disabled when provider acceptance is ambiguous.
+Notification event handlers use deterministic unique event keys for in-app idempotency. SMTP sends a multipart message; Brevo uses its transactional email API with the shared escaped HTML template. Delivery is attempted once per notification record and recorded separately from in-app creation; automatic retries are intentionally disabled when provider acceptance is ambiguous.
 
 Operational endpoints separate liveness (`/health`) from readiness (`/ready`). Structured logs omit request bodies and exception messages. A non-root container, local Compose PostgreSQL, and CI PostgreSQL service have been added. Migrations are explicitly run in CI/operator steps, not on application worker startup.
 
