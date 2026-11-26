@@ -133,7 +133,7 @@ export function StudentRoomAvailabilityPage() {
     + "&preferredStartTime=" + encodeURIComponent(start);
 
   return <div className="page-stack">
-    <PageTitle eyebrow="SMART ROOM AVAILABILITY" title="Cek ketersediaan ruangan"
+    <PageTitle eyebrow="KETERSEDIAAN RUANG KAMPUS" title="Cek ketersediaan ruangan"
       description="Pilih tanggal, waktu, dan kebutuhan ruang. Hasil diperiksa berdasarkan jadwal, kapasitas, jam operasional, pemeliharaan, dan reservasi aktif."
       action={<Link className="button button--secondary" to="/student/rooms"><Search size={16} />Direktori ruangan</Link>} />
     <form className="panel stack-form" onSubmit={searchAvailability}>
@@ -220,7 +220,7 @@ export function AlternativeSlotsPage() {
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="ALTERNATIVE SLOT RECOMMENDATION" title="Rekomendasi jadwal alternatif"
+    <PageTitle eyebrow="REKOMENDASI JADWAL ALTERNATIF" title="Rekomendasi jadwal alternatif"
       description="Cari waktu atau ruangan lain saat slot awal tidak tersedia. Setiap rekomendasi diperiksa terhadap jadwal dan data reservasi terkini."
       action={<Link className="button button--secondary" to="/student/availability"><CalendarDays size={16} />Cek ketersediaan</Link>} />
     <form className="panel stack-form" onSubmit={findAlternatives}>
@@ -290,7 +290,7 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
 
   if (role === "TU/Admin") {
     return <div className="page-stack">
-      <PageTitle eyebrow="SMART CAMPUS SUPPORT" title="AI Facility Assistant"
+      <PageTitle eyebrow="BANTUAN LAYANAN KAMPUS" title="AI Facility Assistant"
         description="Pusat bantuan untuk alur persetujuan, pengelolaan fasilitas, dan informasi operasional ruangan." />
       <section className="panel assistant-intro">
         <span className="assistant-intro__icon"><Sparkles size={25} /></span>
@@ -309,7 +309,7 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="SMART CAMPUS SUPPORT" title="AI Room Assistant"
+    <PageTitle eyebrow="BANTUAN LAYANAN KAMPUS" title="AI Room Assistant"
       description="Tanyakan kebutuhan ruangan dan dapatkan hasil pencarian berdasarkan informasi fasilitas serta pemeriksaan ketersediaan." />
     <section className="panel assistant-intro">
       <span className="assistant-intro__icon"><Bot size={25} /></span>
