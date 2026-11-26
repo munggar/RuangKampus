@@ -84,13 +84,14 @@ const server = createServer(async (req, res) => {
     const body = await readFile(target);
     const extension = path.extname(target).toLowerCase();
     const isHtml = extension === ".html";
+    const isPwaMetadata = extension === ".webmanifest" || path.basename(target) === "sw.js";
     res.writeHead(200, {
       "Content-Type": contentTypes.get(extension) || "application/octet-stream",
       "Content-Length": body.byteLength,
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
       "Referrer-Policy": "strict-origin-when-cross-origin",
-      "Cache-Control": isHtml ? "no-cache" : "public, max-age=31536000, immutable",
+      "Cache-Control": isHtml || isPwaMetadata ? "no-cache" : "public, max-age=31536000, immutable",
     });
     res.end(req.method === "HEAD" ? undefined : body);
   } catch {
