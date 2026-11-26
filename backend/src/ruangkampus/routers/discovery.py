@@ -242,19 +242,6 @@ def _parse_message_filters(
     if faculty:
         tokens = [token for token in tokens if token not in re.findall(r"[a-z0-9-]+", faculty.casefold())]
 
-    explicit_filter = any((
-        payload.faculty,
-        payload.building,
-        payload.min_capacity,
-        payload.facilities,
-        payload.requested_date,
-        payload.start_time,
-        payload.end_time,
-        payload.participant_count != 1,
-    ))
-    if not message.strip() and not explicit_filter:
-        tokens = ["__empty_assistant_message__"]
-
     return {
         "faculty": faculty,
         "building": building,
@@ -300,14 +287,32 @@ def room_assistant_chat(
     normalization = normalize_indonesian_message(payload.message, catalog)
     normalized_payload = payload.model_copy(update={"message": normalization.parser_text})
     filters = _parse_message_filters(db, normalized_payload, catalog)
-    rooms = _room_candidates(
-        db,
-        faculty=filters["faculty"],
-        building=filters["building"],
-        min_capacity=filters["min_capacity"],
-        facilities=filters["facilities"],
-        search_terms=filters["search_terms"],
+    has_complete_availability_window = bool(
+        filters["date"] and filters["start_time"] and filters["end_time"]
     )
+    has_room_criteria = any((
+        filters["faculty"],
+        filters["building"],
+        filters["min_capacity"],
+        filters["facilities"],
+        filters["search_terms"],
+    ))
+    has_effective_search_criteria = has_room_criteria or has_complete_availability_window
+
+    # Never turn a conversational/greeting-only message into an unfiltered
+    # catalogue query. A complete date/time window is itself a valid filter
+    # because availability is checked before any rooms are returned.
+    if has_effective_search_criteria:
+        rooms = _room_candidates(
+            db,
+            faculty=filters["faculty"],
+            building=filters["building"],
+            min_capacity=filters["min_capacity"],
+            facilities=filters["facilities"],
+            search_terms=filters["search_terms"],
+        )
+    else:
+        rooms = []
 
     available = []
     if filters["date"] and filters["start_time"] and filters["end_time"]:
@@ -342,18 +347,29 @@ def room_assistant_chat(
                 limit=5,
             ))
 
-    if rooms:
+    if not has_effective_search_criteria:
+        response_message = (
+            "Aku bisa bantu mencari ruangan. Beri tahu fakultas atau gedung, "
+            "fasilitas, kapasitas, atau kata kunci ruangan yang kamu butuhkan. "
+            "Untuk mengecek ketersediaan, sertakan tanggal serta jam mulai dan selesai."
+        )
+    elif rooms:
         response_message = f"Saya menemukan {len(rooms)} ruangan yang sesuai dengan kriteria pencarian."
-        if filters["date"] and filters["start_time"] and filters["end_time"]:
+        if has_complete_availability_window:
             response_message += " Slot tersebut lolos pemeriksaan ketersediaan saat ini."
     elif alternatives:
         response_message = "Tidak ada ruangan yang tersedia pada slot persis tersebut. Berikut beberapa alternatif tanggal, waktu, atau ruangan."
     else:
         response_message = "Belum ada ruangan yang cocok. Coba ubah fakultas, gedung, kapasitas, fasilitas, atau waktu."
     follow_up = []
-    if not (filters["date"] and filters["start_time"] and filters["end_time"]):
+    if not has_effective_search_criteria:
+        follow_up.append(
+            "Kamu ingin mencari berdasarkan fakultas, gedung, fasilitas, kapasitas, "
+            "atau kata kunci ruangan? Untuk cek jadwal, tambahkan tanggal dan rentang waktu."
+        )
+    elif not has_complete_availability_window:
         follow_up.append("Untuk mengecek ketersediaan, kirim tanggal, jam mulai, dan jam selesai.")
-    if not filters["min_capacity"]:
+    if has_effective_search_criteria and not filters["min_capacity"]:
         follow_up.append("Berapa jumlah peserta yang akan menggunakan ruangan?")
     room_data = [serialize_room(room) for room in rooms[:10]]
     legacy_filters = {
