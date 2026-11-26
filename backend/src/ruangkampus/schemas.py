@@ -443,6 +443,30 @@ class AssistantChatStructuredData(BaseModel):
     filters: AssistantChatSlots
 
 
+class AssistantTextCorrection(BaseModel):
+    """Traceable deterministic text correction; confidence is intentionally unset."""
+
+    original_token: str
+    normalized_token: str
+    correction_type: str
+    source: str
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class AssistantNormalizationResult(BaseModel):
+    """Typed normalization result consumed by the deterministic ROOM_SEARCH parser."""
+
+    raw_text: str
+    normalized_text: str
+    tokens: list[str] = Field(default_factory=list)
+    normalized_tokens: list[str] = Field(default_factory=list)
+    filler_tokens: list[str] = Field(default_factory=list)
+    corrections: list[AssistantTextCorrection] = Field(default_factory=list)
+    unknown_tokens: list[str] = Field(default_factory=list)
+    normalization_applied: bool = False
+    parser_text: str = ""
+
+
 class AssistantChatResponseData(BaseModel):
     """Structured inner response; existing legacy fields remain present."""
 
@@ -457,6 +481,7 @@ class AssistantChatResponseData(BaseModel):
     result_type: Literal["ROOMS_FOUND", "ALTERNATIVE_SLOTS", "NO_RESULTS"]
     requires_confirmation: bool = False
     data: AssistantChatStructuredData
+    normalization: AssistantNormalizationResult | None = None
 
     # Backward-compatible fields consumed by the current frontend.
     engine: Literal["RULE_BASED"]
