@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
-  adminApi, dashboardApi, formatDate, formatTime, localToday, reservationApi, roomApi,
+  adminApi, apiAssetUrl, dashboardApi, formatDate, formatTime, localToday, reservationApi, roomApi,
   scheduleApi, statusLabel,
 } from "./api";
 import type { Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from "./types";
@@ -180,7 +180,7 @@ export function AdminRoomsPage() {
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat inventaris ruangan…" /> : visible.length ? <div className="room-grid">
       {visible.map((room) => <article className="room-card" key={room.id}>
-        <div className="room-card__media">{room.photo_url ? <img src={room.photo_url} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={36} /></span>}</div>
+        <div className="room-card__media">{room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={36} /></span>}</div>
         <div className="room-card__body">
           <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang</span></div>
           <strong className="room-card__title">{room.room_name}</strong>
