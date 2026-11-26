@@ -560,13 +560,13 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 .assistant-message__engine { width: fit-content; color: var(--text-tertiary); font-size: 9px; font-weight: 650; letter-spacing: .015em; }
 .assistant-message__engine--hybrid { color: var(--status-success, #27845b); }
 .assistant-feedback { display: flex; flex-direction: column; gap: 7px; margin-top: 3px; }
-.assistant-feedback__actions { display: flex; align-items: center; gap: 8px; color: var(--text-tertiary); font-size: 10px; }
+.assistant-feedback__actions { display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 10px; }
 .assistant-feedback__actions button { display: inline-flex; width: 25px; height: 25px; align-items: center; justify-content: center; border: 1px solid var(--border-default); border-radius: 50%; color: var(--text-secondary); background: var(--surface-card); cursor: pointer; }
 .assistant-feedback__actions button:hover:not(:disabled) { border-color: var(--brand-primary); color: var(--brand-primary); }
 .assistant-feedback__actions button:disabled { opacity: .5; cursor: not-allowed; }
 .assistant-feedback__reasons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.assistant-feedback__reasons small { width: 100%; color: var(--text-tertiary); font-size: 10px; }
-.assistant-feedback__reasons button { padding: 5px 8px; border: 1px solid var(--border-default); border-radius: 999px; color: var(--text-secondary); background: var(--surface-card); font: inherit; font-size: 10px; cursor: pointer; }
+.assistant-feedback__reasons small { width: 100%; color: var(--text-primary); font-size: 10px; }
+.assistant-feedback__reasons button { padding: 5px 8px; border: 1px solid var(--border-default); border-radius: 999px; color: var(--text-primary); background: var(--surface-card); font: inherit; font-size: 10px; cursor: pointer; }
 .assistant-feedback__reasons button:hover:not(:disabled) { border-color: var(--brand-primary); color: var(--brand-primary); }
 .assistant-feedback__reasons button:disabled { opacity: .5; cursor: not-allowed; }
 .assistant-feedback__thanks { color: var(--status-success, #27845b); font-size: 10px; }
