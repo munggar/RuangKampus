@@ -418,3 +418,23 @@ def test_ambiguous_positive_faculties_are_not_arbitrarily_selected(
     found_ids = {item["id"] for item in data["rooms"]}
     assert first["id"] in found_ids
     assert second.json()["data"]["id"] in found_ids
+
+
+
+def test_empty_or_symbol_only_assistant_message_does_not_return_unfiltered_rooms(
+    client, auth_headers, student, admin, room_payload
+):
+    create_located_room(client, auth_headers, room_payload)
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "!!! ???"},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["normalization"]["normalized_text"] == ""
+    assert data["normalization"]["parser_text"] == ""
+    assert data["rooms"] == []
+    assert data["result_type"] == "NO_RESULTS"
+    assert data["requires_clarification"] is True
