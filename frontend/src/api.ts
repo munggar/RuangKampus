@@ -25,7 +25,7 @@ export function buildApiUrl(path: string) {
   return API_BASE_URL + "/" + path.replace(/^\/+/, "");
 }
 
-export function apiAssetUrl(path: string): string { return /^https?:\\/\\//i.test(path) ? path : buildApiUrl(path); }
+export function apiAssetUrl(path: string): string { return /^https?:\/\//i.test(path) ? path : buildApiUrl(path); }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
