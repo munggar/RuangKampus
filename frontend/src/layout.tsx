@@ -23,7 +23,6 @@ function navigationFor(role: AppRole): NavigationItem[] {
   ] : [
     { label: "Dashboard", shortLabel: "Home", path: base + "/dashboard", icon: LayoutDashboard },
     { label: "Reservation requests", shortLabel: "Requests", path: base + "/reservations", icon: ClipboardList },
-    { label: "AI Assistant", shortLabel: "AI", path: base + "/assistant", icon: Sparkles, ai: true },
     { label: "Manage rooms", shortLabel: "Rooms", path: base + "/rooms", icon: Building2 },
     { label: "Profile", shortLabel: "Profile", path: base + "/profile", icon: UserRound },
   ];
@@ -211,7 +210,7 @@ export function AppShell({ role }: { role: AppRole }) {
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
       <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "STAFF SEKRETARIAT WORKSPACE"}</p>
       <Navigation items={items} />
-      {role === "TU/Admin" ? <><Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link><Link className="sidebar-secondary-link" to="/admin/data-imports"><FileSpreadsheet size={17} />Impor data kampus</Link></> : null}
+      {role === "Staff Sekretariat" ? <><Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link><Link className="sidebar-secondary-link" to="/admin/data-imports"><FileSpreadsheet size={17} />Impor data kampus</Link></> : null}
       <div className="sidebar-footer"><span className="online-dot" />RuangKampus <span>Web</span></div>
     </aside>
     <div className="app-main">
