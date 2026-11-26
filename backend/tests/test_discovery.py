@@ -438,3 +438,31 @@ def test_empty_or_symbol_only_assistant_message_does_not_return_unfiltered_rooms
     assert data["rooms"] == []
     assert data["result_type"] == "NO_RESULTS"
     assert data["requires_clarification"] is True
+
+
+def test_assistant_does_not_return_unfiltered_rooms_for_conversational_messages(
+    client, auth_headers, student, admin, room_payload
+):
+    create_located_room(client, auth_headers, room_payload)
+    messages = (
+        "Bro, ada ruang kosong nggak?",
+        "Gmn cara reservasi?",
+        "Wkwkwk kamu robot ya?",
+        "Halo kak.",
+        "Cari ruangan",
+        "!!! ???",
+    )
+
+    for message in messages:
+        result = client.post(
+            "/api/v1/assistant/chat",
+            json={"message": message},
+            headers=auth_headers(),
+        )
+
+        assert result.status_code == 200, (message, result.text)
+        data = result.json()["data"]
+        assert data["rooms"] == [], message
+        assert data["result_type"] == "NO_RESULTS", message
+        assert data["requires_clarification"] is True, message
+        assert data["clarification_message"], message
