@@ -1,14 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowRight, Bot, Building2, CalendarDays, CheckCircle2, Clock3,
-  MessageCircle, Search, Send, Sparkles, Users, WandSparkles,
+  Search, Send, Sparkles, Users, WandSparkles,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import {
   apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
 } from "./api";
 import type {
-  AlternativeSlot, AlternativeSlotsResult, AppRole, AssistantChatResult,
+  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult,
   AvailabilityResult, Room,
 } from "./types";
 import { PageTitle } from "./layout";
