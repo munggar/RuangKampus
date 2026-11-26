@@ -26,6 +26,7 @@ function ReservationCard({ item }: { item: Reservation }) {
         <span className="reservation-card__id">RK-{item.id.slice(0, 8).toUpperCase()}</span>
         <StatusBadge status={item.status} />
       </div>
+      {item.room?.photo_url ? <RoomPhoto photoUrl={item.room.photo_url} roomName={item.room.room_name} className="reservation-card__image" /> : null}
       <strong>{item.room?.room_name || "Ruangan"}</strong>
       <span className="muted">{item.room?.building || "Lokasi kampus belum tersedia"}</span>
       <div className="reservation-card__meta">
@@ -35,6 +36,33 @@ function ReservationCard({ item }: { item: Reservation }) {
       <p>{item.purpose}</p>
     </Link>
   );
+}
+
+
+function RoomPhoto({ photoUrl, roomName, detail = false, className }: {
+  photoUrl: string | null;
+  roomName: string;
+  detail?: boolean;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => { setFailed(false); }, [photoUrl]);
+
+  if (!photoUrl || failed) {
+    return <div className={detail ? "room-detail__image room-detail__image--empty" : className || "room-card__placeholder"}>
+      <Building2 size={detail ? 48 : 34} aria-hidden="true" />
+    </div>;
+  }
+
+  return <img
+    className={detail ? "room-detail__image" : className}
+    src={apiAssetUrl(photoUrl)}
+    alt={"Foto " + roomName}
+    loading="lazy"
+    decoding="async"
+    onError={() => setFailed(true)}
+  />;
 }
 
 export function StudentDashboardPage() {
@@ -79,6 +107,7 @@ export function StudentDashboardPage() {
         {upcoming ? (
           <article className="next-session-card">
             <div className="next-session-card__top"><span>SESI ANDA</span><StatusBadge status={upcoming.status} /></div>
+            {upcoming.room?.photo_url ? <RoomPhoto photoUrl={upcoming.room.photo_url} roomName={upcoming.room.room_name} className="next-session-card__image" /> : null}
             <h2>{upcoming.room?.room_name || "Ruangan"}</h2>
             <p>{upcoming.room?.building || "Lokasi kampus"}</p>
             <div className="next-session-card__details">
@@ -162,7 +191,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
           <Link className="room-card__media" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
-            {room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}
+            <RoomPhoto photoUrl={room.photo_url} roomName={room.room_name} />
           </Link>
           <div className="room-card__body">
             <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang{room.capacity_estimate ? " · estimasi " + room.capacity_estimate : ""}</span></div>
@@ -203,7 +232,7 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
         <h1>{room.room_name}</h1>
         <p className="page-description">{room.description || "Informasi ruangan dikelola oleh administrator kampus."}</p>
         <StatusBadge status={room.room_status} />
-        {room.photo_url ? <img className="room-detail__image" src={apiAssetUrl(room.photo_url)} alt={room.room_name} /> : <div className="room-detail__image room-detail__image--empty"><Building2 size={48} /></div>}
+        <RoomPhoto photoUrl={room.photo_url} roomName={room.room_name} detail />
         <section className="panel">
           <h2>Tentang ruangan ini</h2>
           <p>{room.description || "Belum ada deskripsi tambahan untuk ruangan ini."}</p>

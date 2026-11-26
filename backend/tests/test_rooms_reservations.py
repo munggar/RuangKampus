@@ -351,3 +351,150 @@ def test_student_cannot_bulk_update_rooms_and_duplicate_ids_are_rejected(
         headers=auth_headers("admin.uhamka"),
     )
     assert duplicate.status_code == 422
+
+
+def test_admin_create_and_update_accepts_relative_room_photo_paths(
+    client, auth_headers, admin, room_payload
+):
+    payload = {**room_payload, "photo_url": "/media/rooms/imported-room.jpg"}
+    created = client.post(
+        "/api/v1/rooms", json=payload, headers=auth_headers("admin.uhamka")
+    )
+    assert created.status_code == 201, created.text
+    room = created.json()["data"]
+    assert room["photo_url"] == "/media/rooms/imported-room.jpg"
+
+    updated = client.patch(
+        f"/api/v1/rooms/{room['id']}",
+        json={"photo_url": "/media/rooms/updated-room.png"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["data"]["photo_url"] == "/media/rooms/updated-room.png"
+
+    invalid = client.patch(
+        f"/api/v1/rooms/{room['id']}",
+        json={"photo_url": "/media/rooms/../../secrets.txt"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert invalid.status_code == 422
+
+
+def test_admin_bulk_updates_operating_hours_for_selected_rooms(
+    client, auth_headers, admin, create_room, room_payload
+):
+    first = create_room()
+    second_response = client.post(
+        "/api/v1/rooms",
+        json={**room_payload, "room_name": "Room 102", "room_code": "R-102"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert second_response.status_code == 201, second_response.text
+    second = second_response.json()["data"]
+
+    operating_hours = {
+        "monday": [{"start": "08:00", "end": "18:00"}],
+        "wednesday": [{"start": "09:00", "end": "16:00"}],
+    }
+    response = client.patch(
+        "/api/v1/rooms/bulk-operating-hours",
+        json={"room_ids": [first["id"], second["id"]], "operating_hours": operating_hours},
+        headers=auth_headers("admin.uhamka"),
+    )
+
+    assert response.status_code == 200, response.text
+    result = response.json()["data"]
+    assert result["updated_count"] == 2
+    assert result["unchanged_count"] == 0
+    assert all(room["operating_hours"] == {
+        "monday": [{"start": "08:00:00", "end": "18:00:00"}],
+        "wednesday": [{"start": "09:00:00", "end": "16:00:00"}],
+    } for room in result["rooms"])
+
+
+def test_bulk_operating_hours_rejects_batch_when_future_reservation_would_fall_outside_hours(
+    client, auth_headers, student, admin, create_room, room_payload
+):
+    first = create_room()
+    second_response = client.post(
+        "/api/v1/rooms",
+        json={**room_payload, "room_name": "Room 103", "room_code": "R-103"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert second_response.status_code == 201, second_response.text
+    second = second_response.json()["data"]
+    admin_headers = auth_headers("admin.uhamka")
+
+    booking_date = next_weekday(1)
+    reservation = client.post(
+        "/api/v1/reservations",
+        json={
+            "room_id": first["id"],
+            "purpose": "Reserved slot",
+            "date": booking_date.isoformat(),
+            "start_time": "11:00:00",
+            "end_time": "12:00:00",
+            "participant_count": 2,
+        },
+        headers=auth_headers(),
+    )
+    assert reservation.status_code == 201, reservation.text
+
+    response = client.patch(
+        "/api/v1/rooms/bulk-operating-hours",
+        json={
+            "room_ids": [first["id"], second["id"]],
+            "operating_hours": {"monday": [{"start": "08:00", "end": "17:00"}]},
+        },
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 409
+    for room_id in (first["id"], second["id"]):
+        current = client.get(
+            f"/api/v1/rooms/{room_id}", headers=admin_headers
+        )
+        assert current.status_code == 200
+        assert "tuesday" in current.json()["data"]["operating_hours"]
+
+
+def test_student_cannot_bulk_update_operating_hours(
+    client, auth_headers, student, admin, create_room
+):
+    room = create_room()
+    response = client.patch(
+        "/api/v1/rooms/bulk-operating-hours",
+        json={
+            "room_ids": [room["id"]],
+            "operating_hours": {"monday": [{"start": "08:00", "end": "17:00"}]},
+        },
+        headers=auth_headers(),
+    )
+    assert response.status_code == 403
+
+
+def test_student_reservation_payload_includes_room_photo_for_account_views(
+    client, auth_headers, student, admin, room_payload
+):
+    created_room = client.post(
+        "/api/v1/rooms",
+        json={**room_payload, "photo_url": "/media/rooms/student-room.jpg"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created_room.status_code == 201, created_room.text
+    room = created_room.json()["data"]
+
+    reservation = client.post(
+        "/api/v1/reservations",
+        json={
+            "room_id": room["id"],
+            "purpose": "Photo display test",
+            "date": next_weekday(0).isoformat(),
+            "start_time": "10:00:00",
+            "end_time": "11:00:00",
+            "participant_count": 2,
+        },
+        headers=auth_headers(),
+    )
+    assert reservation.status_code == 201, reservation.text
+    assert reservation.json()["data"]["room"]["photo_url"] == "/media/rooms/student-room.jpg"

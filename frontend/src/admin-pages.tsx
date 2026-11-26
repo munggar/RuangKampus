@@ -155,6 +155,10 @@ export function AdminRoomsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkStatus, setBulkStatus] = useState<RoomStatus | "">("");
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkHoursOpen, setBulkHoursOpen] = useState(false);
+  const [bulkHoursDays, setBulkHoursDays] = useState<string[]>(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+  const [bulkHoursStart, setBulkHoursStart] = useState("08:00");
+  const [bulkHoursEnd, setBulkHoursEnd] = useState("17:00");
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const reload = () => {
@@ -198,6 +202,12 @@ export function AdminRoomsPage() {
     });
   }
 
+  function toggleBulkHoursDay(day: string) {
+    setBulkHoursDays((current) => current.includes(day)
+      ? current.filter((value) => value !== day)
+      : [...current, day]);
+  }
+
   async function applyBulkStatus() {
     if (!bulkStatus || selectedIds.length === 0) return;
     setBulkUpdating(true); setError("");
@@ -214,6 +224,36 @@ export function AdminRoomsPage() {
     } catch (cause) {
       setBulkConfirmOpen(false);
       setError(cause instanceof Error ? cause.message : "Status ruangan belum berhasil diperbarui. Tidak ada perubahan yang diterapkan.");
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
+  async function applyBulkOperatingHours() {
+    if (selectedIds.length === 0) return;
+    if (!bulkHoursDays.length) {
+      setError("Pilih minimal satu hari operasional.");
+      return;
+    }
+    if (bulkHoursEnd <= bulkHoursStart) {
+      setError("Jam tutup harus lebih akhir dari jam buka.");
+      return;
+    }
+    const operatingHours = Object.fromEntries(
+      bulkHoursDays.map((day) => [day, [{ start: bulkHoursStart, end: bulkHoursEnd }]])
+    );
+    setBulkUpdating(true); setError("");
+    try {
+      const result = await roomApi.bulkUpdateOperatingHours(selectedIds, operatingHours);
+      const updatedById = new Map(result.rooms.map((room) => [room.id, room]));
+      setRooms((current) => current.map((room) => updatedById.get(room.id) || room));
+      const unchangedText = result.unchanged_count ? " " + result.unchanged_count + " ruangan sudah memiliki jam tersebut." : "";
+      setNotice("Jam operasional " + result.updated_count + " ruangan berhasil diperbarui." + unchangedText);
+      setSelectedIds([]);
+      setBulkStatus("");
+      setBulkHoursOpen(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Jam operasional belum berhasil diperbarui. Tidak ada perubahan yang diterapkan.");
     } finally {
       setBulkUpdating(false);
     }
@@ -252,9 +292,10 @@ export function AdminRoomsPage() {
             <option value="MAINTENANCE">Pemeliharaan</option>
           </select>
         </Field>
-        <Button disabled={!bulkStatus || bulkUpdating} onClick={() => setBulkConfirmOpen(true)}>Terapkan ke {selectedIds.length} ruangan</Button>
+        <Button disabled={!bulkStatus || bulkUpdating} onClick={() => setBulkConfirmOpen(true)}>Terapkan status</Button>
+        <Button variant="secondary" disabled={bulkUpdating} onClick={() => setBulkHoursOpen(true)}><Clock3 size={15} />Atur jam operasional</Button>
         <Button variant="secondary" disabled={bulkUpdating} onClick={() => { setSelectedIds([]); setBulkStatus(""); }}>Batal pilih</Button>
-      </div> : <small className="room-selection-toolbar__hint">Centang kotak pada kartu ruangan untuk mengubah beberapa status sekaligus.</small>}
+      </div> : <small className="room-selection-toolbar__hint">Centang ruangan untuk mengubah status atau jam operasional beberapa ruangan sekaligus.</small>}
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {notice ? <Notice tone="success">{notice}</Notice> : null}
@@ -288,6 +329,30 @@ export function AdminRoomsPage() {
       onClose={() => setBulkConfirmOpen(false)}
       onConfirm={() => void applyBulkStatus()}
     />
+    <Modal
+      open={bulkHoursOpen}
+      title={"Atur jam operasional " + selectedIds.length + " ruangan"}
+      description="Hari dan jam yang dipilih akan langsung diterapkan ke seluruh ruangan terpilih setelah disimpan."
+      onClose={() => { if (!bulkUpdating) setBulkHoursOpen(false); }}
+    >
+      <div className="stack-form">
+        <div className="weekday-grid">
+          {weekdays.map(([day, label]) => <label key={day} className="checkbox-card">
+            <input type="checkbox" checked={bulkHoursDays.includes(day)} onChange={() => toggleBulkHoursDay(day)} disabled={bulkUpdating} />
+            <span>{label}</span>
+          </label>)}
+        </div>
+        <div className="form-grid form-grid--narrow">
+          <Field label="Buka"><input type="time" value={bulkHoursStart} onChange={(event) => setBulkHoursStart(event.target.value)} disabled={bulkUpdating} /></Field>
+          <Field label="Tutup"><input type="time" value={bulkHoursEnd} onChange={(event) => setBulkHoursEnd(event.target.value)} disabled={bulkUpdating} /></Field>
+        </div>
+        <Notice tone="info">Perubahan akan ditolak untuk semua ruangan apabila jadwal kuliah atau reservasi mendatang berada di luar jam yang dipilih. Tidak ada perubahan sebagian.</Notice>
+        <div className="modal-actions">
+          <Button variant="secondary" disabled={bulkUpdating} onClick={() => setBulkHoursOpen(false)}>Batal</Button>
+          <Button disabled={bulkUpdating || !bulkHoursDays.length || bulkHoursEnd <= bulkHoursStart} onClick={() => void applyBulkOperatingHours()}>{bulkUpdating ? "Menyimpan…" : "Simpan jam operasional"}</Button>
+        </div>
+      </div>
+    </Modal>
     <ConfirmModal open={!!selected} title="Nonaktifkan ruangan?" description={selected ? selected.room_name + " akan dihapus secara soft-delete. Ruangan dengan reservasi mendatang yang masih aktif tidak dapat dihapus." : ""} confirmText="Nonaktifkan ruangan" destructive loading={deleting} onClose={() => setSelected(null)} onConfirm={() => void removeRoom()} />
   </div>;
 }
@@ -381,7 +446,7 @@ export function AdminRoomEditorPage() {
       </div>
       <Field label="Fasilitas" hint="Pisahkan setiap fasilitas dengan koma."><input value={facilities} onChange={(e) => setFacilities(e.target.value)} placeholder="Whiteboard, Wi-Fi, Stop kontak" /></Field>
       <Field label="Deskripsi"><textarea rows={3} maxLength={5000} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-      <Field label="URL foto ruangan (opsional)" hint="Backend saat ini hanya menerima URL; upload file belum tersedia."><input type="url" value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://…" /></Field>
+      <Field label="URL atau path foto ruangan (opsional)" hint="Bisa memakai URL lengkap atau path foto hasil impor, misalnya /media/rooms/nama-file.jpg."><input type="text" inputMode="url" autoComplete="off" maxLength={2048} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="/media/rooms/nama-file.jpg atau https://…" /></Field>
       <div className="form-divider" />
       <div><h2>Jam operasional</h2><p className="muted">Field ini diperlukan oleh backend untuk memeriksa ketersediaan. Jam yang sama akan diterapkan ke hari yang dipilih.</p></div>
       <div className="weekday-grid">{weekdays.map(([day, label]) => <label key={day} className="checkbox-card"><input type="checkbox" checked={days.includes(day)} onChange={() => toggleDay(day)} /><span>{label}</span></label>)}</div>

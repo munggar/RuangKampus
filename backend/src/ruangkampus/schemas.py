@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, TypeAdapter, field_validator, model_validator
 
 
 class Role(str, Enum):
@@ -118,6 +118,29 @@ class OperatingWindow(BaseModel):
         return self
 
 
+def validate_room_photo_url_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if cleaned.startswith("/media/rooms/"):
+        filename = cleaned.removeprefix("/media/rooms/")
+        if (
+            not filename
+            or "/" in filename
+            or "\\" in filename
+            or filename in {".", ".."}
+            or not filename.replace("-", "").replace("_", "").replace(".", "").isalnum()
+        ):
+            raise ValueError("photo_url must reference a valid room media file")
+        return cleaned
+    try:
+        return str(TypeAdapter(HttpUrl).validate_python(cleaned))
+    except Exception:
+        raise ValueError("photo_url must be an HTTP(S) URL or /media/rooms/<filename>") from None
+
+
 class RoomCreateIn(BaseModel):
     room_name: str = Field(min_length=2, max_length=160)
     room_code: str | None = Field(default=None, max_length=80)
@@ -130,7 +153,12 @@ class RoomCreateIn(BaseModel):
     facilities: list[str] = Field(default_factory=list, max_length=100)
     operating_hours: dict[str, list[OperatingWindow]] = Field(default_factory=dict)
     room_status: str = Field(default="ACTIVE", pattern="^(ACTIVE|INACTIVE|MAINTENANCE)$")
-    photo_url: HttpUrl | None = None
+    photo_url: str | None = Field(default=None, max_length=2048)
+
+    @field_validator("photo_url")
+    @classmethod
+    def validate_photo_url(cls, value):
+        return validate_room_photo_url_value(value)
 
     @field_validator("facilities")
     @classmethod
@@ -162,7 +190,12 @@ class RoomUpdateIn(BaseModel):
     facilities: list[str] | None = Field(default=None, max_length=100)
     operating_hours: dict[str, list[OperatingWindow]] | None = None
     room_status: str | None = Field(default=None, pattern="^(ACTIVE|INACTIVE|MAINTENANCE)$")
-    photo_url: HttpUrl | None = None
+    photo_url: str | None = Field(default=None, max_length=2048)
+
+    @field_validator("photo_url")
+    @classmethod
+    def validate_photo_url(cls, value):
+        return validate_room_photo_url_value(value)
 
     @model_validator(mode="after")
     def non_nullable_fields_cannot_be_null(self):
@@ -184,6 +217,31 @@ class RoomBulkStatusUpdateIn(BaseModel):
         if len(values) != len(set(values)):
             raise ValueError("room_ids must not contain duplicates")
         return values
+
+
+class RoomBulkOperatingHoursUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_ids: list[UUID] = Field(min_length=1, max_length=100)
+    operating_hours: dict[str, list[OperatingWindow]] = Field(min_length=1, max_length=7)
+
+    @field_validator("room_ids")
+    @classmethod
+    def room_ids_must_be_unique(cls, values):
+        if len(values) != len(set(values)):
+            raise ValueError("room_ids must not contain duplicates")
+        return values
+
+    @field_validator("operating_hours")
+    @classmethod
+    def validate_operating_days(cls, value):
+        allowed = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+        unknown = set(value) - allowed
+        if unknown:
+            raise ValueError(f"Unsupported operating-hours day keys: {', '.join(sorted(unknown))}")
+        if any(not windows for windows in value.values()):
+            raise ValueError("Every selected day must contain at least one operating window")
+        return value
 
 
 class RoomOut(BaseOut):
@@ -239,6 +297,14 @@ class ReservationCancelIn(BaseModel):
     reason: str | None = Field(default=None, max_length=2000)
 
 
+class ReservationRoomOut(BaseOut):
+    id: UUID
+    room_name: str
+    building: str
+    capacity: int
+    photo_url: str | None
+
+
 class ReservationOut(BaseOut):
     id: UUID
     user_id: UUID
@@ -258,6 +324,7 @@ class ReservationOut(BaseOut):
     cancellation_reason: str | None
     cancelled_by_id: UUID | None
     updated_at: datetime
+    room: ReservationRoomOut | None = None
 
 
 class ScheduleCreateIn(BaseModel):

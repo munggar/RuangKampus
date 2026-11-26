@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 
 from ruangkampus.database import get_db
 from ruangkampus.dependencies import get_optional_user, require_admin
-from ruangkampus.models import Reservation, Room, RoomUpdateLog, User, utcnow
+from ruangkampus.models import LectureSchedule, Reservation, Room, RoomUpdateLog, User, utcnow
 from ruangkampus.responses import success
-from ruangkampus.schemas import AvailabilityOut, RoomBulkStatusUpdateIn, RoomCreateIn, RoomUpdateIn, serialize_room
+from ruangkampus.schemas import AvailabilityOut, RoomBulkOperatingHoursUpdateIn, RoomBulkStatusUpdateIn, RoomCreateIn, RoomUpdateIn, serialize_room
 from ruangkampus.services.availability import campus_today, check_room_availability
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
@@ -182,6 +182,114 @@ def bulk_update_room_status(
             "rooms": [serialize_room(room) for room in rooms],
         },
         "Room statuses updated",
+    )
+
+
+@router.patch("/bulk-operating-hours")
+def bulk_update_room_operating_hours(
+    payload: RoomBulkOperatingHoursUpdateIn,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Apply one validated weekly schedule to selected rooms as an atomic operation."""
+    rooms = db.scalars(
+        select(Room)
+        .where(Room.id.in_(payload.room_ids), Room.deleted_at.is_(None))
+        .order_by(Room.id)
+        .with_for_update()
+    ).all()
+    if len(rooms) != len(payload.room_ids):
+        raise HTTPException(status_code=404, detail="One or more selected rooms were not found")
+
+    proposed_hours = {
+        day: [(window.start, window.end) for window in windows]
+        for day, windows in payload.operating_hours.items()
+    }
+    room_names = {room.id: room.room_name for room in rooms}
+    room_ids = list(room_names)
+    today = campus_today()
+    blocked: set[str] = set()
+
+    future_reservations = db.scalars(
+        select(Reservation).where(
+            Reservation.room_id.in_(room_ids),
+            Reservation.status.in_(["PENDING", "APPROVED"]),
+            Reservation.reservation_date >= today,
+        )
+    ).all()
+    weekday_keys = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    for reservation in future_reservations:
+        day_key = weekday_keys[reservation.reservation_date.weekday()]
+        windows = proposed_hours.get(day_key, [])
+        if not any(start <= reservation.start_time and end >= reservation.end_time for start, end in windows):
+            blocked.add(room_names[reservation.room_id])
+
+    active_schedules = db.scalars(
+        select(LectureSchedule).where(
+            LectureSchedule.room_id.in_(room_ids),
+            LectureSchedule.schedule_status == "ACTIVE",
+        )
+    ).all()
+    for schedule in active_schedules:
+        if schedule.schedule_date is not None:
+            if schedule.schedule_date < today:
+                continue
+            weekday = schedule.schedule_date.weekday()
+        elif schedule.day_of_week is not None:
+            weekday = schedule.day_of_week
+        else:
+            continue
+        day_key = weekday_keys[weekday]
+        windows = proposed_hours.get(day_key, [])
+        if not any(start <= schedule.start_time and end >= schedule.end_time for start, end in windows):
+            blocked.add(room_names[schedule.room_id])
+
+    if blocked:
+        names = ", ".join(sorted(blocked))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Jam operasional tidak dapat diubah karena jadwal atau reservasi mendatang "
+                f"pada ruangan berikut berada di luar jam yang dipilih: {names}. "
+                "Tidak ada ruangan yang diubah."
+            ),
+        )
+
+    normalized_hours = {
+        day: [{"start": start.isoformat(), "end": end.isoformat()} for start, end in windows]
+        for day, windows in proposed_hours.items()
+    }
+    now = utcnow()
+    changed_rooms = []
+    for room in rooms:
+        previous = _room_snapshot(room)
+        if room.operating_hours == normalized_hours:
+            continue
+        room.operating_hours = normalized_hours
+        room.updated_at = now
+        db.add(
+            RoomUpdateLog(
+                admin_id=admin.id,
+                entity_type="ROOM",
+                entity_id=room.id,
+                action="BULK_OPERATING_HOURS_UPDATE",
+                previous_value=previous,
+                new_value=_room_snapshot(room),
+            )
+        )
+        changed_rooms.append(room)
+
+    db.commit()
+    for room in rooms:
+        db.refresh(room)
+
+    return success(
+        {
+            "updated_count": len(changed_rooms),
+            "unchanged_count": len(rooms) - len(changed_rooms),
+            "rooms": [serialize_room(room) for room in rooms],
+        },
+        "Room operating hours updated",
     )
 
 
