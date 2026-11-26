@@ -370,3 +370,25 @@ def test_negated_known_facility_alias_is_not_added_without_catalog_matches():
 def test_casual_identity_question_normalizes_to_supported_smalltalk():
     result = normalize_indonesian_message("lau sokap der")
     assert result.normalized_text == "kamu siapa der"
+
+
+def test_dataset_safe_exact_mappings_are_added_without_changing_legacy_forms():
+    result = normalize_indonesian_message("Adek mau bertemu asdos, gue lagi nugas")
+
+    assert result.normalized_text == "adik mau bertemu asisten dosen aku lagi mengerjakan tugas"
+    assert normalize_indonesian_message("lau sokap der").normalized_text == "kamu siapa der"
+
+
+def test_ambiguous_and_regional_slang_are_not_flattened_by_the_new_dataset():
+    raw = "Gas spill teh sa ko su ji mi"
+    result = normalize_indonesian_message(raw)
+
+    assert result.normalized_text == raw.casefold()
+    assert not any(
+        item.correction_type == "SLANG_ABBREVIATION"
+        for item in result.corrections
+    )
+
+
+def test_existing_legacy_gue_and_gua_meaning_wins_dataset_conflict():
+    assert normalize_indonesian_message("gue gua").normalized_text == "aku aku"
