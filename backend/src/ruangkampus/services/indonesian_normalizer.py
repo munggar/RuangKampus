@@ -83,7 +83,7 @@ PARSER_STOP_WORDS = frozenset({
     "pukul", "sampai", "hingga", "berapa", "kapan", "siapa", "apa", "mana",
     "pagi", "siang", "sore", "malam", "perlu", "mohon", "selamat", "informasi",
     "tetapi", "melainkan", "namun", "lagi", "kamu", "robot", "ya",
-    "cek", "benar", "wajib", "januari", "januari", "februari", "maret", "april",
+    "cek", "benar", "wajib", "januari", "februari", "maret", "april",
     "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember",
     "jan", "feb", "mar", "apr", "may", "jun", "jul", "agu", "aug", "sep", "okt", "oct", "nov", "des", "dec",
 })
