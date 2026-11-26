@@ -48,17 +48,17 @@ export function LoginPage() {
         {!isApiConfigured() ? <Notice tone="warning">Mode preview: tampilan tersedia, tetapi backend belum di-host atau URL API belum diatur. Login dan pemuatan data belum aktif.</Notice> : null}
         <div className="role-switch" aria-label="Pilih jenis akun">
           <button type="button" aria-pressed={role === "Student"} className={role === "Student" ? "is-active" : ""} onClick={() => { setRole("Student"); setIdentifier(""); setError(""); }}>Student</button>
-          <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setIdentifier("admin.uhamka"); setError(""); }}>Staff Sekretariat</button>
+          <button type="button" aria-pressed={role === "Staff Sekretariat"} className={role === "Staff Sekretariat" ? "is-active" : ""} onClick={() => { setRole("Staff Sekretariat"); setIdentifier("admin.uhamka"); setError(""); }}>Staff Sekretariat</button>
         </div>
         <form className="stack-form" onSubmit={submit}>
-          <Field label={role === "Student" ? "NIM" : "Username Administrator"}>
+          <Field label={role === "Student" ? "NIM" : "Username Staff Sekretariat"}>
             <input
               type="text"
               autoComplete="username"
               placeholder={role === "Student" ? "Masukkan NIM Anda" : "admin.uhamka"}
-              value={role === "TU/Admin" ? "admin.uhamka" : identifier}
+              value={role === "Staff Sekretariat" ? "admin.uhamka" : identifier}
               onChange={(event) => setIdentifier(event.target.value)}
-              readOnly={role === "TU/Admin"}
+              readOnly={role === "Staff Sekretariat"}
               required
             />
           </Field>
