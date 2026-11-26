@@ -7,7 +7,7 @@ import {
   ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
   ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
   StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
-  AlternativeSlotsPage, AdminDataImportsPage,
+  AlternativeSlotsPage, RoomAssistantPage, AdminDataImportsPage,
 } from "./pages";
 
 function FullScreenLoading() {
