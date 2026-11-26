@@ -24,7 +24,7 @@ _MANIFEST_MEMBER = _ROOT + "manifest.json"
 
 @lru_cache(maxsize=1)
 def _archive_bytes() -> bytes:
-    encoded = _ARCHIVE_PATH.read_text(encoding="ascii").strip()
+    encoded = "".join(_ARCHIVE_PATH.read_text(encoding="ascii").split())
     try:
         return base64.b64decode(encoded, validate=True)
     except binascii.Error as exc:
