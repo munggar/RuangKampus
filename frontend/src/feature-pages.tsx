@@ -251,6 +251,7 @@ type AssistantTurn = {
   message: string;
   rooms?: Room[];
   alternatives?: AlternativeSlot[];
+  reservations?: import("./types").AssistantReservationSummary[];
   followUps?: string[];
 };
 const assistantPrompts = [
@@ -261,6 +262,7 @@ const assistantPrompts = [
 
 export function RoomAssistantPage() {
   const [message, setMessage] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [turns, setTurns] = useState<AssistantTurn[]>([{
     id: 1, sender: "assistant",
     message: "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan.",
@@ -276,10 +278,17 @@ export function RoomAssistantPage() {
     setTurns((current) => [...current, { id: Date.now(), sender: "user", message: text }]);
     setLoading(true);
     try {
-      const response: AssistantChatResult = await discoveryApi.chat({ message: text });
+      const response: AssistantChatResult = await discoveryApi.chat({
+        message: text,
+        conversation_id: conversationId,
+      });
+      if (response.conversation_id) setConversationId(response.conversation_id);
       setTurns((current) => [...current, {
         id: Date.now() + 1, sender: "assistant", message: response.message,
-        rooms: response.rooms, alternatives: response.alternative_slots, followUps: response.follow_up_questions,
+        rooms: response.rooms,
+        alternatives: response.alternative_slots,
+        reservations: response.data?.reservations || [],
+        followUps: response.follow_up_questions,
       }]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
@@ -306,6 +315,11 @@ export function RoomAssistantPage() {
               </Link>)}
             </div> : null}
             {turn.alternatives?.length ? <div className="recommendation-list">{turn.alternatives.map((slot, index) => <AlternativeCard key={slot.room.id + slot.date + slot.start_time + index} slot={slot} />)}</div> : null}
+            {turn.reservations?.length ? <div className="assistant-inline-results">
+              {turn.reservations.map((reservation) => <div className="assistant-room-link" key={reservation.id}>
+                <span><b>{reservation.room_name} · {reservation.status}</b><small>{reservation.building} · {formatDate(reservation.date)} · {formatTime(reservation.start_time)}–{formatTime(reservation.end_time)} WIB · {reservation.participant_count} peserta</small></span>
+              </div>)}
+            </div> : null}
             {turn.followUps?.map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>)}
           </div>
         </article>)}
