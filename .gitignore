@@ -13,3 +13,5 @@
 **/htmlcov/
 **/node_modules/
 **/dist/
+**/.room-media/
+**/.room-import-staging/
