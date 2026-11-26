@@ -141,8 +141,8 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 .button:active:not(:disabled) { transform: translateY(1px); }
 .button--secondary { border-color: var(--border-default); color: var(--brand-primary); background: var(--surface-card); }
 .button--secondary:hover:not(:disabled) { border-color: var(--brand-primary); color: var(--brand-primary); background: var(--brand-primary-soft); }
-.button--danger { border-color: var(--status-error); color: #fff; background: var(--status-error); }
-.button--danger:hover:not(:disabled) { border-color: #8f1b2a; background: #8f1b2a; }
+.button--danger { border-color: var(--status-error); color: var(--status-error-button-text); background: var(--status-error); }
+.button--danger:hover:not(:disabled) { border-color: #8f1b2a; color: var(--status-error-button-hover-text); background: #8f1b2a; }
 .button--ghost { border-color: transparent; color: var(--text-secondary); background: transparent; }
 .button--ghost:hover:not(:disabled) { color: var(--brand-primary); background: var(--brand-primary-soft); }
 .button--wide { width: 100%; }
