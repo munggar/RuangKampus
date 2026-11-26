@@ -71,7 +71,9 @@ PARSER_STOP_WORDS = frozenset({
     "karena", "sama", "mengerjakan", "tugas", "meminjam", "pakai", "digunakan",
     "kosong", "kelas", "tempat", "fasilitas", "proyektor", "internet",
     "besok", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu", "minggu",
-    "bro", "kak", "dong", "nih", "wkwk", "hehe",
+    "bro", "kak", "dong", "nih", "wkwk", "hehe", "ber", "cara", "jam",
+    "pukul", "sampai", "hingga", "berapa", "kapan", "siapa", "apa", "mana",
+    "pagi", "siang", "sore", "malam", "perlu", "mohon", "selamat", "informasi",
 })
 
 COMMON_TOKENS = PARSER_STOP_WORDS | frozenset({
@@ -187,7 +189,7 @@ def _dynamic_typo_candidate(token: str, vocabulary: set[str]) -> tuple[str, str]
     matches = sorted(
         candidate
         for candidate in vocabulary
-        if candidate not in COMMON_TOKENS and len(candidate) >= 5
+        if len(candidate) >= 5
         and _levenshtein_at_most_one(token, candidate) == 1
     )
     # Ambiguous or equally plausible matches are intentionally not corrected.
