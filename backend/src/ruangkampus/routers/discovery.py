@@ -55,6 +55,72 @@ WEEKDAYS = {
     "sabtu": 5, "saturday": 5,
     "minggu": 6, "sunday": 6,
 }
+MONTHS = {
+    "januari": 1, "jan": 1,
+    "februari": 2, "feb": 2,
+    "maret": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "mei": 5, "may": 5,
+    "juni": 6, "jun": 6,
+    "juli": 7, "jul": 7,
+    "agustus": 8, "agu": 8, "aug": 8,
+    "september": 9, "sep": 9,
+    "oktober": 10, "okt": 10, "oct": 10,
+    "november": 11, "nov": 11,
+    "desember": 12, "des": 12, "dec": 12,
+}
+
+
+def _parse_date_from_message(message: str) -> date | None:
+    """Parse explicit Indonesian/ISO dates and common relative campus dates."""
+    iso_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", message)
+    if iso_match:
+        try:
+            return date.fromisoformat(iso_match.group(1))
+        except ValueError:
+            return None
+
+    named_match = re.search(
+        r"\b(\d{1,2})\s+("
+        + "|".join(sorted(MONTHS, key=len, reverse=True))
+        + r")\s+(20\d{2})\b",
+        message,
+        flags=re.IGNORECASE,
+    )
+    if named_match:
+        try:
+            return date(
+                int(named_match.group(3)),
+                MONTHS[named_match.group(2).casefold()],
+                int(named_match.group(1)),
+            )
+        except ValueError:
+            return None
+
+    numeric_match = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b", message)
+    if numeric_match:
+        try:
+            return date(
+                int(numeric_match.group(3)),
+                int(numeric_match.group(2)),
+                int(numeric_match.group(1)),
+            )
+        except ValueError:
+            return None
+
+    today = campus_today()
+    if re.search(r"\bbesok\b", message):
+        return today + timedelta(days=1)
+    if re.search(r"\blusa\b", message):
+        return today + timedelta(days=2)
+
+    for label, weekday in WEEKDAYS.items():
+        if re.search(rf"\b{label}\b", message):
+            delta = (weekday - today.weekday()) % 7
+            return today + timedelta(days=delta or 7)
+    return None
+
+
 STOP_WORDS = {
     "saya", "mau", "ingin", "tolong", "carikan", "cari", "ruangan", "ruang",
     "untuk", "orang", "peserta", "kapasitas", "di", "pada", "hari", "tanggal",
@@ -195,26 +261,12 @@ def _parse_message_filters(
 
     requested_date = payload.requested_date
     if requested_date is None:
-        date_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", message)
-        if date_match:
-            try:
-                requested_date = date.fromisoformat(date_match.group(1))
-            except ValueError:
-                requested_date = None
-        elif re.search(r"\bbesok\b", message):
-            requested_date = campus_today() + timedelta(days=1)
-        else:
-            for label, weekday in WEEKDAYS.items():
-                if re.search(rf"\b{label}\b", message):
-                    today = campus_today()
-                    delta = (weekday - today.weekday()) % 7
-                    requested_date = today + timedelta(days=delta or 7)
-                    break
+        requested_date = _parse_date_from_message(message)
 
     start_time, end_time = payload.start_time, payload.end_time
     if start_time is None and end_time is None:
         time_match = re.search(
-            r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*(?:-|sampai|hingga|to)\s*([01]?\d|2[0-3])[:.]([0-5]\d)\b",
+            r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*(?:-|–|—|s/d|sd|sampai|hingga|to)\s*([01]?\d|2[0-3])[:.]([0-5]\d)\b",
             message,
         )
         if time_match:
