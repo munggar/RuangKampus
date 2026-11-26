@@ -303,7 +303,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     {loading ? <Loading label="Memuat direktori ruangan…" /> : rooms.length ? (
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
-          <Link className="room-card__media" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
+          <Link className="room-card__media" aria-label={"Lihat detail ruangan " + room.room_name} to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
             <RoomPhoto photoUrl={room.photo_url} roomName={room.room_name} />
           </Link>
           <div className="room-card__body">
