@@ -8,4 +8,5 @@ export {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
   AdminUsersPage, AdminActivityPage, AdminScheduleImportsPage,
 } from "./admin-pages";
+export { AdminDataImportsPage } from "./admin-data-imports";
 export { StudentRoomAvailabilityPage, AlternativeSlotsPage, RoomAssistantPage } from "./feature-pages";
