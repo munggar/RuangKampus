@@ -184,6 +184,29 @@ export function AppShell({ role }: { role: AppRole }) {
   }
 
   return <div className="app-shell">
+    <svg className="brand-filter-defs" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="rk-dark-wordmark-filter" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
+          <feColorMatrix in="SourceGraphic" type="matrix" values="
+            0 1 0 0 0
+            0 1 0 0 0
+            0 1 0 0 0
+            0 1 0 0 0
+          " result="green-channel" />
+          <feComponentTransfer in="green-channel" result="dark-wordmark-mask">
+            <feFuncA type="linear" slope="-10" intercept="2.8" />
+          </feComponentTransfer>
+          <feComposite in="dark-wordmark-mask" in2="SourceAlpha" operator="in" result="wordmark-mask" />
+          <feFlood floodColor="#E7F0FF" result="bright-wordmark" />
+          <feComposite in="bright-wordmark" in2="wordmark-mask" operator="in" result="bright-text" />
+          <feComposite in="SourceGraphic" in2="wordmark-mask" operator="out" result="original-blue-mark" />
+          <feMerge>
+            <feMergeNode in="original-blue-mark" />
+            <feMergeNode in="bright-text" />
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
     <aside className="desktop-sidebar">
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
       <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "TU / ADMIN WORKSPACE"}</p>

@@ -1122,3 +1122,12 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 
 
 /* Official logo assets are displayed without filters, shadows, or visual effects. */
+.brand-filter-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+:root[data-theme="dark"] .brand-logo--navigation {
+  filter: url("#rk-dark-wordmark-filter");
+}
