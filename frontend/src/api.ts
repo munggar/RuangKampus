@@ -10,6 +10,7 @@ export class ApiError extends Error {
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
 const API_BASE_URL = (configuredApiBase || (import.meta.env.DEV ? "http://localhost:8000/api/v1" : "")).replace(/\/+$/, "");
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1$/i, "");
 
 export function isApiConfigured() {
   return API_BASE_URL.length > 0;
@@ -25,7 +26,7 @@ export function buildApiUrl(path: string) {
   return API_BASE_URL + "/" + path.replace(/^\/+/, "");
 }
 
-export function apiAssetUrl(path: string): string { return /^https?:\/\//i.test(path) ? path : buildApiUrl(path); }
+export function apiAssetUrl(path: string): string { return /^https?:\/\//i.test(path) ? path : API_ORIGIN + "/" + path.replace(/^\/+/, ""); }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
