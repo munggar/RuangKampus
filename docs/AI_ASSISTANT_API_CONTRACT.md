@@ -17,7 +17,7 @@ This document describes the contract implemented by the current backend. It does
 
 The endpoint resolves identity through the existing `require_student` dependency. There is no `user_id` field in the request contract, and the assistant does not accept an identity supplied by the caller as an authorization source.
 
-TU/Admin users receive HTTP 403 from this Student-only endpoint. Schedule administration remains in the separate `/api/v1/admin/*` routes.
+Staff Sekretariat users receive HTTP 403 from this Student-only endpoint. Schedule administration remains in the separate `/api/v1/admin/*` routes.
 
 ## 2. Request schema
 
