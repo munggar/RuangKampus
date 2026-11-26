@@ -758,9 +758,8 @@ def room_assistant_chat(
             result_type="ROOMS_FOUND" if partial_room_data else "NO_RESULTS",
             requires_clarification=True,
             privacy_message=(
-                "Pesan saat ini dikirim ke penyedia AI untuk interpretasi dan penyusunan jawaban berdasarkan "
-                "ringkasan fakta ruangan yang cocok. Riwayat percakapan, identitas akun, dan data reservasi "
-                "pribadi tidak dikirim."
+                "Pesan saat ini yang telah disamarkan dikirim ke penyedia AI hanya untuk interpretasi intent. "
+                "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
             ) if ai_fallback_used else None,
             ai_fallback_used=ai_fallback_used,
             slots_override=pending_slots,
