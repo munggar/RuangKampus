@@ -219,7 +219,7 @@ def generate_grounded_assistant_message(
                 "response_format": {"type": "json_object"},
                 "messages": provider_messages,
             },
-            timeout=settings.assistant_ai_timeout_seconds,
+            timeout=max(settings.assistant_ai_timeout_seconds, 30.0),
             follow_redirects=False,
         )
         response.raise_for_status()
@@ -233,7 +233,7 @@ def generate_grounded_assistant_message(
     except httpx.TimeoutException:
         logger.warning(
             "RUKKA AI response provider timed out after %.1f seconds",
-            settings.assistant_ai_timeout_seconds,
+            max(settings.assistant_ai_timeout_seconds, 30.0),
         )
         return None
     except httpx.HTTPStatusError as exc:
