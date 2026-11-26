@@ -62,7 +62,7 @@ def test_register_requires_unique_nim(client):
 def test_admin_username_login_is_case_insensitive(client, admin):
     response = client.post("/api/v1/auth/login", json={"identifier": "ADMIN.UHAMKA", "password": "StrongPass123!"})
     assert response.status_code == 200
-    assert response.json()["user"]["role"] == "TU/Admin"
+    assert response.json()["user"]["role"] == "Staff Sekretariat"
 
 
 def test_health_and_readiness_endpoints(client):
