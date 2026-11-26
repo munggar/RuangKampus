@@ -121,7 +121,7 @@ export function AdminGuidePage() {
         </div>
         <ul className="staff-guide-list">
           <li>Jam pada dashboard menggunakan zona waktu kampus <b>WIB (Asia/Jakarta)</b> dan diperbarui setiap detik.</li>
-          <li>Perhatikan indikator ketika reservasi mendekati waktu selesai atau telah melewati jadwal.</li>
+          <li>Sebelum mulai, kartu menampilkan label “Mulai dalam”. Saat penggunaan berlangsung, label berubah menjadi “Sisa waktu”; peringatan “Segera berakhir” muncul ketika sisa waktu 5 menit atau kurang. Setelah melewati jam selesai, kartu menampilkan durasi keterlambatan.</li>
           <li>Hubungi peminjam atau petugas terkait jika penggunaan belum berakhir sesuai waktu yang disetujui.</li>
           <li>Setelah mahasiswa meninggalkan ruangan, lakukan pemeriksaan fisik untuk memastikan ruangan benar-benar kosong.</li>
         </ul>
@@ -134,7 +134,7 @@ export function AdminGuidePage() {
           <span className="staff-guide-card__icon"><FileSpreadsheet size={21} /></span>
           <p className="eyebrow">05 · DATA IMPORT</p>
           <h2>Mengimpor data kampus</h2>
-          <p>Halaman Impor data kampus menyediakan ruang kerja untuk data mahasiswa, mata kuliah, dan ruangan.</p>
+          <p>Halaman Impor data kampus menampilkan tiga jenis data. Saat ini, impor data ruangan sudah tersedia, sedangkan data mahasiswa dan mata kuliah masih menunggu file resmi dari unit akademik.</p>
           <ul>
             <li>Pilih tab jenis data yang akan diproses.</li>
             <li>Siapkan file sesuai format dan kolom yang diminta pada halaman impor.</li>
