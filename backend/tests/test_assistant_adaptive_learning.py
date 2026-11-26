@@ -3,9 +3,11 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
+from pydantic import ValidationError
 
 from ruangkampus.database import Base
 from ruangkampus.models import AssistantLearningFeedback, User
+from ruangkampus.schemas import AssistantFeedbackIn
 from ruangkampus.services.assistant_adaptive_learning import get_adaptive_learning_preferences
 
 
@@ -102,3 +104,37 @@ def test_old_or_helpful_feedback_does_not_change_preferences():
     finally:
         db.close()
         engine.dispose()
+
+
+
+def test_feedback_schema_requires_a_allowlisted_reason_for_negative_rating():
+    helpful = AssistantFeedbackIn(intent="SMALLTALK", rating="HELPFUL")
+    negative = AssistantFeedbackIn(
+        intent="SMALLTALK",
+        rating="NOT_HELPFUL",
+        reason_code="WRONG_NORMALIZATION",
+    )
+
+    assert helpful.reason_code is None
+    assert negative.reason_code == "WRONG_NORMALIZATION"
+
+
+def test_feedback_schema_rejects_free_text_or_inconsistent_reason_codes():
+    import pytest
+
+    with pytest.raises(ValidationError):
+        AssistantFeedbackIn(intent="SMALLTALK", rating="NOT_HELPFUL")
+
+    with pytest.raises(ValidationError):
+        AssistantFeedbackIn(
+            intent="SMALLTALK",
+            rating="HELPFUL",
+            reason_code="TOO_FORMAL",
+        )
+
+    with pytest.raises(ValidationError):
+        AssistantFeedbackIn(
+            intent="SMALLTALK",
+            rating="NOT_HELPFUL",
+            reason_code="PLEASE_CHANGE_DICTIONARY",
+        )
