@@ -164,6 +164,30 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     expect(api.calls).toContain("PATCH /users/me");
   });
 
+  test("requires matching password confirmation before submitting a password change", async ({ page }) => {
+    const api = await installMockApi(page, "Student");
+    await page.goto("/student/profile");
+    await waitForPageReady(page);
+
+    await page.locator('input[autocomplete="current-password"]').fill("fixture-current");
+    await page.getByLabel("Password baru").fill("fixture-new-value");
+    const confirmation = page.getByLabel("Konfirmasi password baru");
+    await confirmation.fill("fixture-different-value");
+
+    await page.getByRole("button", { name: "Ubah password" }).click();
+    await expect(page.getByRole("alert")).toContainText("Konfirmasi password baru tidak cocok.");
+    expect(api.calls).not.toContain("PATCH /users/me/password");
+
+    await confirmation.fill("fixture-new-value");
+    await page.getByRole("button", { name: "Tampilkan konfirmasi password" }).click();
+    await expect(confirmation).toHaveAttribute("type", "text");
+    await expect(confirmation).toHaveValue("fixture-new-value");
+
+    await page.getByRole("button", { name: "Ubah password" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    expect(api.calls).toContain("PATCH /users/me/password");
+  });
+
   test("toggles current and new password visibility independently", async ({ page }) => {
     await installMockApi(page, "Student");
     await page.goto("/student/profile");
