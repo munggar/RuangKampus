@@ -54,7 +54,7 @@ def _photo_dir() -> Path:
 
 
 def _staging_dir(batch_id: UUID) -> Path:
-    path = _photo_dir() / ".staging" / str(batch_id)
+    path = _photo_dir().parent / ".room-import-staging" / str(batch_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -266,7 +266,7 @@ def commit_room_import(
         db.rollback()
         raise HTTPException(status_code=409, detail="Terjadi duplikasi data; tidak ada perubahan yang disimpan") from None
     finally:
-        shutil.rmtree(_photo_dir() / ".staging" / str(batch.id), ignore_errors=True)
+        shutil.rmtree(_photo_dir().parent / ".room-import-staging" / str(batch.id), ignore_errors=True)
     return success({
         "batch_id": str(batch.id), "status": batch.status,
         "inserted": len(created_rooms), "row_count": batch.row_count,
