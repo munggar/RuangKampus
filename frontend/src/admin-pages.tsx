@@ -149,18 +149,76 @@ export function AdminRoomsPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<Room | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<RoomStatus | "">("");
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+
   const reload = () => {
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setNotice("");
     const params = new URLSearchParams({ page: "1", limit: "100", sortBy: "room_name", sortOrder: "asc" });
     if (status) params.set("status", status);
     roomApi.list(params).then((result) => setRooms(result.items))
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Data ruangan belum dapat dimuat."))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { reload(); }, [status]);
-  const visible = rooms.filter((room) => !search || (room.room_name + " " + room.building + " " + (room.room_code || "")).toLowerCase().includes(search.toLowerCase()));
+  useEffect(() => { setSelectedIds([]); setBulkStatus(""); reload(); }, [status]);
+
+  const visible = rooms.filter((room) =>
+    (!status || room.room_status === status)
+    && (!search || (room.room_name + " " + room.building + " " + (room.room_code || "")).toLowerCase().includes(search.toLowerCase()))
+  );
+  const visibleIds = visible.map((room) => room.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+  const active = rooms.filter((room) => room.room_status === "ACTIVE").length;
+  const bulkStatusLabel: Record<RoomStatus, string> = {
+    ACTIVE: "Aktif",
+    INACTIVE: "Nonaktif",
+    MAINTENANCE: "Pemeliharaan",
+  };
+
+  function toggleRoom(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return Array.from(next);
+    });
+  }
+
+  function toggleVisibleRooms() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return Array.from(next);
+    });
+  }
+
+  async function applyBulkStatus() {
+    if (!bulkStatus || selectedIds.length === 0) return;
+    setBulkUpdating(true); setError("");
+    try {
+      const result = await roomApi.bulkUpdateStatus(selectedIds, bulkStatus);
+      const updatedById = new Map(result.rooms.map((room) => [room.id, room]));
+      setRooms((current) => current.map((room) => updatedById.get(room.id) || room));
+      const targetLabel = bulkStatusLabel[bulkStatus].toLowerCase();
+      const unchangedText = result.unchanged_count ? " " + result.unchanged_count + " ruangan sudah memiliki status tersebut." : "";
+      setNotice(result.updated_count + " ruangan berhasil diubah menjadi " + targetLabel + "." + unchangedText);
+      setSelectedIds([]);
+      setBulkStatus("");
+      setBulkConfirmOpen(false);
+    } catch (cause) {
+      setBulkConfirmOpen(false);
+      setError(cause instanceof Error ? cause.message : "Status ruangan belum berhasil diperbarui. Tidak ada perubahan yang diterapkan.");
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
   async function removeRoom() {
     if (!selected) return;
     setDeleting(true); setError("");
@@ -168,32 +226,68 @@ export function AdminRoomsPage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Ruangan belum dapat dihapus."); }
     finally { setDeleting(false); }
   }
-  const active = rooms.filter((room) => room.room_status === "ACTIVE").length;
+
   return <div className="page-stack">
     <PageTitle eyebrow="ROOM MANAGEMENT" title="Kelola ruangan" description={rooms.length + " ruangan dalam inventaris kampus."} action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruangan</Link>} />
     <div className="panel list-toolbar">
       <Field label="Cari ruangan"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nama ruangan, gedung, atau kode" /></span></Field>
-      <Field label="Status"><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Semua status</option><option value="ACTIVE">Aktif</option><option value="INACTIVE">Nonaktif</option><option value="MAINTENANCE">Pemeliharaan</option></select></Field>
+      <Field label="Status"><select value={status} onChange={(event) => { setSelectedIds([]); setBulkStatus(""); setStatus(event.target.value); }}><option value="">Semua status</option><option value="ACTIVE">Aktif</option><option value="INACTIVE">Nonaktif</option><option value="MAINTENANCE">Pemeliharaan</option></select></Field>
       <Link className="button button--secondary" to="/admin/schedules"><CalendarDays size={16} />Jadwal & pemeliharaan</Link>
       <Link className="button button--secondary" to="/admin/data-imports"><FileSpreadsheet size={16} />Impor data</Link>
     </div>
     <div className="list-summary"><b>{active} aktif</b><span>{rooms.length - active} nonaktif atau pemeliharaan</span></div>
+    <div className="room-selection-toolbar">
+      <label className="checkbox-line room-selection-toolbar__all">
+        <input type="checkbox" checked={allVisibleSelected} onChange={toggleVisibleRooms} disabled={!visible.length || loading || bulkUpdating} />
+        <span>Pilih semua yang tampil</span>
+        <b>{visible.length}</b>
+      </label>
+      <span className="room-selection-toolbar__count">{selectedIds.length} ruangan dipilih</span>
+      {selectedIds.length > 0 ? <div className="room-selection-toolbar__actions">
+        <Field label="Ubah status menjadi">
+          <select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value as RoomStatus | "")} disabled={bulkUpdating}>
+            <option value="">Pilih status…</option>
+            <option value="ACTIVE">Aktif</option>
+            <option value="INACTIVE">Nonaktif</option>
+            <option value="MAINTENANCE">Pemeliharaan</option>
+          </select>
+        </Field>
+        <Button disabled={!bulkStatus || bulkUpdating} onClick={() => setBulkConfirmOpen(true)}>Terapkan ke {selectedIds.length} ruangan</Button>
+        <Button variant="secondary" disabled={bulkUpdating} onClick={() => { setSelectedIds([]); setBulkStatus(""); }}>Batal pilih</Button>
+      </div> : <small className="room-selection-toolbar__hint">Centang kotak pada kartu ruangan untuk mengubah beberapa status sekaligus.</small>}
+    </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
+    {notice ? <Notice tone="success">{notice}</Notice> : null}
     {loading ? <Loading label="Memuat inventaris ruangan…" /> : visible.length ? <div className="room-grid">
-      {visible.map((room) => <article className="room-card" key={room.id}>
-        <div className="room-card__media">{room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={36} /></span>}</div>
-        <div className="room-card__body">
-          <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang{room.capacity_estimate ? " · estimasi " + room.capacity_estimate : ""}</span></div>
-          <strong className="room-card__title">{room.room_name}</strong>
-          <p>{room.building}{room.floor ? " · Lantai " + room.floor : ""}</p>
-          <div className="chip-list">{room.facilities.slice(0, 3).map((item) => <span key={item}>{item}</span>)}</div>
-          <div className="room-card__actions">
-            <Link className="button button--secondary" to={"/admin/rooms/" + room.id + "/edit"}><Edit3 size={15} />Edit</Link>
-            <Button variant="danger" onClick={() => setSelected(room)}><Trash2 size={15} />Hapus</Button>
+      {visible.map((room) => {
+        const isSelected = selectedIds.includes(room.id);
+        return <article className={"room-card" + (isSelected ? " is-selected" : "")} key={room.id}>
+          <label className="room-card__select" title={"Pilih " + room.room_name}>
+            <input type="checkbox" checked={isSelected} onChange={(event) => toggleRoom(room.id, event.target.checked)} aria-label={"Pilih " + room.room_name} disabled={bulkUpdating} />
+          </label>
+          <div className="room-card__media">{room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={36} /></span>}</div>
+          <div className="room-card__body">
+            <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang{room.capacity_estimate ? " · estimasi " + room.capacity_estimate : ""}</span></div>
+            <strong className="room-card__title">{room.room_name}</strong>
+            <p>{room.building}{room.floor ? " · Lantai " + room.floor : ""}</p>
+            <div className="chip-list">{room.facilities.slice(0, 3).map((item) => <span key={item}>{item}</span>)}</div>
+            <div className="room-card__actions">
+              <Link className="button button--secondary" to={"/admin/rooms/" + room.id + "/edit"}><Edit3 size={15} />Edit</Link>
+              <Button variant="danger" onClick={() => setSelected(room)}><Trash2 size={15} />Hapus</Button>
+            </div>
           </div>
-        </div>
-      </article>)}
+        </article>;
+      })}
     </div> : <EmptyState title="Ruangan belum tersedia" description="Tambahkan ruangan baru untuk memulai pengelolaan inventaris." action={<Link to="/admin/rooms/new" className="button button--primary">Tambah ruangan</Link>} icon={<Building2 size={22} />} />}
+    <ConfirmModal
+      open={bulkConfirmOpen}
+      title={"Ubah status " + selectedIds.length + " ruangan sekaligus?"}
+      description={bulkStatus ? "Semua ruangan terpilih akan diubah menjadi " + bulkStatusLabel[bulkStatus] + ". Jika ada ruangan dengan reservasi mendatang yang masih menunggu atau disetujui, seluruh perubahan akan dibatalkan." : ""}
+      confirmText="Ya, ubah semua status"
+      loading={bulkUpdating}
+      onClose={() => setBulkConfirmOpen(false)}
+      onConfirm={() => void applyBulkStatus()}
+    />
     <ConfirmModal open={!!selected} title="Nonaktifkan ruangan?" description={selected ? selected.room_name + " akan dihapus secara soft-delete. Ruangan dengan reservasi mendatang yang masih aktif tidak dapat dihapus." : ""} confirmText="Nonaktifkan ruangan" destructive loading={deleting} onClose={() => setSelected(null)} onConfirm={() => void removeRoom()} />
   </div>;
 }
