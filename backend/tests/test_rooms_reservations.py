@@ -471,3 +471,30 @@ def test_student_cannot_bulk_update_operating_hours(
         headers=auth_headers(),
     )
     assert response.status_code == 403
+
+
+def test_student_reservation_payload_includes_room_photo_for_account_views(
+    client, auth_headers, student, admin, room_payload
+):
+    created_room = client.post(
+        "/api/v1/rooms",
+        json={**room_payload, "photo_url": "/media/rooms/student-room.jpg"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created_room.status_code == 201, created_room.text
+    room = created_room.json()["data"]
+
+    reservation = client.post(
+        "/api/v1/reservations",
+        json={
+            "room_id": room["id"],
+            "purpose": "Photo display test",
+            "date": next_weekday(0).isoformat(),
+            "start_time": "10:00:00",
+            "end_time": "11:00:00",
+            "participant_count": 2,
+        },
+        headers=auth_headers(),
+    )
+    assert reservation.status_code == 201, reservation.text
+    assert reservation.json()["data"]["room"]["photo_url"] == "/media/rooms/student-room.jpg"
