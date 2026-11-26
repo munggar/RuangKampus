@@ -414,7 +414,7 @@ export async function installMockApi(page: Page, initialRole: NullableRole): Pro
       notifications = notifications.map((item) => ({ ...item, read_at: item.read_at || readAt }));
       return data(route, { updated_count: updatedCount, read_at: readAt });
     }
-    const retryMatch = path.match(/^\\/notifications\\/([^/]+)\\/retry-email$/);
+    const retryMatch = path.match(/^\/notifications\/([^/]+)\/retry-email$/);
     if (retryMatch && method === "POST") {
       const id = decodeURIComponent(retryMatch[1]);
       notifications = notifications.map((item) => item.id === id ? { ...item, email_delivery_status: "SENT", email_attempt_count: Number(item.email_attempt_count || 0) + 1, email_sent_at: new Date().toISOString() } : item);
