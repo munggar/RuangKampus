@@ -17,7 +17,7 @@ function navigationFor(role: AppRole): NavigationItem[] {
   return role === "Student" ? [
     { label: "Dashboard", shortLabel: "Home", path: base + "/dashboard", icon: LayoutDashboard },
     { label: "Rooms", shortLabel: "Rooms", path: base + "/rooms", icon: Building2 },
-    { label: "AI Assistant", shortLabel: "AI", path: base + "/assistant", icon: Sparkles, ai: true },
+    { label: "RUKKA AI", shortLabel: "RUKKA", path: base + "/assistant", icon: Sparkles, ai: true },
     { label: "My bookings", shortLabel: "Bookings", path: base + "/reservations", icon: CalendarCheck },
     { label: "Profile", shortLabel: "Profile", path: base + "/profile", icon: UserRound },
   ] : [

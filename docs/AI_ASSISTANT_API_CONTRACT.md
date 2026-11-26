@@ -1,4 +1,4 @@
-# RuangKampus — AI Assistant API Contract (Stages 2.1–2.4 + RAKA)
+# RuangKampus — AI Assistant API Contract (Stages 2.1–2.4 + RUKKA AI)
 
 This document describes the Student-only room assistant, its deterministic backend execution, and the optional OpenRouter/Gemma response-generation layer.
 
@@ -11,7 +11,7 @@ This document describes the Student-only room assistant, its deterministic backe
 | Authentication | Required: `Authorization: Bearer <access_token>` |
 | Authorized role | `STUDENT` only |
 | Current engine | `RULE_BASED` by default; `HYBRID` when the optional AI provider is used |
-| Assistant identity | `RAKA` — Ruang Asisten Kampus |
+| Assistant identity | `RUKKA AI` — Ruang Asisten Kampus |
 | Current intent | Allowlisted deterministic intents (see section 11) |
 | Conversation persistence | User-owned structured search slots for up to 30 minutes; raw messages and generated answers are not persisted |
 | External AI provider | Optional OpenRouter-compatible provider; disabled by default |
@@ -78,7 +78,7 @@ The inner Pydantic response model is `AssistantChatResponseData`. The response c
 
 | Field | Type | Current behavior |
 |---|---|---|
-| `assistant_name` | string | `RAKA` — stable display name for the assistant |
+| `assistant_name` | string | `RUKKA AI` — stable display name for the assistant |
 | `message` | string | Deterministic response when AI is disabled; otherwise a grounded natural-language response based on backend facts |
 | `conversation_id` | UUID or null | Opaque ID for the current short-lived user-owned conversation |
 | `intent` | allowlisted intent string | Determined by the Rule-Based Intent Engine; see section 11 |
@@ -371,12 +371,12 @@ Reservation create/cancel intents remain previews; the assistant does not create
 
 confidence represents deterministic rule strength when confidence_basis is RULE_HEURISTIC; it is not a probability. When an enabled external AI provider supplies an accepted interpretation, the basis is AI_FALLBACK. Aggregate telemetry records intent, rule, confidence basis, result type, clarification and whether the fallback was used. It excludes raw message text, user IDs and reservation contents.
 
-### Optional AI provider and RAKA response generation
+### Optional AI provider and RUKKA AI response generation
 
 AI remains disabled by default. When enabled, the same OpenAI-compatible chat-completions endpoint supports two bounded uses:
 
 1. **Intent fallback:** only when the deterministic intent engine returns `OUT_OF_SCOPE`. It receives the current sanitized message plus bounded observed faculty/building/facility vocabulary, then must return strict JSON for `ROOM_SEARCH`, `ROOM_AVAILABILITY`, or `ALTERNATIVE_SLOTS`. All returned campus labels are checked against the active Assistant Data Catalog before backend execution.
-2. **Grounded response writing:** after backend search/availability functions have completed, RAKA can turn the deterministic summary and a small whitelist of public room facts into a more natural Indonesian answer. It cannot run tools, issue SQL, change records, or override the backend result. It is not called for personal reservation-list/status intents or reservation create/cancel previews. When intent fallback already used the provider, response generation is skipped to avoid a second request in the same turn.
+2. **Grounded response writing:** after backend search/availability functions have completed, RUKKA AI can turn the deterministic summary and a small whitelist of public room facts into a more natural Indonesian answer. It cannot run tools, issue SQL, change records, or override the backend result. It is not called for personal reservation-list/status intents or reservation create/cancel previews. When intent fallback already used the provider, response generation is skipped to avoid a second request in the same turn.
 
 Recommended OpenRouter setup:
 - `ASSISTANT_AI_ENABLED=false` until the API key is installed and verified.
@@ -387,6 +387,6 @@ Recommended OpenRouter setup:
 
 The current response layer sends only a redacted current message, whitelisted room metadata (name/code, faculty, building, floor, capacity, facilities and location description), bounded filter values, result counts and one optional next-step question. Room database IDs are omitted. It does not send chat history, conversation state/ID, account identity, personal reservations, reservation purposes, private notes, or administrative schedule source records. Email addresses, phone numbers and long numeric identifiers in the current message are redacted before the response-writing request. Private reservation intents are answered by the deterministic backend without sending their contents to the model.
 
-The assistant is named **RAKA — Ruang Asisten Kampus**. Its response style is direct, warm and solution-oriented: present available results first, do not ask a stack of questions, and ask at most one necessary follow-up. If the backend has not checked a complete date/time range, RAKA must say that availability is not yet verified. It may never invent room details, claim a room is free without a backend check, or claim a reservation has been created/cancelled.
+The assistant is named **RUKKA AI — asisten virtual RuangKampus**. Its response style is direct, warm and solution-oriented: present available results first, do not ask a stack of questions, and ask at most one necessary follow-up. If the backend has not checked a complete date/time range, RUKKA AI must say that availability is not yet verified. It may never invent room details, claim a room is free without a backend check, or claim a reservation has been created/cancelled.
 
 The `engine` field becomes `HYBRID` when AI response writing or intent fallback is used. `confidence_basis` still describes intent classification strength (`RULE_HEURISTIC` or `AI_FALLBACK`); it is not a rating of generated prose. With no provider configured or when a provider request fails validation/times out, the deterministic response is returned. Provider use may be subject to OpenRouter rate limits and privacy/retention terms; review the institution's requirements before enabling it.
