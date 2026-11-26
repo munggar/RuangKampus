@@ -6,7 +6,7 @@ from datetime import date, time
 from typing import Any, Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ruangkampus.config import Settings
 
@@ -40,8 +40,8 @@ def _catalog_label(value: str | None, entries: list[dict[str, Any]], *, facility
             entry.get("value"),
             entry.get("canonical_name"),
             entry.get("display_name"),
-            *entry.get("source_values", []),
-            *entry.get("aliases", []),
+            *(entry.get("source_values") or []),
+            *(entry.get("aliases") or []),
         ]
         for label in labels:
             if isinstance(label, str) and label.strip().casefold() == candidate:
@@ -61,8 +61,8 @@ def _allowed_catalog_vocabulary(catalog: dict[str, Any]) -> dict[str, list[str]]
                 entry.get("value"),
                 entry.get("canonical_name"),
                 entry.get("display_name"),
-                *entry.get("source_values", []),
-                *entry.get("aliases", []),
+                *(entry.get("source_values") or []),
+                *(entry.get("aliases") or []),
             ]
             for value in values:
                 if isinstance(value, str) and value.strip():
@@ -163,6 +163,6 @@ def interpret_with_ai_fallback(
                 # Let the deterministic response composer ask for the missing time fields.
                 return parsed
         return parsed
-    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
+    except (httpx.HTTPError, ValidationError, ValueError, KeyError, TypeError, IndexError):
         logger.info("Assistant AI fallback unavailable or returned invalid output")
         return None
