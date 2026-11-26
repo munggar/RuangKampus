@@ -2,7 +2,7 @@ name: RuangKampus Frontend CI
 
 on:
   push:
-    branches: [develop, main, "frontend/**"]
+    branches: [develop, main, "frontend/**", "fix/**"]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
