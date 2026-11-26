@@ -100,6 +100,7 @@ FAQ_PHRASES = (
 # These are explicit signs that a student wants explanation, analysis, or planning,
 # not a database lookup. Domain-specific intents above retain precedence.
 HYPOTHETICAL_REASONING_PHRASES = (
+    "ada 3 kelompok", "ada tiga kelompok", "hanya tersedia dua ruangan",
     "jika seseorang meminta", "jika kamu tidak memiliki data",
     "ketika tidak memiliki data", "belum berhasil mengakses",
     "tidak dapat mengakses database", "apa yang harus kamu katakan",
