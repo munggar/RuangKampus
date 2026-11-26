@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     assistant_ai_endpoint_url: str | None = None
     assistant_ai_model: str | None = None
     assistant_ai_api_key: str | None = None
-    assistant_ai_timeout_seconds: float = Field(default=4.0, gt=0, le=8)
+    assistant_ai_timeout_seconds: float = Field(default=6.0, gt=0, le=8)
 
     @field_validator("email_backend", mode="before")
     @classmethod

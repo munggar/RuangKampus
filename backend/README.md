@@ -104,6 +104,26 @@ The command reads only active, non-deleted rows from `rooms`, prints a JSON qual
 
 See [AI Assistant API Contract](../docs/AI_ASSISTANT_API_CONTRACT.md) for the structured chat response and compatibility details.
 
+## RAKA — OpenRouter / Google Gemma setup
+
+The Student room assistant is named **RAKA (Ruang Asisten Kampus)**. It uses the deterministic backend as its source of truth. When explicitly enabled, an OpenRouter Gemma model writes friendlier Indonesian responses from verified room-search results; it does not execute database queries or reservation transactions.
+
+Recommended model: `google/gemma-4-26b-a4b-it:free`.
+
+Configure these variables in `backend/.env` for local development, or in the Railway **API service Variables** for a deployed backend:
+
+```dotenv
+ASSISTANT_AI_ENABLED=true
+ASSISTANT_AI_ENDPOINT_URL=https://openrouter.ai/api/v1/chat/completions
+ASSISTANT_AI_MODEL=google/gemma-4-26b-a4b-it:free
+ASSISTANT_AI_API_KEY=sk-or-v1-REPLACE_WITH_YOUR_SECRET
+ASSISTANT_AI_TIMEOUT_SECONDS=6
+```
+
+Create the key from [OpenRouter Keys](https://openrouter.ai/keys). Treat it like a password: never commit it, put it in frontend/`VITE_*` variables, or expose it to the browser. The detailed click-by-click setup, rate-limit notes, and smoke test are in [RAKA OpenRouter Setup](../docs/RAKA_OPENROUTER_SETUP.md).
+
+Leave `ASSISTANT_AI_ENABLED=false` until the secret is installed. Restart/redeploy only the backend API service after changing its variables. No database migration is needed for this provider configuration. When a supported chat turn uses the model successfully, the response reports `assistant_name=RAKA` and `engine=HYBRID`; when the provider is unavailable, the deterministic answer remains available.
+
 ## Run and inspect the API
 
 ```bash
@@ -182,7 +202,7 @@ This is actual PostgreSQL integration evidence, not an inference from SQLite. It
 - No RuangKampus cloud PostgreSQL, deployment, or SMTP provider has been confirmed; no cloud migration has been run.
 - The Figma file itself is not yet accessible for direct inspection; frontend branch and API client code were reviewed read-only.
 - CSV/XLSX schedule import preview/commit is implemented for TU/Admin through /api/v1/admin/schedules/imports/*.
-- The room-assistant endpoint is implemented with a stateless, grounded rule-based engine. A generative LLM provider is not configured; no chat data is sent externally.
+- The room-assistant endpoint uses a grounded rule engine by default. An optional OpenRouter/Gemma RAKA response layer is available on the RAKA feature branch but remains disabled until operator credentials and privacy settings are configured.
 - Media upload/storage is not implemented; room/profile image attributes accept URLs only.
 - Historical refresh-token replay-family detection is not implemented.
 - Rate limiting is an in-process guard; production multi-worker/multi-instance deployments require shared API gateway/WAF rate limiting.
@@ -246,7 +266,7 @@ API readiness: http://localhost:8000/ready. Stop services with docker compose do
 The backend contract now explicitly covers all 15 primary features: Student/TU_Admin auth and role enforcement; role-scoped Student and TU dashboards; room CRUD; a single shared availability engine; faculty/building/location/capacity/facility/time-aware search; online reservation; TU approval/rejection; transactional conflict detection; reservation tracking; the Student room-assistant endpoint; recipient-scoped notifications; faculty/building/floor/location metadata; facility/capacity data; and alternative-slot recommendations.
 
 Key new endpoints:
-- `POST /api/v1/assistant/chat` — Student-only, grounded, stateless room-assistant flow. Current `engine=RULE_BASED`; it is not represented as a generative LLM and does not transmit chat data to an external provider.
+- `POST /api/v1/assistant/chat` — Student-only, grounded room-assistant flow. It returns the `assistant_name=RAKA` field and uses `engine=RULE_BASED` by default; after the optional OpenRouter/Gemma configuration is enabled, supported room-discovery turns use `engine=HYBRID`. Private reservation data is never sent to the model.
 - `POST /api/v1/rooms/alternative-slots` — Student-only availability-based candidate slots; results are suggestions, not reservations.
 - `GET /api/v1/rooms` — faculty/location and exact date/time availability filters.
 

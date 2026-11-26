@@ -116,10 +116,10 @@ Backend implementation now maps each of the 15 primary features to an API/data f
 - Room metadata: nullable `faculty` and `location_description` fields, output schemas, audit snapshots, faculty/location search filters, and migration `d4e8b71c2f90`.
 - Room search: exact date/time search parameters invoke the same availability service before pagination.
 - Alternative slots: Student-only `POST /api/v1/rooms/alternative-slots` enumerates slots inside operating hours and returns only candidates passing the availability engine.
-- Room assistant: Student-only `POST /api/v1/assistant/chat` returns records from the database, parsed filters, alternatives, and clarifying questions. It is explicitly `RULE_BASED` at this stage, does not create reservations, does not persist chat messages, and does not transmit chat messages to an external AI provider.
+- Room assistant: Student-only `POST /api/v1/assistant/chat` returns room records, parsed filters, availability/alternative results and one necessary follow-up. It is `RULE_BASED` when AI is disabled; an optional RAKA/OpenRouter Gemma response writer is implemented on `feat/raka-gemma-grounded-assistant` and remains disabled until the operator configures the backend secret. It never executes reservation mutations.
 - API rate limiting was added to assistant and alternative-slot endpoints.
 
-The core flows for features 1–10 and 12–14 already exist in the Phase 1/2 routers and services. Feature 11 has a functioning backend chat/search contract but does not yet use a generative LLM provider. Feature 15 now has a deterministic availability-based recommendation endpoint. All candidate recommendations are revalidated when a student actually submits a reservation.
+The core flows for features 1–10 and 12–14 already exist in the Phase 1/2 routers and services. Feature 11 has a functioning backend chat/search contract and an optional generative response layer for RAKA; external model calls remain off until explicitly configured. Feature 15 has a deterministic availability-based recommendation endpoint. All candidate recommendations are revalidated when a student actually submits a reservation.
 
 The frontend branch was not modified. Frontend work should be based on these final request/response contracts after backend review and CI passes.
 
@@ -135,7 +135,7 @@ GitHub Actions run #43 completed successfully for backend commit `1e80718e283ce5
 
 Run: https://github.com/munggar/RuangKampus/actions/runs/45607354793.
 
-This validates the backend source and migrations against isolated CI databases only. No production database was migrated and no hosting provider was deployed. Frontend sources were not modified. The room assistant API currently uses a deterministic rule-based engine; an external generative LLM provider remains unconfigured.
+This validates the backend source and migrations against isolated CI databases only. No production database was migrated and no hosting provider was deployed. Frontend sources were not modified. The room assistant remains deterministic by default; the optional Gemma/OpenRouter provider is not active until backend configuration is supplied.
 
 
 ## AI Assistant implementation update — Stage 2.4 onward
@@ -148,6 +148,8 @@ Verified in the current feature branch:
 - Dynamic response composer for room search, room details, reservation summaries and conversational templates.
 - Privacy-safe aggregate analytics that does not log raw chat text or user/reservation identifiers.
 - Optional OpenAI-compatible structured AI intent adapter. Disabled by default; accepts only room search/availability/alternative intents and validates faculty/building/facility values against the active catalog.
+- RAKA identity and grounded OpenRouter/Gemma response writer. It receives only a redacted current message and whitelisted room facts; private reservation intents remain deterministic and no room database IDs are sent to the provider.
+- Proactive partial-result behavior: when a student asks for availability but omits date/time, matching rooms can be shown as candidates while the assistant asks for one date/time range; it never describes them as available before the backend checks the schedule.
 - Frontend conversation ID continuity and rendering of the authenticated Student's own reservation summaries.
 
 Release gates still required:

@@ -471,6 +471,7 @@ class AssistantNormalizationResult(BaseModel):
 class AssistantChatResponseData(BaseModel):
     """Structured inner response; existing legacy fields remain present."""
 
+    assistant_name: str = "RAKA"
     message: str
     conversation_id: UUID | None = None
     intent: Literal["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL", "RESERVATION_HELP", "MY_RESERVATIONS", "RESERVATION_STATUS", "RESERVATION_CREATE_PREVIEW", "RESERVATION_CANCEL_PREVIEW", "FAQ", "SMALLTALK", "OUT_OF_SCOPE"]

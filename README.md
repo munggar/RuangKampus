@@ -84,7 +84,7 @@ PYTHONPATH=src pytest -q
 
 ## Release readiness
 
-Not production-ready until a RuangKampus staging/production PostgreSQL resource is approved, Account B's full frontend pages are integrated and tested, SMTP credentials/provider are configured, and backend hosting/operations are deployed. CSV/XLSX schedule import is implemented. AI recommendations and room binary image upload/storage remain deferred because the current frontend branch has no confirmed flow/provider requirement.
+Not production-ready until a RuangKampus staging/production PostgreSQL resource is approved, Account B's full frontend pages are integrated and tested, SMTP credentials/provider are configured, and backend hosting/operations are deployed. CSV/XLSX schedule import is implemented. The Student room assistant now has a RAKA identity and an optional OpenRouter/Gemma grounded response layer on a feature branch; it remains disabled until the backend secret is configured and reviewed. Room binary image upload/storage remains deferred.
 
 
 ## Backend Phase 2
