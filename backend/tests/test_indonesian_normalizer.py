@@ -117,7 +117,7 @@ NORMALIZATION_CASES = [
     ("Bro, kak, dong, nih", "bro kak dong nih"),
     ("WKWKWK ada ruang?", "wkwk ada ruang"),
     ("Hehehe, saya mau tanya", "hehe saya mau tanya"),
-    ("Tolong dong cariin ruang", "tolong dong cariin ruang"),
+    ("Tolong dong cariin ruang", "tolong dong cari ruang"),
     ("Kak, ada kelas yang kosong?", "kak ada kelas yang kosong"),
     ("Brooo, saya butuh ruang", "bro saya butuh ruang"),
     ("Hai kak, mau tanya fasilitas", "hai kak mau tanya fasilitas"),
