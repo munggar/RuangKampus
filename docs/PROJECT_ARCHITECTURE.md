@@ -122,3 +122,19 @@ The current release workflow separates SQLite tests from PostgreSQL integration 
 ## Verified PostgreSQL/CI evidence
 
 GitHub Actions run #19 passed the backend pipeline against ephemeral PostgreSQL 18: 45 SQLite API/unit tests passed, 9 PostgreSQL schema and reservation concurrency integration tests passed, Alembic upgrade/check/downgrade/re-upgrade passed, Ruff lint and CI workspace formatting passed, pip-audit found no known vulnerabilities, and the backend Docker image build passed. This is evidence for ephemeral CI databases only, not a production database migration. Production/staging DB provisioning, SMTP credentials, full frontend integration, and deployment remain separate release gates. Workflow: https://github.com/munggar/RuangKampus/actions/runs/45596818058.
+
+
+## Student AI Assistant — current hybrid architecture
+
+The Student assistant follows a rule-based-first design. Input is normalized through the Indonesian Chat Normalizer and classified by the deterministic multi-intent engine. A strict backend function registry maps recognized intents to allowlisted capabilities; the language model cannot select arbitrary functions, SQL, or mutations.
+
+- The assistant reuses the existing room catalogue, room search, availability engine, and alternative-slot service.
+- Room details are resolved only from active room records.
+- Reservation list/status capabilities query records belonging to the authenticated Student only.
+- Reservation creation/cancellation are previews and continue through the existing transaction workflow; the assistant does not bypass availability checks or approval.
+- Conversation state stores only bounded structured search slots and last intent for 30 minutes of inactivity. It does not store raw messages or generated replies.
+- Confidence values are deterministic rule-strength scores, not calibrated probabilities.
+- AI intent fallback is optional and disabled by default. It is called only when deterministic intent matching returns out-of-scope, uses a single short-timeout request, validates strict JSON, and resolves all campus labels against the active Assistant Data Catalog.
+- Analytics logs only intent, matched rule, confidence basis, result type, clarification status and fallback usage. Raw text, user identifiers and reservation data are excluded.
+
+The frontend sends the opaque conversation ID on subsequent turns and renders room, alternative-slot, room-detail and own-reservation results from the structured API response. The backend remains authoritative for all data and business rules.
