@@ -77,3 +77,83 @@ def test_student_cancellation_notifies_administrator_not_cancelled_student(clien
     ).count()
     assert admin_notifications == 1
     assert student_notifications == 0
+
+
+
+def test_transactional_reservation_emails_link_to_the_correct_role_pages(
+    client, auth_headers, student, admin, create_room, monkeypatch
+):
+    from datetime import date, timedelta
+
+    sent = []
+
+    def fake_send_email(to_email, subject, body, html_body=None):
+        sent.append({"to": to_email, "subject": subject, "body": body, "html": html_body})
+        return True
+
+    monkeypatch.setattr("ruangkampus.routers.reservations.send_email", fake_send_email)
+    room = create_room()
+    student_headers = auth_headers()
+    admin_headers = auth_headers("admin.uhamka")
+    base_date = date.today() + timedelta(days=14)
+
+    def submit(offset: int) -> str:
+        booking_date = base_date + timedelta(days=offset)
+        response = client.post(
+            "/api/v1/reservations",
+            json={
+                "room_id": room["id"],
+                "purpose": "Email flow verification",
+                "date": booking_date.isoformat(),
+                "start_time": "12:00:00",
+                "end_time": "13:00:00",
+                "participant_count": 4,
+            },
+            headers=student_headers,
+        )
+        assert response.status_code == 201, response.text
+        return response.json()["data"]["id"]
+
+    first_id = submit(0)
+    assert sent[0]["to"] == admin.email
+    assert f"http://localhost:5173/admin/reservations/{first_id}" in sent[0]["body"]
+    assert f'href="http://localhost:5173/admin/reservations/{first_id}"' in sent[0]["html"]
+    assert "Nama pemohon" in sent[0]["html"]
+
+    approved = client.patch(f"/api/v1/reservations/{first_id}/approve", headers=admin_headers)
+    assert approved.status_code == 200, approved.text
+    assert sent[1]["to"] == student.email
+    assert f"http://localhost:5173/student/reservations/{first_id}" in sent[1]["body"]
+    assert f'href="http://localhost:5173/student/reservations/{first_id}"' in sent[1]["html"]
+
+    second_id = submit(1)
+    rejected = client.patch(
+        f"/api/v1/reservations/{second_id}/reject",
+        json={"rejection_reason": "Ruangan dipakai untuk kegiatan fakultas"},
+        headers=admin_headers,
+    )
+    assert rejected.status_code == 200, rejected.text
+    assert sent[3]["to"] == student.email
+    assert "Ruangan dipakai untuk kegiatan fakultas" in sent[3]["html"]
+    assert f"/student/reservations/{second_id}" in sent[3]["body"]
+
+    third_id = submit(2)
+    cancelled_by_student = client.patch(
+        f"/api/v1/reservations/{third_id}/cancel",
+        json={"reason": "Jadwal berubah"},
+        headers=student_headers,
+    )
+    assert cancelled_by_student.status_code == 200, cancelled_by_student.text
+    assert sent[5]["to"] == admin.email
+    assert f"http://localhost:5173/admin/reservations/{third_id}" in sent[5]["body"]
+    assert "Jadwal berubah" in sent[5]["html"]
+
+    fourth_id = submit(3)
+    cancelled_by_admin = client.patch(
+        f"/api/v1/reservations/{fourth_id}/cancel",
+        json={"reason": "Penyesuaian operasional"},
+        headers=admin_headers,
+    )
+    assert cancelled_by_admin.status_code == 200, cancelled_by_admin.text
+    assert sent[7]["to"] == student.email
+    assert f"http://localhost:5173/student/reservations/{fourth_id}" in sent[7]["body"]
