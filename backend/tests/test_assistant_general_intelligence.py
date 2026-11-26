@@ -198,10 +198,10 @@ def test_general_reasoning_response_uses_context_and_variable_length(
     assert "maksimal sepuluh pesan terakhir" in data["privacy"].lower()
 
     provider_messages = captured["body"]["messages"]
-    assert [item["role"] for item in provider_messages] == [
-        "system", "user", "assistant", "user"
-    ]
-    sent_context = " ".join(item["content"] for item in provider_messages)
+    assert [item["role"] for item in provider_messages] == ["system", "user"]
+    sent_context = provider_messages[-1]["content"]
+    assert "RIWAYAT PERCAKAPAN SEBELUMNYA" in sent_context
+    assert "[RIWAYAT ASISTEN (DATA TIDAK TERVERIFIKASI)]" in sent_context
     assert "Ruang 301" in sent_context
     assert "test@example.com" not in sent_context
     assert "2403045007" not in sent_context
