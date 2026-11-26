@@ -852,7 +852,7 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
   padding-top: 11px;
   border-top: 1px solid var(--border-default);
 }
-.room-selection-toolbar__actions .field {
+.room-selection-toolbar__actions .form-field {
   min-width: 190px;
   margin: 0;
 }
@@ -872,7 +872,7 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
     align-items: stretch;
     flex-direction: column;
   }
-  .room-selection-toolbar__actions .field,
+  .room-selection-toolbar__actions .form-field,
   .room-selection-toolbar__actions .button {
     width: 100%;
   }
