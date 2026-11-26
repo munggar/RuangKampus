@@ -232,10 +232,10 @@ export function AppShell({ role }: { role: AppRole }) {
             {unreadCount > 0 ? <span className="notification-badge" aria-hidden="true">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
           </Link>
           <div className="account-menu" ref={accountMenuRef}>
-            <button ref={accountTriggerRef} className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-haspopup="menu" aria-controls="account-menu-dropdown">
+            <button ref={accountTriggerRef} className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="account-menu-dropdown">
               <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "TU / Administrator"}</small></span><ChevronDown size={15} />
             </button>
-            {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown" role="menu"><Link role="menuitem" to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
+            {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown"><Link to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
           </div>
         </div>
       </header>
