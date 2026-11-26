@@ -33,7 +33,7 @@ class AssistantGeneratedMessage(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    message: str = Field(min_length=2, max_length=2400)
+    message: str = Field(min_length=2, max_length=4000)
 
 
 def redact_assistant_user_text(value: str) -> str:
@@ -75,6 +75,90 @@ def _safe_filters(filters: dict[str, Any]) -> dict[str, Any]:
             result[key] = value[:160] if isinstance(value, str) else value
     return result
 
+
+
+def _extract_generated_message(envelope: dict[str, Any], *, intent: str) -> str | None:
+    """Normalize OpenAI-compatible provider content without logging user or model text."""
+    try:
+        choice = envelope["choices"][0]
+        provider_message = choice.get("message") or {}
+        raw_content = provider_message.get("content")
+        finish_reason = choice.get("finish_reason")
+    except (KeyError, IndexError, TypeError, AttributeError):
+        logger.warning("RUKKA AI provider response missing the expected choices/message structure")
+        return None
+
+    if isinstance(raw_content, str):
+        content = raw_content.strip()
+    elif isinstance(raw_content, list):
+        # Some OpenAI-compatible providers return text as typed content blocks.
+        content = "".join(
+            part.get("text", "")
+            for part in raw_content
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
+        ).strip()
+    else:
+        logger.warning(
+            "RUKKA AI provider content rejected content_type=%s finish_reason=%s",
+            type(raw_content).__name__,
+            finish_reason,
+        )
+        return None
+
+    if not content:
+        logger.warning("RUKKA AI provider returned empty content finish_reason=%s", finish_reason)
+        return None
+
+    # Prefer the required JSON envelope, while tolerating code fences and surrounding prose.
+    json_candidates = [content]
+    unfenced = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", content, flags=re.IGNORECASE).strip()
+    if unfenced and unfenced != content:
+        json_candidates.append(unfenced)
+    object_match = re.search(r"\{[\s\S]*\}", unfenced or content)
+    if object_match:
+        json_candidates.append(object_match.group(0))
+
+    generated_text: str | None = None
+    parsed_json = False
+    for candidate in json_candidates:
+        try:
+            parsed = json.loads(candidate)
+        except (ValueError, TypeError):
+            continue
+        parsed_json = True
+        if isinstance(parsed, dict) and isinstance(parsed.get("message"), str):
+            generated_text = parsed["message"]
+            break
+        logger.warning("RUKKA AI provider JSON did not contain a string message field")
+        return None
+
+    # General discussion does not contain unverified campus facts. Accept plain-text
+    # responses from free-model routers that ignore JSON mode, but keep structured
+    # room intents strict so the model cannot bypass the verified-facts contract.
+    general_intents = {"OUT_OF_SCOPE", "FAQ"}
+    looks_like_json = content.lstrip().startswith("{") or content.lstrip().startswith("```")
+    if generated_text is None and not parsed_json and intent in general_intents and not looks_like_json:
+        generated_text = content
+
+    if generated_text is None:
+        logger.warning(
+            "RUKKA AI provider content could not be normalized intent=%s content_length=%s finish_reason=%s",
+            intent,
+            len(content),
+            finish_reason,
+        )
+        return None
+
+    cleaned = " ".join(generated_text.split()).strip()
+    if not 8 <= len(cleaned) <= 4000:
+        logger.warning(
+            "RUKKA AI provider content rejected length=%s intent=%s finish_reason=%s",
+            len(cleaned),
+            intent,
+            finish_reason,
+        )
+        return None
+    return cleaned
 
 def generate_grounded_assistant_message(
     *,
@@ -224,12 +308,14 @@ def generate_grounded_assistant_message(
         )
         response.raise_for_status()
         envelope = response.json()
-        raw_content = envelope["choices"][0]["message"]["content"]
-        if not isinstance(raw_content, str):
-            return None
-        parsed = AssistantGeneratedMessage.model_validate(json.loads(raw_content))
-        cleaned = " ".join(parsed.message.split()).strip()
-        return cleaned if 8 <= len(cleaned) <= 2400 else None
+        generated = _extract_generated_message(envelope, intent=intent)
+        if generated:
+            logger.info(
+                "RUKKA AI generated response accepted intent=%s length=%s",
+                intent,
+                len(generated),
+            )
+        return generated
     except httpx.TimeoutException:
         logger.warning(
             "RUKKA AI response provider timed out after %.1f seconds",
