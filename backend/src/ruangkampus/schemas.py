@@ -497,10 +497,29 @@ class AssistantChatResponseData(BaseModel):
     privacy: str
 
 
+class AssistantContextMessage(BaseModel):
+    """One bounded, client-held conversation turn; raw history is not persisted by the API."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=1200)
+
+    @field_validator("content")
+    @classmethod
+    def clean_context_content(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("context content cannot be blank")
+        return cleaned
+
+
 class AssistantChatIn(BaseModel):
     message: str = Field(min_length=3, max_length=1000)
-    # Reserved for a future backend conversation store. Currently accepted but not persisted.
+    # Opaque ID for short-lived structured room-search slots, not raw chat history.
     conversation_id: UUID | None = None
+    # Up to ten prior turns are sent transiently by the current browser tab.
+    context: list[AssistantContextMessage] = Field(default_factory=list, max_length=10)
     faculty: str | None = Field(default=None, max_length=160)
     building: str | None = Field(default=None, max_length=160)
     min_capacity: int | None = Field(default=None, ge=1, le=10000)
