@@ -81,14 +81,15 @@ The inner Pydantic response model is `AssistantChatResponseData`. The response c
 | `conversation_id` | UUID or null | Opaque ID for the current short-lived user-owned conversation |
 | `intent` | allowlisted intent string | Determined by the Rule-Based Intent Engine; see section 11 |
 | `slots` | object | Search filters extracted by the current parser |
-| `confidence` | number 0–1 or null | Always null; no confidence model is implemented |
+| `confidence` | number 0–1 or null | Deterministic rule-strength score or accepted AI fallback score; not a calibrated probability |
 | `normalization` | object | Stage 2.2 raw/normalized text, tokens, fillers, corrections, unknown tokens, and parser text; additive and optional |
 | `missing_fields` | string array | Existing search details requested by follow-up logic |
 | `requires_clarification` | boolean | True when the current engine asks follow-up questions |
 | `clarification_message` | string or null | First current follow-up question, if any |
-| `result_type` | enum | `ROOMS_FOUND`, `ALTERNATIVE_SLOTS`, or `NO_RESULTS` |
+| `result_type` | enum | `ROOMS_FOUND`, `ALTERNATIVE_SLOTS`, `ROOM_DETAILS`, `RESERVATIONS_FOUND`, or `NO_RESULTS` |
 | `requires_confirmation` | boolean | Always false; no transaction intent is implemented |
-| `data` | object | Structured backend result: `rooms`, `alternative_slots`, and `filters` |
+| `confidence_basis` | enum or null | `RULE_HEURISTIC` or `AI_FALLBACK` when a score is present |
+| `data` | object | Structured backend result: `rooms`, `alternative_slots`, `reservations`, and `filters` |
 
 The `slots` object contains `faculty`, `building`, `min_capacity`, `facilities`, `date`, `start_time`, `end_time`, `participant_count`, and `search_terms`.
 
@@ -118,7 +119,7 @@ This is an illustrative no-result response shape, not a claim about current prod
   "message": "Room assistant response generated",
   "data": {
     "message": "Belum ada ruangan yang cocok. Coba ubah fakultas, gedung, kapasitas, fasilitas, atau waktu.",
-    "conversation_id": null,
+    "conversation_id": "d58d925b-64a4-4d9d-99be-2d2a6f6a8d2a",
     "intent": "ROOM_SEARCH",
     "slots": {
       "faculty": null,
@@ -131,7 +132,8 @@ This is an illustrative no-result response shape, not a claim about current prod
       "participant_count": 1,
       "search_terms": []
     },
-    "confidence": null,
+    "confidence": 0.82,
+    "confidence_basis": "RULE_HEURISTIC",
     "missing_fields": ["date", "start_time", "end_time", "min_capacity"],
     "requires_clarification": true,
     "clarification_message": "Untuk mengecek ketersediaan, kirim tanggal, jam mulai, dan jam selesai.",
@@ -140,6 +142,7 @@ This is an illustrative no-result response shape, not a claim about current prod
     "data": {
       "rooms": [],
       "alternative_slots": [],
+      "reservations": [],
       "filters": {
         "faculty": null,
         "building": null,
@@ -170,18 +173,20 @@ This is an illustrative no-result response shape, not a claim about current prod
       "Berapa jumlah peserta yang akan menggunakan ruangan?"
     ],
     "reservation_action": "NOT_CREATED",
-    "privacy": "Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim ke penyedia AI eksternal."
+    "privacy": "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit."
   }
 }
 ```
 
-The confidence field is a deterministic rule-strength score, not a calibrated probability. confidence_basis identifies RULE_HEURISTIC or AI_FALLBACK. Conversation state stores only structured slots with a 30-minute inactivity TTL.
+The confidence field is a deterministic rule-strength score, not a calibrated probability. confidence_basis identifies RULE_HEURISTIC or AI_FALLBACK. Conversation state stores bounded structured slots with a 30-minute inactivity TTL; raw message text is not persisted.
 
 ## 4. Result and clarification semantics
 
 - `ROOMS_FOUND`: the current room query returned one or more room records. When a date/time range was provided, the existing availability service also filtered the records for that interval.
-- `ALTERNATIVE_SLOTS`: no exact room match was returned for the requested date/time, but the existing alternative-slot function returned candidates.
-- `NO_RESULTS`: neither room results nor alternative slots were returned.
+- `ROOM_DETAILS`: one active room was resolved from an exact observed room name/code match in the Assistant Data Catalog.
+- `RESERVATIONS_FOUND`: one or more reservation summaries belonging only to the authenticated Student were returned.
+- `ALTERNATIVE_SLOTS`: the existing alternative-slot function returned candidates after checking the requested criteria.
+- `NO_RESULTS`: no matching rooms, reservation summaries, or alternative slots were returned.
 - `missing_fields`: fields the existing follow-up logic requests to refine an availability/capacity search. They are not a new reservation-validation contract.
 - `requires_confirmation`: false because the current endpoint only searches and recommends. It does not create or cancel reservations.
 
