@@ -128,7 +128,7 @@ function useUnreadNotificationCount() {
     };
 
     refresh();
-    const interval = window.setInterval(refresh, 30_000);
+    const interval = window.setInterval(refresh, 15_000);
     window.addEventListener("focus", refresh);
     window.addEventListener("rk-notifications-updated", refresh);
     document.addEventListener("visibilitychange", refreshWhenVisible);
