@@ -396,3 +396,38 @@ def test_room_search_keeps_strict_json_output_and_small_budget(monkeypatch):
     assert captured["body"]["max_tokens"] == 320
     assert captured["body"]["response_format"] == {"type": "json_object"}
     assert "reasoning_effort" not in captured["body"]
+
+
+
+def test_general_intent_handles_empty_content_after_token_limit(monkeypatch, caplog):
+    def fake_post(url, **kwargs):
+        return FakeResponse({
+            "model": "sample/free-reasoning-model",
+            "provider": "sample-provider",
+            "choices": [{
+                "message": {"content": None},
+                "finish_reason": "length",
+            }],
+            "usage": {
+                "completion_tokens": 2048,
+                "completion_tokens_details": {"reasoning_tokens": 1980},
+            },
+        })
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Menurutmu, bagaimana sistem peminjaman ruang kampus yang adil?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku fokus membantu urusan ruangan kampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer is None
+    assert "finish_reason=length" in caplog.text
+    assert "reasoning_tokens=1980" in caplog.text
+    assert "sample/free-reasoning-model" in caplog.text
