@@ -340,7 +340,7 @@ def test_assistant_normalizes_student_slang_before_existing_room_search(
 def test_negated_facility_is_not_interpreted_as_a_positive_room_filter(
     client, auth_headers, student, admin, room_payload
 ):
-    room = create_located_room(client, auth_headers, room_payload)
+    create_located_room(client, auth_headers, room_payload)
     result = client.post(
         "/api/v1/assistant/chat",
         json={"message": "Jangan cari ruangan dengan proyektor."},
@@ -394,7 +394,7 @@ def test_assistant_uses_only_positive_faculty_from_a_contrast_clause(
 def test_ambiguous_positive_faculties_are_not_arbitrarily_selected(
     client, auth_headers, student, admin, room_payload
 ):
-    first = create_located_room(client, auth_headers, room_payload, faculty="FTII")
+    create_located_room(client, auth_headers, room_payload, faculty="FTII")
     second_payload = {
         **room_payload,
         "room_name": "Room FKIP 101",
