@@ -188,9 +188,9 @@ def forgot_password(payload: ForgotPasswordIn, request: Request, db: Session = D
         # A URL fragment stays client-side and is not sent in HTTP requests or normal access logs.
         reset_url = f"{get_settings().password_reset_base_url}#token={raw_token}"
         expiry_minutes = get_settings().password_reset_expire_minutes
-        subject = "🔐 Atur ulang password RuangKampus"
+        subject = "🔐 Yuk, amankan akun RuangKampus kamu"
         plain = (
-            f"Halo {user.name}, kami menerima permintaan untuk mengatur ulang password akun RuangKampus.\n\n"
+            f"Hai {user.name}! Kami menerima permintaan untuk mengatur ulang password akun RuangKampus.\n\n"
             f"Buka tautan satu kali ini untuk membuat password baru: {reset_url}\n"
             f"Tautan berlaku selama {expiry_minutes} menit dan hanya dapat digunakan satu kali.\n\n"
             "Jika kamu tidak meminta pengaturan ulang password, abaikan email ini."
@@ -201,11 +201,11 @@ def forgot_password(payload: ForgotPasswordIn, request: Request, db: Session = D
                 subject,
                 plain,
                 render_html_email(
-                    "Amankan kembali akunmu",
-                    "Kami menerima permintaan untuk mengatur ulang password akun RuangKampus. Tekan tombol di bawah untuk membuat password baru.",
+                    f"Hai, {user.name}! Yuk, amankan akunmu",
+                    "Ada permintaan untuk mengatur ulang password akunmu. Tekan tombol di bawah untuk membuat password baru dan kembali menggunakan RuangKampus dengan aman.",
                     reset_url,
                     "Atur ulang password",
-                    preheader="Tautan aman untuk mengatur ulang password RuangKampus.",
+                    preheader="Tautan aman untuk mengatur ulang password akun RuangKampus kamu.",
                     eyebrow="KEAMANAN AKUN",
                     details=[
                         ("Masa berlaku", f"{expiry_minutes} menit"),
