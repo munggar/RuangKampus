@@ -74,10 +74,16 @@ export interface AlternativeSlotsResult {
   };
   availability_note: string;
 }
+export interface AssistantContextMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 export interface AssistantChatRequest {
   message: string;
   /** Opaque ID for the authenticated student's short-lived conversation state. */
   conversation_id?: string | null;
+  /** Up to ten previous turns from this browser tab; not persisted as raw chat by the API. */
+  context?: AssistantContextMessage[];
   faculty?: string | null;
   building?: string | null;
   min_capacity?: number | null;
