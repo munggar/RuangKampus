@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from ruangkampus.database import get_db
 from ruangkampus.dependencies import get_current_user, require_admin
-from ruangkampus.models import AuthSession, User, utcnow
+from ruangkampus.models import AuthSession, RoomUpdateLog, User, utcnow
 from ruangkampus.responses import success
-from ruangkampus.schemas import PasswordChangeIn, ProfileUpdateIn, UserOut, UserRoleUpdateIn, UserStatusUpdateIn
+from ruangkampus.schemas import AdminStudentCreateIn, PasswordChangeIn, ProfileUpdateIn, UserOut, UserRoleUpdateIn, UserStatusUpdateIn
 from ruangkampus.security import hash_password, verify_password
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -76,6 +76,59 @@ def _ensure_not_last_active_admin(db: Session, target: User, next_role: str | No
             raise HTTPException(status_code=409, detail="The last active TU/Admin account cannot be disabled, demoted, or deleted")
 
 
+def _user_audit_snapshot(user: User) -> dict:
+    return {
+        "name": user.name,
+        "email": user.email,
+        "student_identifier": user.student_identifier,
+        "role": user.role,
+        "account_status": user.account_status,
+    }
+
+
+def _record_user_change(db: Session, admin: User, target: User, action: str, previous: dict | None) -> None:
+    db.add(RoomUpdateLog(
+        admin_id=admin.id,
+        entity_type="USER",
+        entity_id=target.id,
+        action=action,
+        previous_value=previous,
+        new_value=_user_audit_snapshot(target),
+    ))
+
+
+@router.post("", status_code=201)
+def create_student_account(
+    payload: AdminStudentCreateIn,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    email = str(payload.email).lower().strip()
+    identifier = payload.student_identifier.strip()
+    if identifier.lower() == "admin.uhamka":
+        raise HTTPException(status_code=409, detail="This identifier is reserved for the administrator")
+    duplicate = db.scalar(select(User.id).where(
+        (func.lower(User.email) == email) | (func.lower(User.student_identifier) == identifier.lower())
+    ))
+    if duplicate:
+        raise HTTPException(status_code=409, detail="An account with this email or NIM already exists")
+    student = User(
+        name=payload.name.strip(),
+        email=email,
+        student_identifier=identifier,
+        phone=payload.phone,
+        password_hash=hash_password(payload.password),
+        role="STUDENT",
+        account_status="ACTIVE",
+    )
+    db.add(student)
+    db.flush()
+    _record_user_change(db, admin, student, "CREATE_STUDENT", None)
+    db.commit()
+    db.refresh(student)
+    return success(UserOut.model_validate(student).model_dump(mode="json"), "Student account created")
+
+
 @router.patch("/{user_id}/status")
 def update_user_status(user_id: UUID, payload: UserStatusUpdateIn, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     if user_id == admin.id and payload.account_status != "ACTIVE":
@@ -84,10 +137,12 @@ def update_user_status(user_id: UUID, payload: UserStatusUpdateIn, admin: User =
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
     _ensure_not_last_active_admin(db, target, next_status=payload.account_status)
+    previous = _user_audit_snapshot(target)
     target.account_status = payload.account_status
     target.updated_at = utcnow()
     if target.account_status == "DISABLED":
         db.query(AuthSession).filter(AuthSession.user_id == target.id, AuthSession.revoked_at.is_(None)).update({AuthSession.revoked_at: utcnow()}, synchronize_session=False)
+    _record_user_change(db, admin, target, "UPDATE_STATUS", previous)
     db.commit()
     db.refresh(target)
     return success(UserOut.model_validate(target).model_dump(mode="json"), "User status updated")
@@ -101,9 +156,11 @@ def update_user_role(user_id: UUID, payload: UserRoleUpdateIn, admin: User = Dep
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
     _ensure_not_last_active_admin(db, target, next_role=payload.role.value)
+    previous = _user_audit_snapshot(target)
     target.role = payload.role.value
     target.updated_at = utcnow()
     db.query(AuthSession).filter(AuthSession.user_id == target.id, AuthSession.revoked_at.is_(None)).update({AuthSession.revoked_at: utcnow()}, synchronize_session=False)
+    _record_user_change(db, admin, target, "UPDATE_ROLE", previous)
     db.commit()
     db.refresh(target)
     return success(UserOut.model_validate(target).model_dump(mode="json"), "User role updated; previous sessions have been revoked")
@@ -118,9 +175,11 @@ def soft_delete_user(user_id: UUID, admin: User = Depends(require_admin), db: Se
         raise HTTPException(status_code=404, detail="User not found")
     _ensure_not_last_active_admin(db, target, deleting=True)
     now = utcnow()
+    previous = _user_audit_snapshot(target)
     target.deleted_at = now
     target.account_status = "DISABLED"
     target.updated_at = now
     db.query(AuthSession).filter(AuthSession.user_id == target.id, AuthSession.revoked_at.is_(None)).update({AuthSession.revoked_at: now}, synchronize_session=False)
+    _record_user_change(db, admin, target, "DELETE_USER", previous)
     db.commit()
     return success({"id": str(target.id), "deleted": True}, "User deactivated; reservation history is retained")

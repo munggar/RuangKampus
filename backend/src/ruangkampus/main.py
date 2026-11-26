@@ -2,11 +2,13 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -14,7 +16,7 @@ from ruangkampus.config import get_settings
 from ruangkampus.database import SessionLocal, engine
 from ruangkampus.rate_limit import limiter
 from ruangkampus.responses import failure, success
-from ruangkampus.routers import auth, dashboard, discovery, notifications, reservations, rooms, schedule_imports, schedules, users
+from ruangkampus.routers import auth, dashboard, discovery, notifications, reservations, room_imports, rooms, schedule_imports, schedules, users
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -167,9 +169,14 @@ app.include_router(rooms.router, prefix=api)
 app.include_router(reservations.router, prefix=api)
 app.include_router(schedules.router, prefix=api)
 app.include_router(schedule_imports.router, prefix=api)
+app.include_router(room_imports.router, prefix=api)
 app.include_router(notifications.router, prefix=api)
 app.include_router(dashboard.router, prefix=api)
 app.include_router(discovery.router, prefix=api)
+
+media_dir = Path(settings.room_media_dir)
+media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/media/rooms", StaticFiles(directory=str(media_dir)), name="room-media")
 
 
 @app.get("/health", tags=["Operations"])

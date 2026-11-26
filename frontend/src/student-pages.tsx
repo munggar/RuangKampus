@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  ApiError, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
+  ApiError, apiAssetUrl, availabilityReasonLabel, dashboardApi, formatDate, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
 } from "./api";
 import { useAuth } from "./auth";
@@ -107,12 +107,13 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [meta, setMeta] = useState<{ total: number } | undefined>();
+  const [meta, setMeta] = useState<{ total: number; totalPages: number } | undefined>();
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let active = true;
     setLoading(true); setError("");
-    const params = new URLSearchParams({ page: "1", limit: "100", sortBy: "room_name", sortOrder: "asc" });
+    const params = new URLSearchParams({ page: String(page), limit: "20", sortBy: "room_name", sortOrder: "asc" });
     if (applied.search) params.set("search", applied.search);
     if (applied.faculty) params.set("faculty", applied.faculty);
     if (applied.building) params.set("building", applied.building);
@@ -121,20 +122,22 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     if (applied.facility) params.append("facilities", applied.facility);
     roomApi.list(params).then((result) => {
       if (!active) return;
-      setRooms(result.items); setMeta(result.meta ? { total: result.meta.total } : undefined);
+      setRooms(result.items); setMeta(result.meta ? { total: result.meta.total, totalPages: result.meta.total_pages || 1 } : undefined);
     }).catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : "Daftar ruangan belum dapat dimuat.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [applied]);
+  }, [applied, page]);
 
   function applyFilters(event: FormEvent) {
     event.preventDefault();
+    setPage(1);
     setApplied({ search: search.trim(), faculty: faculty.trim(), building: building.trim(),
       location: location.trim(), capacity, facility: facility.trim() });
   }
   function resetFilters() {
     setSearch(""); setFaculty(""); setBuilding(""); setLocation(""); setCapacity(""); setFacility("");
+    setPage(1);
     setApplied({ search: "", faculty: "", building: "", location: "", capacity: "", facility: "" });
   }
 
@@ -162,7 +165,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
           <Link className="room-card__media" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
-            {room.photo_url ? <img src={room.photo_url} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}
+            {room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={34} /></span>}
           </Link>
           <div className="room-card__body">
             <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang</span></div>
@@ -174,6 +177,11 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
         </article>)}
       </div>
     ) : <EmptyState title="Tidak ada ruangan yang cocok" description="Coba ubah kata kunci, fakultas, gedung, kapasitas, atau fasilitas pencarian." icon={<Search size={22} />} />}
+    <div className="form-actions">
+      <Button type="button" variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {meta?.totalPages || 1}</span>
+      <Button type="button" variant="secondary" disabled={page >= (meta?.totalPages || 1) || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
   </div>;
 }
 
@@ -203,7 +211,7 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
         <h1>{room.room_name}</h1>
         <p className="page-description">{room.description || "Informasi ruangan dikelola oleh administrator kampus."}</p>
         <StatusBadge status={room.room_status} />
-        {room.photo_url ? <img className="room-detail__image" src={room.photo_url} alt={room.room_name} /> : <div className="room-detail__image room-detail__image--empty"><Building2 size={48} /></div>}
+        {room.photo_url ? <img className="room-detail__image" src={apiAssetUrl(room.photo_url)} alt={room.room_name} /> : <div className="room-detail__image room-detail__image--empty"><Building2 size={48} /></div>}
         <section className="panel">
           <h2>Tentang ruangan ini</h2>
           <p>{room.description || "Belum ada deskripsi tambahan untuk ruangan ini."}</p>
@@ -325,18 +333,20 @@ export function StudentReservationsPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<Reservation[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true; setLoading(true); setError("");
-    const params = new URLSearchParams({ page: "1", limit: "100" });
+    const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status) params.set("status", status);
-    reservationApi.list(params).then((result) => { if (active) setItems(result.items); })
+    reservationApi.list(params).then((result) => { if (active) { setItems(result.items); setTotalPages(result.meta?.total_pages || 1); } })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Riwayat belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [status]);
+  }, [status, page]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -349,12 +359,17 @@ export function StudentReservationsPage() {
   return <div className="page-stack">
     <PageTitle eyebrow="YOUR CAMPUS PLANS, IN ONE PLACE" title="Reservasi saya" description="Pantau permohonan, keputusan, dan persiapan sesi kampus Anda." action={<Link className="button button--primary" to="/student/rooms">+ Pesan ruangan</Link>} />
     <div className="panel reservation-filters">
-      <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.id || "all"} type="button" className={status === tab.id ? "is-active" : ""} onClick={() => setStatus(tab.id)}>{tab.label}</button>)}</div>
+      <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.id || "all"} type="button" className={status === tab.id ? "is-active" : ""} onClick={() => { setStatus(tab.id); setPage(1); }}>{tab.label}</button>)}</div>
       <Field label="Cari reservasi"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari ruang, tujuan, atau ID reservasi" /></Field>
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat reservasi…" /> : filtered.length ? <div className="card-list">{filtered.map((item) => <ReservationCard key={item.id} item={item} />)}</div>
       : <EmptyState title="Belum ada reservasi" description="Belum ada permohonan yang sesuai dengan filter Anda." action={<Link to="/student/rooms" className="button button--primary">Cari ruangan</Link>} icon={<CalendarCheck size={22} />} />}
+    <div className="form-actions">
+      <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {totalPages}</span>
+      <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
   </div>;
 }
 
@@ -365,6 +380,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(searchParams.get("created") === "1");
@@ -384,9 +400,18 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
     finally { setBusy(false); }
   }
 
+  async function complete() {
+    setBusy(true); setError("");
+    try { const updated = await reservationApi.complete(reservationId); setItem(updated); setCompleteOpen(false); setSuccess(true); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Reservasi belum dapat ditandai selesai."); }
+    finally { setBusy(false); }
+  }
+
   if (loading) return <Loading label="Memuat detail reservasi…" />;
   if (!item) return <Notice tone="error">{error || "Reservasi tidak ditemukan."}</Notice>;
   const canCancel = (item.status === "PENDING" || item.status === "APPROVED") && item.reservation_date >= localToday();
+  const endTimestamp = new Date(`${item.reservation_date}T${item.end_time.slice(0, 8)}+07:00`).getTime();
+  const canComplete = role === "TU/Admin" && item.status === "APPROVED" && Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
   const root = role === "Student" ? "/student" : "/admin";
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>
@@ -417,29 +442,33 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
           item.status === "REJECTED" ? "Permohonan ditolak oleh administrator." :
           item.status === "CANCELLED" ? "Permohonan telah dibatalkan." : "Sesi reservasi telah selesai."}</p>
         {canCancel ? <Button variant="danger" onClick={() => setCancelOpen(true)} className="button--wide">Batalkan reservasi</Button> : null}
+        {canComplete ? <Button onClick={() => setCompleteOpen(true)} className="button--wide">Tandai reservasi selesai</Button> : null}
       </aside>
     </div>
     <Modal open={cancelOpen} title="Batalkan reservasi?" description="Pembatalan akan diproses oleh layanan RuangKampus." onClose={() => setCancelOpen(false)}>
       <Field label="Alasan pembatalan (opsional)"><textarea rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={2000} /></Field>
       <div className="modal-actions"><Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button><Button variant="danger" onClick={() => void cancel()} disabled={busy}>{busy ? "Memproses…" : "Ya, batalkan"}</Button></div>
     </Modal>
+    <ConfirmModal open={completeOpen} title="Selesaikan reservasi?" description="Status reservasi akan berubah menjadi Selesai dan tercatat pada riwayat Admin." confirmText="Ya, tandai selesai" loading={busy} onClose={() => setCompleteOpen(false)} onConfirm={() => void complete()} />
   </div>;
 }
 
 export function NotificationsPage({ role }: { role: AppRole }) {
   const [items, setItems] = useState<AppNotification[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
   const root = role === "Student" ? "/student" : "/admin";
   useEffect(() => {
     let active = true; setLoading(true);
-    notificationApi.list(new URLSearchParams({ page: "1", limit: "100" }))
-      .then((result) => { if (active) setItems(result.items); })
+    notificationApi.list(new URLSearchParams({ page: String(page), limit: "20" }))
+      .then((result) => { if (active) { setItems(result.items); setTotalPages(result.meta?.total_pages || 1); } })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Notifikasi belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [page]);
   async function markRead(id: string) {
     setBusyId(id);
     try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); }
@@ -458,7 +487,12 @@ export function NotificationsPage({ role }: { role: AppRole }) {
         {!item.read_at ? <Button variant="secondary" disabled={busyId === item.id} onClick={() => void markRead(item.id)}>Tandai dibaca</Button> : <span className="read-mark"><Check size={15} />Dibaca</span>}
       </article>)}
     </div> : <EmptyState title="Belum ada notifikasi" description="Pembaruan permohonan dan informasi akun akan muncul di sini." icon={<Bell size={22} />} />}
-    <Link className="button button--primary" to={root + (role === "Student" ? "/reservations" : "/reservations")}>Lihat reservasi</Link>
+    <div className="form-actions">
+      <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+      <span className="muted">Halaman {page} dari {totalPages}</span>
+      <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+    </div>
+    <Link className="button button--primary" to={root + "/reservations"}>Lihat reservasi</Link>
   </div>;
 }
 
@@ -517,7 +551,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
         <Field label="Nama lengkap"><input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={160} required /></Field>
         <Field label="Email"><input type="email" value={profile?.email || ""} readOnly disabled /></Field>
         <Field label="Nomor telepon"><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
-        {profile?.student_identifier ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field> : null}
+        {profile?.student_identifier ? <Field label={role === "Student" ? "Nomor Induk Mahasiswa (NIM)" : "Username Admin"}><input value={profile.student_identifier} disabled readOnly /></Field> : null}
         <Button type="submit" disabled={saving}>{saving ? "Menyimpan…" : "Simpan perubahan"}</Button>
       </form>
       <div className="stack-form">

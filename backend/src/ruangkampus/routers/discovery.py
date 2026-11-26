@@ -51,6 +51,7 @@ def _room_candidates(
     min_capacity: int | None = None,
     facilities: list[str] | None = None,
     search_terms: list[str] | None = None,
+    max_results: int = 100,
 ):
     stmt = select(Room).where(
         Room.deleted_at.is_(None),
@@ -75,7 +76,7 @@ def _room_candidates(
             Room.location_description.ilike(pattern),
             Room.description.ilike(pattern),
         ))
-    return db.scalars(stmt.order_by(Room.room_name.asc()).limit(250)).all()
+    return db.scalars(stmt.order_by(Room.room_name.asc()).limit(max_results)).all()
 
 
 def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dict]:
@@ -85,16 +86,23 @@ def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dic
         building=request.building,
         min_capacity=request.participant_count,
         facilities=request.facilities,
+        max_results=60,
     )
     ranked: list[tuple[tuple[int, int, int, int], dict]] = []
+    availability_checks = 0
+    max_availability_checks = 500
     preferred_minutes = (
         request.preferred_start_time.hour * 60 + request.preferred_start_time.minute
         if request.preferred_start_time else 9 * 60
     )
     for day_offset in range(request.search_days + 1):
+        if availability_checks >= max_availability_checks:
+            break
         candidate_date = request.date + timedelta(days=day_offset)
         weekday = candidate_date.strftime("%A").lower()
         for room in rooms:
+            if availability_checks >= max_availability_checks:
+                break
             for window in (room.operating_hours or {}).get(weekday, []):
                 try:
                     window_start = _parse_time(window["start"])
@@ -104,6 +112,9 @@ def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dic
                 current = datetime.combine(candidate_date, window_start)
                 window_finish = datetime.combine(candidate_date, window_end)
                 while current + timedelta(minutes=request.duration_minutes) <= window_finish:
+                    if availability_checks >= max_availability_checks:
+                        break
+                    availability_checks += 1
                     start_time = current.time()
                     end_time = (current + timedelta(minutes=request.duration_minutes)).time()
                     availability = check_room_availability(
@@ -206,12 +217,12 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
     return {
         "faculty": faculty,
         "building": building,
-        "min_capacity": min_capacity,
+        "min_capacity": max(min_capacity or 1, payload.participant_count),
         "facilities": facilities,
         "date": requested_date,
         "start_time": start_time,
         "end_time": end_time,
-        "participant_count": payload.participant_count,
+        "participant_count": max(payload.participant_count, min_capacity or 1),
         "search_terms": list(dict.fromkeys(tokens))[:5],
     }
 

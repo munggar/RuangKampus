@@ -19,7 +19,7 @@ def test_notification_event_key_prevents_duplicate_in_app_events(db_session, stu
     assert db_session.query(Notification).filter_by(event_key="reservation:unique-test:approved:student").count() == 1
 
 
-def test_notifications_are_visible_only_to_recipient(client, auth_headers, student, db_session):
+def test_notifications_are_visible_only_to_recipient(client, auth_headers, student, admin, db_session):
     notification = Notification(
         recipient_id=student.id,
         notification_type="TEST",
@@ -29,11 +29,16 @@ def test_notifications_are_visible_only_to_recipient(client, auth_headers, stude
     db_session.add(notification)
     db_session.commit()
 
-    second = client.post("/api/v1/auth/register", json={
-        "name": "Second Student", "email": "second@example.com", "student_identifier": "2403045008", "password": "AnotherStrongPass123!"
+    second = client.post("/api/v1/users", headers=auth_headers("admin.uhamka"), json={
+        "name": "Second Student", "email": "second@example.com",
+        "student_identifier": "2403045008", "password": "AnotherStrongPass123!"
     })
-    assert second.status_code == 201
-    second_headers = {"Authorization": f"Bearer {second.json()['access_token']}"}
+    assert second.status_code == 201, second.text
+    second_login = client.post("/api/v1/auth/login", json={
+        "identifier": "2403045008", "password": "AnotherStrongPass123!"
+    })
+    assert second_login.status_code == 200, second_login.text
+    second_headers = {"Authorization": f"Bearer {second_login.json()['access_token']}"}
     hidden = client.get("/api/v1/notifications", headers=second_headers)
     assert hidden.status_code == 200
     assert hidden.json()["data"] == []

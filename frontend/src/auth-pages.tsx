@@ -48,7 +48,7 @@ export function LoginPage() {
         {!isApiConfigured() ? <Notice tone="warning">Mode preview: tampilan tersedia, tetapi backend belum di-host atau URL API belum diatur. Login dan pemuatan data belum aktif.</Notice> : null}
         <div className="role-switch" aria-label="Pilih jenis akun">
           <button type="button" aria-pressed={role === "Student"} className={role === "Student" ? "is-active" : ""} onClick={() => { setRole("Student"); setIdentifier(""); setError(""); }}>Student</button>
-          <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setIdentifier("admin.uhamka"); setError(""); }}>Administrator</button>
+          <button type="button" aria-pressed={role === "TU/Admin"} className={role === "TU/Admin" ? "is-active" : ""} onClick={() => { setRole("TU/Admin"); setIdentifier((current) => current || "admin.uhamka"); setError(""); }}>Administrator</button>
         </div>
         <form className="stack-form" onSubmit={submit}>
           <Field label={role === "Student" ? "NIM" : "Username Administrator"}>
@@ -56,9 +56,8 @@ export function LoginPage() {
               type="text"
               autoComplete="username"
               placeholder={role === "Student" ? "Masukkan NIM Anda" : "admin.uhamka"}
-              value={role === "TU/Admin" ? "admin.uhamka" : identifier}
+              value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
-              readOnly={role === "TU/Admin"}
               required
             />
           </Field>
@@ -68,7 +67,7 @@ export function LoginPage() {
               <button type="button" className="field-action" onClick={() => setVisible(!visible)} aria-label={visible ? "Sembunyikan password" : "Tampilkan password"}>{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button>
             </span>
           </Field>
-          <div className="form-between"><label className="checkbox-line"><input type="checkbox" disabled />Ingat saya</label><Link to="/forgot-password">Lupa password?</Link></div>
+          <div className="form-between"><Link to="/forgot-password">Lupa password?</Link></div>
           {error ? <Notice tone="error">{error}</Notice> : null}
           <Button type="submit" disabled={submitting} className="button--wide">{submitting ? "Memeriksa…" : <>Masuk ke RuangKampus <ArrowRight size={17} /></>}</Button>
         </form>
@@ -131,85 +130,17 @@ export function ForgotPasswordPage() {
 }
 
 export function RegisterPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [studentIdentifier, setStudentIdentifier] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [visible, setVisible] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const { register } = useAuth();
-  const navigate = useNavigate();
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    if (password.length < 10) {
-      setError("Password harus terdiri dari minimal 10 karakter.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Konfirmasi password belum sama.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await register({
-        name: name.trim(),
-        email: email.trim(),
-        password,
-        student_identifier: studentIdentifier.trim(),
-        ...(phone.trim() ? { phone: phone.trim() } : {}),
-      });
-      navigate("/student/dashboard", { replace: true });
-    } catch (cause) {
-      setError(cause instanceof ApiError || cause instanceof Error
-        ? cause.message
-        : "Pendaftaran belum berhasil. Silakan coba kembali.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return <main className="auth-layout">
     <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">
-        <p className="eyebrow">CREATE YOUR ACCOUNT</p>
-        <h2>Daftar RuangKampus</h2>
-        <p className="muted">Buat akun Student untuk mencari ruangan dan mengajukan reservasi kampus. NIM akan digunakan untuk login.</p>
-        {!isApiConfigured() ? <Notice tone="warning">Backend belum dikonfigurasi. Pendaftaran akan aktif setelah layanan API tersedia.</Notice> : null}
-        <form className="stack-form" onSubmit={submit}>
-          <Field label="Nama lengkap">
-            <input type="text" autoComplete="name" minLength={2} maxLength={160} placeholder="Nama sesuai identitas kampus" value={name} onChange={(event) => setName(event.target.value)} required />
-          </Field>
-          <Field label="Email kampus">
-            <input type="email" autoComplete="email" maxLength={254} placeholder="nama@kampus.ac.id" value={email} onChange={(event) => setEmail(event.target.value)} required />
-          </Field>
-          <Field label="NIM">
-            <input type="text" autoComplete="username" minLength={3} maxLength={50} placeholder="Masukkan NIM aktif Anda" value={studentIdentifier} onChange={(event) => setStudentIdentifier(event.target.value)} required />
-          </Field>
-          <Field label="Nomor telepon (opsional)">
-            <input type="tel" autoComplete="tel" maxLength={40} placeholder="08xxxxxxxxxx" value={phone} onChange={(event) => setPhone(event.target.value)} />
-          </Field>
-          <Field label="Password">
-            <span className="input-with-action">
-              <input type={visible ? "text" : "password"} autoComplete="new-password" minLength={10} maxLength={128} placeholder="Minimal 10 karakter" value={password} onChange={(event) => setPassword(event.target.value)} required />
-              <button type="button" className="field-action" onClick={() => setVisible(!visible)} aria-label={visible ? "Sembunyikan password" : "Tampilkan password"}>{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button>
-            </span>
-          </Field>
-          <Field label="Konfirmasi password">
-            <input type="password" autoComplete="new-password" minLength={10} maxLength={128} placeholder="Ulangi password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
-          </Field>
-          {error ? <Notice tone="error">{error}</Notice> : null}
-          <Button type="submit" disabled={busy || !isApiConfigured()} className="button--wide">
-            {busy ? "Membuat akun…" : <>Buat akun Student <ArrowRight size={17} /></>}
-          </Button>
-        </form>
-        <div className="secure-note"><ShieldCheck size={18} /><span>Pendaftaran publik otomatis membuat role Student. Akun TU/Admin dibuat secara terpisah oleh operator.</span></div>
-        <p className="auth-support">Sudah punya akun? <Link to="/login">Masuk di sini</Link></p>
+        <p className="eyebrow">ACCOUNT ACTIVATION</p>
+        <h2>Pendaftaran melalui TU/Admin</h2>
+        <Notice tone="warning">
+          Pendaftaran mandiri sementara dinonaktifkan untuk melindungi NIM mahasiswa. Akun dibuat oleh TU/Admin setelah identitas dicocokkan dengan data resmi kampus.
+        </Notice>
+        <p className="muted">Siapkan NIM dan email yang tercatat pada data kampus, lalu hubungi administrator fakultas atau unit pengelola RuangKampus.</p>
+        <Link className="button button--primary button--wide" to="/login">Kembali ke halaman masuk</Link>
       </div>
     </section>
   </main>;

@@ -5,7 +5,6 @@ import jwt
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ruangkampus.config import get_settings
@@ -66,32 +65,13 @@ def _issue_session(user: User, db: Session, response: Response, user_agent: str 
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterIn, request: Request, response: Response, db: Session = Depends(get_db)):
-    email = str(payload.email).lower().strip()
-    student_identifier = payload.student_identifier.strip()
-    if student_identifier.lower() == "admin.uhamka":
-        raise HTTPException(status_code=409, detail="This identifier is reserved for the administrator")
-    existing_email = db.scalar(select(User.id).where(User.email == email))
-    existing_identifier = db.scalar(select(User.id).where(func.lower(User.student_identifier) == student_identifier.lower()))
-    if existing_email or existing_identifier:
-        raise HTTPException(status_code=409, detail="An account with this email or NIM already exists")
-    user = User(
-        name=payload.name.strip(),
-        email=email,
-        student_identifier=student_identifier,
-        phone=payload.phone,
-        password_hash=hash_password(payload.password),
-        role="STUDENT",
+def register(payload: RegisterIn):
+    # Fail closed until student registration can compare the NIM with an
+    # authorized campus roster. Admins can create accounts after checking it.
+    raise HTTPException(
+        status_code=403,
+        detail="Pendaftaran mandiri dinonaktifkan. Hubungi TU/Admin untuk membuat akun setelah NIM diverifikasi.",
     )
-    db.add(user)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="An account with this email or NIM already exists") from None
-    db.refresh(user)
-    tokens = _issue_session(user, db, response, request.headers.get("user-agent"))
-    return tokens
 
 
 @router.post("/login")
@@ -140,29 +120,39 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    authorization = request.headers.get("authorization", "")
-    token = authorization.removeprefix("Bearer ").strip()
-    revoked = False
-    try:
-        claims = jwt.decode(token, get_settings().jwt_secret_key, algorithms=[get_settings().jwt_algorithm])
-        session_id = UUID(claims["sid"])
-        auth_session = db.get(AuthSession, session_id)
-        if auth_session and auth_session.user_id == current_user.id and auth_session.revoked_at is None:
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    # The HttpOnly refresh cookie identifies the browser session and remains
+    # valid for logout even when the short-lived access token has expired.
+    raw_token = request.cookies.get("ruangkampus_refresh")
+    if raw_token:
+        auth_session = db.scalar(
+            select(AuthSession)
+            .where(AuthSession.refresh_token_hash == hash_opaque_token(raw_token))
+            .with_for_update()
+        )
+        if auth_session and auth_session.revoked_at is None:
             auth_session.revoked_at = utcnow()
-            revoked = True
-    except jwt.InvalidTokenError:
-        pass
-    if not revoked:
-        raw_token = request.cookies.get("ruangkampus_refresh")
-        if raw_token:
-            auth_session = db.scalar(select(AuthSession).where(
-                AuthSession.refresh_token_hash == hash_opaque_token(raw_token),
-                AuthSession.user_id == current_user.id,
-            ))
-            if auth_session and auth_session.revoked_at is None:
+            db.commit()
+    else:
+        # API clients without cookies can still revoke the session identified by
+        # a correctly signed access token. Only its own session can be revoked.
+        authorization = request.headers.get("authorization", "")
+        token = authorization.removeprefix("Bearer ").strip()
+        try:
+            claims = jwt.decode(
+                token,
+                get_settings().jwt_secret_key,
+                algorithms=[get_settings().jwt_algorithm],
+                options={"verify_exp": False},
+            )
+            session_id = UUID(claims["sid"])
+            user_id = UUID(claims["sub"])
+            auth_session = db.get(AuthSession, session_id)
+            if auth_session and auth_session.user_id == user_id and auth_session.revoked_at is None:
                 auth_session.revoked_at = utcnow()
-    db.commit()
+                db.commit()
+        except (jwt.InvalidTokenError, KeyError, ValueError, TypeError):
+            pass
     _clear_refresh_cookie(response)
     return {"success": True}
 

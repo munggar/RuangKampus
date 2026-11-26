@@ -124,6 +124,18 @@ def test_student_room_assistant_uses_grounded_room_records(
     assert "ketersediaan" in data["follow_up_questions"][0].lower()
 
 
+def test_room_assistant_preserves_participant_count_from_message(client, auth_headers, student):
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan untuk 20 orang"},
+        headers=auth_headers(),
+    )
+    assert response.status_code == 200, response.text
+    filters = response.json()["data"]["filters"]
+    assert filters["participant_count"] == 20
+    assert filters["min_capacity"] == 20
+
+
 def test_room_assistant_is_student_only(client, auth_headers, student, admin):
     denied = client.post(
         "/api/v1/assistant/chat",
