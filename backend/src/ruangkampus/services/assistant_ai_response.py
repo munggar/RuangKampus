@@ -183,6 +183,21 @@ def generate_grounded_assistant_message(
         parsed = AssistantGeneratedMessage.model_validate(json.loads(raw_content))
         cleaned = " ".join(parsed.message.split()).strip()
         return cleaned if 8 <= len(cleaned) <= 900 else None
-    except (httpx.HTTPError, ValidationError, ValueError, KeyError, TypeError, IndexError):
-        logger.info("RUKKA AI generated response unavailable; deterministic response retained")
+    except httpx.TimeoutException:
+        logger.warning(
+            "RUKKA AI response provider timed out after %.1f seconds",
+            settings.assistant_ai_timeout_seconds,
+        )
+        return None
+    except httpx.HTTPStatusError as exc:
+        logger.warning("RUKKA AI response provider returned HTTP %s", exc.response.status_code)
+        return None
+    except httpx.HTTPError as exc:
+        logger.warning("RUKKA AI response provider transport error: %s", type(exc).__name__)
+        return None
+    except ValidationError:
+        logger.warning("RUKKA AI response provider returned an invalid structured message")
+        return None
+    except (ValueError, KeyError, TypeError, IndexError):
+        logger.warning("RUKKA AI response provider returned an unreadable response")
         return None
