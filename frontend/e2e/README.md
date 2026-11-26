@@ -2,17 +2,17 @@
 
 ## What this suite verifies
 
-Run the production Vite preview in Chromium with Playwright. The suite captures the 26 leaf routes actually present in src/App.tsx:
+Run the production Vite preview in Chromium with Playwright. The suite captures the 25 leaf routes actually present in src/App.tsx:
 
 - Public: login, registration, forgot password, reset password.
 - Student (11): dashboard, room directory, availability, alternative slots, room detail, booking, reservation list/detail, notifications, profile, assistant.
-- TU/Admin (11): dashboard, reservation list/detail, room list, data imports, room create/edit, schedules and maintenance, notifications, profile, assistant.
+- Staff Sekretariat (10): dashboard, reservation list/detail, room list, data imports, room create/edit, schedules and maintenance, notifications and profile.
 
 There is no separate maintenance route: maintenance is a workflow inside /admin/schedules.
 
-The suite captures every route in light and dark theme, checks all protected routes at 1440x900, 1024x768, 820x1180, 768x1024, 390x844 and 320x800, and saves responsive captures for the core Student and TU/Admin screens.
+The suite captures every route in light and dark theme, checks all protected routes at 1440x900, 1024x768, 820x1180, 768x1024, 390x844 and 320x800, and saves responsive captures for every Student and Staff Sekretariat route.
 
-It also covers browser interactions for login/registration/password flows, role redirects, Student availability and reservation submission, notifications, the Student assistant, profile editing, Admin approval/rejection, room create/edit, academic schedule and maintenance forms, workbook preview/commit UI, keyboard behavior, reduced motion, axe accessibility, console/network diagnostics and navigation/asset timing.
+It also covers browser interactions for login/registration/password flows, role redirects, Student availability and reservation submission, notifications, the Student assistant, profile editing, Staff approval/rejection, room create/edit, academic schedule and maintenance forms, workbook preview/commit UI, keyboard behavior, reduced motion, axe accessibility, console/network diagnostics and navigation/asset timing.
 
 ## Run locally
 
@@ -49,6 +49,6 @@ No test mutates production data. The browser workflow does not require or print 
 - playwright-report/: HTML report with test details and attached axe/performance/diagnostic JSON.
 - test-results/diagnostics/performance.json: browser navigation and asset timing/transfer sample.
 
-The first browser run stores visual captures under screenshots/baseline/. After the initial run has been reviewed and any failures fixed, switch the path to screenshots/final/ and rerun the workflow. GitHub Actions uploads reports and screenshots as a 14-day artifact.
+First-run baseline evidence is retained in the run #182 artifact. Reviewed and corrected captures are written under screenshots/final/; all 25 leaf routes are captured in both themes and at all six target viewports. GitHub Actions uploads reports and screenshots as a 14-day artifact.
 
 Performance figures are browser timing and resource-transfer measurements from the Chromium run. They are not Lighthouse scores or Core Web Vitals certification.

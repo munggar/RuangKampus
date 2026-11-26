@@ -155,7 +155,7 @@ export function StudentDashboardPage() {
     {loading ? <Loading label="Memuat ringkasan reservasi…" /> : <>
       <div className="stat-grid stat-grid--two">
         <article className="stat-card"><div className="stat-card__top"><span>Reservasi aktif</span><CalendarCheck size={18} /></div><strong>{pending + approved}</strong><small>Menunggu atau sudah disetujui</small></article>
-        <article className="stat-card"><div className="stat-card__top"><span>Menunggu persetujuan</span><Clock3 size={18} /></div><strong>{pending}</strong><small>Dalam peninjauan TU/Admin</small></article>
+        <article className="stat-card"><div className="stat-card__top"><span>Menunggu persetujuan</span><Clock3 size={18} /></div><strong>{pending}</strong><small>Dalam peninjauan Staff Sekretariat</small></article>
       </div>
       <PageSection title="Sesi kampus berikutnya" action={<Link className="text-link" to="/student/reservations">Lihat semua</Link>}>
         {upcoming ? (
@@ -169,7 +169,7 @@ export function StudentDashboardPage() {
               <span>{upcoming.purpose}<b>{upcoming.participant_count} peserta</b></span>
             </div>
           </article>
-        ) : <EmptyState title="Belum ada sesi yang disetujui" description="Reservasi mendatang akan muncul di sini setelah disetujui oleh TU/Admin." action={<Link to="/student/rooms" className="button button--secondary">Cari ruang</Link>} icon={<CalendarDays size={23} />} />}
+        ) : <EmptyState title="Belum ada sesi yang disetujui" description="Reservasi mendatang akan muncul di sini setelah disetujui oleh Staff Sekretariat." action={<Link to="/student/rooms" className="button button--secondary">Cari ruang</Link>} icon={<CalendarDays size={23} />} />}
       </PageSection>
       <PageSection title="Permohonan terbaru" action={<Link className="text-link" to="/student/reservations">Lihat riwayat</Link>}>
         {recent.length ? <div className="card-list">{recent.slice(0, 3).map((item) => <ReservationCard key={item.id} item={item} />)}</div>
@@ -366,7 +366,7 @@ export function BookingPage() {
 
   return <div className="page-stack">
     <Link className="back-link" to={"/student/rooms/" + roomId}><ArrowLeft size={16} />Kembali ke {room.room_name}</Link>
-    <PageTitle eyebrow="AJUKAN RESERVASI RUANG" title="Ajukan reservasi ruangan" description="Isi kebutuhan kegiatan Anda. Permohonan akan ditinjau oleh TU/Admin." />
+    <PageTitle eyebrow="AJUKAN RESERVASI RUANG" title="Ajukan reservasi ruangan" description="Isi kebutuhan kegiatan Anda. Permohonan akan ditinjau oleh Staff Sekretariat." />
     <div className="steps-indicator"><span className="is-complete"><Check size={14} />Pilih ruangan</span><i /><span className="is-current">2. Detail permohonan</span><i /><span>3. Tinjauan admin</span></div>
     <div className="booking-layout">
       <form className="panel stack-form" onSubmit={(event) => { event.preventDefault(); if (availability?.available) setConfirmOpen(true); else void checkAvailability(); }}>
@@ -400,7 +400,7 @@ export function BookingPage() {
         <p className="muted small">Waktu menggunakan zona Asia/Jakarta (WIB). Pemeriksaan ketersediaan berlaku hanya untuk rentang waktu yang dipilih.</p>
       </aside>
     </div>
-    <ConfirmModal open={confirmOpen} title="Kirim permohonan reservasi?" description="Permohonan akan dikirim ke TU/Admin untuk ditinjau. Status dapat dipantau pada menu Reservasi saya." confirmText="Kirim permohonan" loading={submitting} onClose={() => setConfirmOpen(false)} onConfirm={() => void submitReservation()} />
+    <ConfirmModal open={confirmOpen} title="Kirim permohonan reservasi?" description="Permohonan akan dikirim ke Staff Sekretariat untuk ditinjau. Status dapat dipantau pada menu Reservasi saya." confirmText="Kirim permohonan" loading={submitting} onClose={() => setConfirmOpen(false)} onConfirm={() => void submitReservation()} />
   </div>;
 }
 
@@ -474,7 +474,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>
     <PageTitle eyebrow="DETAIL RESERVASI" title="Detail reservasi" description="Periksa informasi permohonan dan keputusan administrator." action={<StatusBadge status={item.status} />} />
-    {success ? <Notice tone="success">Permohonan berhasil dikirim. Status awalnya menunggu peninjauan TU/Admin.</Notice> : null}
+    {success ? <Notice tone="success">Permohonan berhasil dikirim. Status awalnya menunggu peninjauan Staff Sekretariat.</Notice> : null}
     {error ? <Notice tone="error">{error}</Notice> : null}
     {item.rejection_reason ? <Notice tone="warning"><b>Alasan penolakan:</b> {item.rejection_reason}</Notice> : null}
     <div className="detail-layout">
@@ -605,14 +605,14 @@ export function ProfilePage({ role }: { role: AppRole }) {
     <PageTitle eyebrow="AKUN ANDA" title="Profil" description="Kelola informasi akun dan preferensi tampilan Anda." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {message ? <Notice tone="success">{message}</Notice> : null}
-    <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "TU / Administrator"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
+    <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "Staff Sekretariat"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
     <div className="profile-grid">
       <form className="panel stack-form" onSubmit={saveProfile}>
         <h2>Informasi profil</h2>
         <Field label="Nama lengkap"><input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={160} required /></Field>
         <Field label="Email"><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={320} required /></Field>
         <Field label="Nomor telepon"><input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} /></Field>
-        {role === "TU/Admin"
+        {role === "Staff Sekretariat"
           ? <Field label="Username admin"><input value={profile?.student_identifier || ""} autoComplete="username" disabled readOnly /></Field>
           : profile?.student_identifier
             ? <Field label="Nomor induk mahasiswa"><input value={profile.student_identifier} disabled readOnly /></Field>

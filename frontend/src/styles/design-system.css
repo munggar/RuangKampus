@@ -267,7 +267,7 @@ button:disabled { opacity:.58; cursor:not-allowed; }
   .mobile-nav__items .nav-link--ai .nav-link__icon { width:25px; height:25px; border:0; border-radius:0; color:var(--brand-red); background:transparent; box-shadow:none; }
   .mobile-nav__items .nav-link--ai .nav-link__label { margin:0; color:inherit; }
   .mobile-nav__items .nav-link--ai.is-active .nav-link__icon { box-shadow:none; }
-  .app-shell[data-role="admin"] .mobile-nav__items { grid-template-columns:repeat(7,minmax(0,1fr)); }
+  .app-shell[data-role="admin"] .mobile-nav__items { grid-template-columns:repeat(6,minmax(0,1fr)); }
 }
 @media (max-width:920px) {
   .stat-grid,.stat-grid--four { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -378,4 +378,15 @@ button:disabled { opacity:.58; cursor:not-allowed; }
 }
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+}
+
+/* At 320px, keep reservation status filters inside the panel without page overflow. */
+@media (max-width:380px) {
+  .reservation-filters .segmented-tabs { display:flex; width:100%; min-width:0; }
+  .reservation-filters .segmented-tabs button {
+    flex:1 1 0;
+    min-width:0;
+    padding:0 5px;
+    font-size:10px;
+  }
 }

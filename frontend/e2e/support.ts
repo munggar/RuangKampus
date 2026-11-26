@@ -1,6 +1,8 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 
-type AppRole = "Student" | "TU/Admin";
+type AppRole = "Student" | "Staff Sekretariat";
 type NullableRole = AppRole | null;
 
 const isoJakartaDate = (offsetDays = 0) => {
@@ -62,7 +64,7 @@ const makeReservation = (id: string, status: string, offsetDays: number) => ({
   participant_count: 8,
   notes: "Data fixture E2E; tidak menggunakan record production.",
   status,
-  admin_id: status === "PENDING" ? null : fixtureUser("TU/Admin").id,
+  admin_id: status === "PENDING" ? null : fixtureUser("Staff Sekretariat").id,
   rejection_reason: null,
   submitted_at: isoJakartaDate() + "T08:00:00+07:00",
   approved_at: status === "APPROVED" ? isoJakartaDate() + "T09:00:00+07:00" : null,
@@ -152,21 +154,20 @@ export const SCREEN_ROUTES: Array<{
   { id: "student-profile", group: "student", role: "Student", path: "/student/profile" },
   { id: "student-assistant", group: "student", role: "Student", path: "/student/assistant" },
 
-  { id: "admin-dashboard", group: "admin", role: "TU/Admin", path: "/admin/dashboard" },
-  { id: "admin-reservations", group: "admin", role: "TU/Admin", path: "/admin/reservations" },
-  { id: "admin-reservation-detail", group: "admin", role: "TU/Admin", path: "/admin/reservations/reservation-pending-e2e" },
-  { id: "admin-rooms", group: "admin", role: "TU/Admin", path: "/admin/rooms" },
-  { id: "admin-data-imports", group: "admin", role: "TU/Admin", path: "/admin/data-imports" },
-  { id: "admin-room-create", group: "admin", role: "TU/Admin", path: "/admin/rooms/new" },
-  { id: "admin-room-edit", group: "admin", role: "TU/Admin", path: "/admin/rooms/room-e2e-001/edit" },
-  { id: "admin-schedules-maintenance", group: "admin", role: "TU/Admin", path: "/admin/schedules" },
-  { id: "admin-notifications", group: "admin", role: "TU/Admin", path: "/admin/notifications" },
-  { id: "admin-profile", group: "admin", role: "TU/Admin", path: "/admin/profile" },
-  { id: "admin-assistant", group: "admin", role: "TU/Admin", path: "/admin/assistant" },
-];
+  { id: "admin-dashboard", group: "admin", role: "Staff Sekretariat", path: "/admin/dashboard" },
+  { id: "admin-reservations", group: "admin", role: "Staff Sekretariat", path: "/admin/reservations" },
+  { id: "admin-reservation-detail", group: "admin", role: "Staff Sekretariat", path: "/admin/reservations/reservation-pending-e2e" },
+  { id: "admin-rooms", group: "admin", role: "Staff Sekretariat", path: "/admin/rooms" },
+  { id: "admin-data-imports", group: "admin", role: "Staff Sekretariat", path: "/admin/data-imports" },
+  { id: "admin-room-create", group: "admin", role: "Staff Sekretariat", path: "/admin/rooms/new" },
+  { id: "admin-room-edit", group: "admin", role: "Staff Sekretariat", path: "/admin/rooms/room-e2e-001/edit" },
+  { id: "admin-schedules-maintenance", group: "admin", role: "Staff Sekretariat", path: "/admin/schedules" },
+  { id: "admin-notifications", group: "admin", role: "Staff Sekretariat", path: "/admin/notifications" },
+  { id: "admin-profile", group: "admin", role: "Staff Sekretariat", path: "/admin/profile" },
+  ];
 
 export const STUDENT_PATHS = SCREEN_ROUTES.filter((screen) => screen.role === "Student");
-export const ADMIN_PATHS = SCREEN_ROUTES.filter((screen) => screen.role === "TU/Admin");
+export const ADMIN_PATHS = SCREEN_ROUTES.filter((screen) => screen.role === "Staff Sekretariat");
 
 export type MockApiResult = {
   calls: string[];
@@ -229,7 +230,7 @@ export async function installMockApi(page: Page, initialRole: NullableRole): Pro
       if (payload.password !== "fixture-pass-1234") {
         return respond(route, { detail: "Kredensial fixture tidak valid." }, 401);
       }
-      currentRole = identifier === "admin.uhamka" ? "TU/Admin" : "Student";
+      currentRole = identifier === "admin.uhamka" ? "Staff Sekretariat" : "Student";
       return respond(route, sessionPayload());
     }
     if (path === "/auth/register" && method === "POST") {
@@ -523,9 +524,12 @@ export { expect };
 export const test = base.extend({
   page: async ({ page }, use, testInfo) => {
     const diagnostics: Array<Record<string, string | number>> = [];
+    const expectedHttpStatuses = new Set<number>();
     page.on("console", (message) => {
       if (message.type() === "error") {
-        diagnostics.push({ type: "console-error", message: message.text().slice(0, 1000) });
+        const text = message.text().slice(0, 1000);
+        const expected = Array.from(expectedHttpStatuses).some((status) => text.includes(String(status)));
+        diagnostics.push({ type: "console-error", expected: expected ? "true" : "false", message: text });
       }
     });
     page.on("pageerror", (error) => {
@@ -540,18 +544,33 @@ export const test = base.extend({
       });
     });
     page.on("response", (response) => {
-      if (response.status() >= 500) {
+      if (response.status() >= 400) {
+        const path = new URL(response.url()).pathname;
+        const status = response.status();
+        const expected =
+          (status === 401 && path === "/api/v1/auth/refresh") ||
+          (status === 401 && path === "/api/v1/auth/login" && /invalid login/i.test(testInfo.title)) ||
+          (status === 503 && path === "/api/v1/rooms" && /API error/i.test(testInfo.title));
+        if (expected) expectedHttpStatuses.add(status);
         diagnostics.push({
-          type: "http-server-error",
-          status: response.status(),
-          path: new URL(response.url()).pathname,
+          type: "http-response-error", expected: expected ? "true" : "false",
+          status, method: response.request().method(), path,
         });
       }
     });
     await use(page);
+    const diagnosticJson = JSON.stringify(diagnostics, null, 2);
+    const diagnosticDirectory = resolve("test-results/diagnostics/browser");
+    await mkdir(diagnosticDirectory, { recursive: true });
+    const safeTestId = testInfo.testId.replace(/[^a-zA-Z0-9_-]+/g, "-");
+    await writeFile(resolve(diagnosticDirectory, safeTestId + ".json"), diagnosticJson, "utf8");
     await testInfo.attach("browser-diagnostics.json", {
-      body: Buffer.from(JSON.stringify(diagnostics, null, 2)),
-      contentType: "application/json",
+      body: Buffer.from(diagnosticJson), contentType: "application/json",
     });
+    const unexpected = diagnostics.filter((item) =>
+      item.type === "page-error" ||
+      (item.expected === "false" && ["console-error", "http-response-error", "request-failed"].includes(String(item.type))),
+    );
+    expect(unexpected, "Unexpected browser diagnostics on " + testInfo.title).toEqual([]);
   },
 });

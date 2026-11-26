@@ -1,4 +1,4 @@
-# RuangKampus — AI Assistant API Contract (Stage 2.1)
+# RuangKampus — AI Assistant API Contract (Stages 2.1–2.3)
 
 This document describes the contract implemented by the current backend. It does not describe a generative AI service.
 
@@ -11,7 +11,7 @@ This document describes the contract implemented by the current backend. It does
 | Authentication | Required: `Authorization: Bearer <access_token>` |
 | Authorized role | `STUDENT` only |
 | Current engine | `RULE_BASED` |
-| Current intent | `ROOM_SEARCH` |
+| Current intent | Allowlisted deterministic intents (see section 11) |
 | Conversation persistence | Not implemented |
 | External AI provider | None |
 
@@ -79,9 +79,10 @@ The inner Pydantic response model is `AssistantChatResponseData`. The response c
 |---|---|---|
 | `message` | string | Existing rule-based response text |
 | `conversation_id` | UUID or null | Always null; no backend conversation store exists |
-| `intent` | literal `ROOM_SEARCH` | The only current assistant intent |
+| `intent` | allowlisted intent string | Determined by the Rule-Based Intent Engine; see section 11 |
 | `slots` | object | Search filters extracted by the current parser |
 | `confidence` | number 0–1 or null | Always null; no confidence model is implemented |
+| `normalization` | object | Stage 2.2 raw/normalized text, tokens, fillers, corrections, unknown tokens, and parser text; additive and optional |
 | `missing_fields` | string array | Existing search details requested by follow-up logic |
 | `requires_clarification` | boolean | True when the current engine asks follow-up questions |
 | `clarification_message` | string or null | First current follow-up question, if any |
@@ -263,11 +264,12 @@ The standard error envelope is:
 - Reservation creation and cancellation continue to use their existing APIs and authorization rules.
 - Chat messages are not stored as conversation history and are not sent to an AI provider.
 
-## 9. Explicit non-goals in Stage 2.1
+## 9. Historical non-goals in the Stage 2.1 baseline
 
-Not implemented in this stage:
+The following items were not implemented at the Stage 2.1 merge point. Stage 2.2 has since added the Indonesian Chat Normalizer described in section 10.
 
-- Indonesian Chat Normalizer.
+Other items still outside scope:
+
 - New multi-intent Rule-Based Engine.
 - Confidence scoring.
 - Conversation memory or session ownership.
@@ -278,3 +280,65 @@ Not implemented in this stage:
 - A new faculty master table, facility master table, database migration, or bulk metadata correction.
 
 The frontend TypeScript interfaces have additive optional fields only. No chatbot UI behavior is changed.
+
+## 10. Indonesian Chat Normalizer (Stage 2.2)
+
+The existing Student-only `POST /api/v1/assistant/chat` flow now runs deterministic Indonesian text normalization before the existing `ROOM_SEARCH` filter parser.
+
+### Processing and compatibility
+
+- The original `message` is retained as `normalization.raw_text`.
+- `normalized_text` and `normalized_tokens` contain lowercase tokens, deterministic spelling/slang corrections, and punctuation cleanup.
+- `filler_tokens` records conversational fillers; `parser_text` removes those fillers only.
+- Negation and restriction words (including `tidak`, `bukan`, `jangan`, `tanpa`, `kecuali`, and `hanya`) remain in the normalized representation.
+- The current parser receives `parser_text`; it remains the same `ROOM_SEARCH` intent and uses the same candidate/availability functions.
+- The response has an additive `normalization` object. Existing legacy response keys and the existing `AssistantChatIn` request shape remain supported.
+- Raw chat messages are not persisted. The normalizer does not call an external AI provider.
+
+### Catalogue and ambiguity rules
+
+The normalizer reads the existing Assistant Data Catalog built from active, non-deleted room records. It uses observed room names/codes, faculty, building, floor, location descriptions, and facilities. Faculty/building labels are not invented or hard-coded.
+
+Known facility aliases are selected only when their canonical alias group is present in the current catalogue. An unmapped facility may be matched using its exact observed source label but is never assigned a different canonical facility. A locally negated facility/faculty/building mention is not promoted to a positive filter. A later contrast word (`tetapi`, `melainkan`, or `namun`) starts a new context. Ambiguous catalogue candidates are not arbitrarily selected.
+
+### Correction policy
+
+- Exact token-level slang and typo dictionaries are used; substring replacement is not used.
+- Repeated runs of three or more letters are reduced for ordinary alphabetic tokens.
+- Date, time, numeric, and alphanumeric room-code tokens are protected.
+- Catalogue typo matching uses at most one edit and requires one unique candidate of at least five characters.
+- Correction records provide original/normalized token, correction type, source, and optional confidence. Confidence remains null because no calibrated score exists.
+
+### Scope limitation
+
+The Stage 2.2 normalizer preserves negative wording and prevents a negated facility from becoming a positive facility filter. It does not yet implement full negative-filter semantics such as returning only rooms without AC or a projector. At the Stage 2.2 baseline, the endpoint supported only `ROOM_SEARCH`. Stage 2.3 adds deterministic intent classification; it still does not execute reservation actions, persist memory, calculate confidence, call an LLM adapter, or change the frontend chatbot.
+
+## 11. Rule-Based Intent Detection (Stage 2.3)
+
+The Student assistant now classifies normalized messages into an allowlisted set of deterministic intents before selecting an execution path.
+
+Supported intent names:
+- ROOM_SEARCH
+- ROOM_AVAILABILITY
+- ALTERNATIVE_SLOTS
+- ROOM_DETAIL
+- RESERVATION_HELP
+- MY_RESERVATIONS
+- RESERVATION_STATUS
+- RESERVATION_CREATE_PREVIEW
+- RESERVATION_CANCEL_PREVIEW
+- FAQ
+- SMALLTALK
+- OUT_OF_SCOPE
+
+The intent engine consumes normalized text and the current active-room catalogue. It uses exact phrase boundaries and context-aware checks for cancellation wording. It does not call a language model and does not assign a numeric confidence score; confidence calibration is a separate stage.
+
+Execution boundaries in this stage:
+- ROOM_SEARCH reuses the existing deterministic room parser and room query.
+- ROOM_AVAILABILITY requires a complete date, start time, and end time before the availability engine is queried. Missing values produce a clarification instead of a broad query.
+- ALTERNATIVE_SLOTS requires a complete date/time window and reuses the existing alternative-slot service.
+- Informational, reservation-related, small-talk, and out-of-scope intents receive deterministic text responses and do not query the room catalogue.
+- Reservation creation and cancellation are not performed by intent classification. Their existing application endpoints and confirmation/authorization rules remain authoritative.
+- Private reservation data is not returned by the assistant at this stage. Read-only reservation intents are recognized but explicitly report that chat retrieval is not yet enabled.
+
+The intent value is an expanded response field; legacy fields, Student-only authorization, room availability logic, and the reservation workflow remain in place.

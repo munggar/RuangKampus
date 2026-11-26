@@ -77,7 +77,7 @@ test.describe("Authentication UI — mocked session only", () => {
     await expect(page).toHaveURL(/\/student\/dashboard$/);
 
     await page.unroute("**/api/v1/**");
-    await installMockApi(page, "TU/Admin");
+    await installMockApi(page, "Staff Sekretariat");
     await page.goto("/student/reservations");
     await waitForPageReady(page);
     await expect(page).toHaveURL(/\/admin\/dashboard$/);
@@ -152,9 +152,9 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
   });
 });
 
-test.describe("TU/Admin workflows — fixture-backed browser E2E", () => {
+test.describe("Staff Sekretariat workflows — fixture-backed browser E2E", () => {
   test("approves a pending reservation from the review list", async ({ page }) => {
-    const api = await installMockApi(page, "TU/Admin");
+    const api = await installMockApi(page, "Staff Sekretariat");
     await page.goto("/admin/reservations");
     await waitForPageReady(page);
     await expect(page.getByText("Diskusi proyek pengujian")).toBeVisible();
@@ -167,7 +167,7 @@ test.describe("TU/Admin workflows — fixture-backed browser E2E", () => {
   });
 
   test("rejects a pending reservation with a recorded reason", async ({ page }) => {
-    const api = await installMockApi(page, "TU/Admin");
+    const api = await installMockApi(page, "Staff Sekretariat");
     await page.goto("/admin/reservations");
     await waitForPageReady(page);
     await page.getByRole("button", { name: "Tolak", exact: true }).first().click();
@@ -179,7 +179,7 @@ test.describe("TU/Admin workflows — fixture-backed browser E2E", () => {
   });
 
   test("creates a room using the Admin room editor", async ({ page }) => {
-    const api = await installMockApi(page, "TU/Admin");
+    const api = await installMockApi(page, "Staff Sekretariat");
     await page.goto("/admin/rooms/new");
     await waitForPageReady(page);
     await page.getByLabel("Nama ruangan").fill("Ruang Kolaborasi E2E");
@@ -191,7 +191,7 @@ test.describe("TU/Admin workflows — fixture-backed browser E2E", () => {
   });
 
   test("edits an existing room using the Admin room editor", async ({ page }) => {
-    const api = await installMockApi(page, "TU/Admin");
+    const api = await installMockApi(page, "Staff Sekretariat");
     await page.goto("/admin/rooms/room-e2e-001/edit");
     await waitForPageReady(page);
     await expect(page.getByLabel("Nama ruangan")).toHaveValue("Ruang Diskusi Uji");
@@ -202,14 +202,14 @@ test.describe("TU/Admin workflows — fixture-backed browser E2E", () => {
   });
 
   test("creates an academic schedule and a maintenance block", async ({ page }) => {
-    const api = await installMockApi(page, "TU/Admin");
+    const api = await installMockApi(page, "Staff Sekretariat");
     await page.goto("/admin/schedules");
     await waitForPageReady(page);
 
     const scheduleForm = page.locator("form").nth(0);
     await scheduleForm.getByLabel("Ruangan").selectOption("room-e2e-001");
     await scheduleForm.getByLabel("Nama mata kuliah / kegiatan").fill("Jadwal fixture untuk E2E");
-    await scheduleForm.getByLabel("Tanggal").fill(futureDate(2));
+    await scheduleForm.getByLabel("Tanggal", { exact: true }).fill(futureDate(2));
     await scheduleForm.getByRole("button", { name: "Simpan jadwal" }).click();
     await expect(page.getByRole("status")).toContainText("Jadwal berhasil ditambahkan");
 
@@ -223,7 +223,7 @@ test.describe("TU/Admin workflows — fixture-backed browser E2E", () => {
   });
 
   test("previews and commits a workbook-shaped file through the import workspace", async ({ page }) => {
-    const api = await installMockApi(page, "TU/Admin");
+    const api = await installMockApi(page, "Staff Sekretariat");
     await page.goto("/admin/data-imports");
     await waitForPageReady(page);
 
@@ -243,13 +243,20 @@ test.describe("TU/Admin workflows — fixture-backed browser E2E", () => {
     expect(api.calls).toContain("POST /admin/rooms/imports/commit");
   });
 
-  test("Admin assistant shortcuts navigate to the actual operations", async ({ page }) => {
-    await installMockApi(page, "TU/Admin");
-    await page.goto("/admin/assistant");
+  test("Staff mobile navigation exposes schedule and data import workspaces", async ({ page }) => {
+    await installMockApi(page, "Staff Sekretariat");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/dashboard");
     await waitForPageReady(page);
-    await page.getByRole("link", { name: /Tinjau permohonan reservasi/ }).click();
-    await expect(page).toHaveURL(/\/admin\/reservations$/);
+    const mobileNavigation = page.locator(".mobile-nav-shell");
+    await expect(mobileNavigation.getByRole("link", { name: "Jadwal" })).toBeVisible();
+    await mobileNavigation.getByRole("link", { name: "Jadwal" }).click();
+    await expect(page).toHaveURL(new RegExp("/admin/schedules$"));
     await waitForPageReady(page);
-    await expect(page.getByRole("heading", { name: "Permohonan reservasi" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Jadwal & pemeliharaan" })).toBeVisible();
+    await mobileNavigation.getByRole("link", { name: "Impor" }).click();
+    await expect(page).toHaveURL(new RegExp("/admin/data-imports$"));
+    await waitForPageReady(page);
+    await expect(page.getByRole("heading", { name: /Impor/ })).toBeVisible();
   });
 });

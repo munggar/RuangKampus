@@ -21,7 +21,7 @@ function FullScreenLoading() {
   </main>;
 }
 
-function RequireRole({ role, children }: { role: "Student" | "TU/Admin"; children: ReactNode }) {
+function RequireRole({ role, children }: { role: "Student" | "Staff Sekretariat"; children: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <FullScreenLoading />;
@@ -65,22 +65,21 @@ export function App() {
         <Route path="reservations/:reservationId" element={<ReservationDetailPage role="Student" />} />
         <Route path="notifications" element={<NotificationsPage role="Student" />} />
         <Route path="profile" element={<ProfilePage role="Student" />} />
-        <Route path="assistant" element={<RoomAssistantPage role="Student" />} />
+        <Route path="assistant" element={<RoomAssistantPage />} />
       </Route>
 
-      <Route path="/admin" element={<RequireRole role="TU/Admin"><AppShell role="TU/Admin" /></RequireRole>}>
+      <Route path="/admin" element={<RequireRole role="Staff Sekretariat"><AppShell role="Staff Sekretariat" /></RequireRole>}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="reservations" element={<AdminRequestsPage />} />
-        <Route path="reservations/:reservationId" element={<ReservationDetailPage role="TU/Admin" />} />
+        <Route path="reservations/:reservationId" element={<ReservationDetailPage role="Staff Sekretariat" />} />
         <Route path="rooms" element={<AdminRoomsPage />} />
         <Route path="data-imports" element={<AdminDataImportsPage />} />
         <Route path="rooms/new" element={<AdminRoomEditorPage />} />
         <Route path="rooms/:roomId/edit" element={<AdminRoomEditorPage />} />
         <Route path="schedules" element={<AdminSchedulesPage />} />
-        <Route path="notifications" element={<NotificationsPage role="TU/Admin" />} />
-        <Route path="profile" element={<ProfilePage role="TU/Admin" />} />
-        <Route path="assistant" element={<RoomAssistantPage role="TU/Admin" />} />
+        <Route path="notifications" element={<NotificationsPage role="Staff Sekretariat" />} />
+        <Route path="profile" element={<ProfilePage role="Staff Sekretariat" />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

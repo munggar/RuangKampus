@@ -1,7 +1,7 @@
 import { test, expect, installMockApi, saveScreenshot, waitForPageReady } from "./support";
 
 const capture = (page: Parameters<typeof saveScreenshot>[0], name: string) =>
-  saveScreenshot(page, "test-results/screenshots/baseline/states/" + name + "-1440-light.png");
+  saveScreenshot(page, "test-results/screenshots/final/states/" + name + "-1440-light.png");
 
 test("state screenshot: Student room directory with active search filter", async ({ page }) => {
   await installMockApi(page, "Student");
@@ -79,7 +79,7 @@ test("state screenshot: account dropdown expanded", async ({ page }) => {
 });
 
 test("state screenshot: Admin approval dialog open", async ({ page }) => {
-  await installMockApi(page, "TU/Admin");
+  await installMockApi(page, "Staff Sekretariat");
   await page.goto("/admin/reservations");
   await waitForPageReady(page);
 
@@ -94,13 +94,15 @@ test("state screenshot: booking validation error", async ({ page }) => {
   await page.goto("/student/rooms/room-e2e-001/book");
   await waitForPageReady(page);
 
+  await page.getByLabel("Jam mulai").fill("12:00");
+  await page.getByLabel("Jam selesai").fill("10:00");
   await page.getByRole("button", { name: "Periksa ketersediaan" }).click();
-  await expect(page.getByRole("alert")).toContainText("Lengkapi tanggal, jam mulai");
+  await expect(page.getByRole("alert")).toContainText("Jam selesai harus lebih akhir dari jam mulai");
   await capture(page, "student-booking-validation-error");
 });
 
 test("state screenshot: import workbook preview", async ({ page }) => {
-  await installMockApi(page, "TU/Admin");
+  await installMockApi(page, "Staff Sekretariat");
   await page.goto("/admin/data-imports");
   await waitForPageReady(page);
 

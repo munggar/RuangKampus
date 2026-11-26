@@ -23,7 +23,6 @@ function navigationFor(role: AppRole): NavigationItem[] {
   ] : [
     { label: "Dashboard", shortLabel: "Home", path: base + "/dashboard", icon: LayoutDashboard },
     { label: "Reservation requests", shortLabel: "Requests", path: base + "/reservations", icon: ClipboardList },
-    { label: "AI Assistant", shortLabel: "AI", path: base + "/assistant", icon: Sparkles, ai: true },
     { label: "Manage rooms", shortLabel: "Rooms", path: base + "/rooms", icon: Building2 },
     { label: "Room schedules", shortLabel: "Jadwal", path: base + "/schedules", icon: CalendarDays },
     { label: "Import campus data", shortLabel: "Impor", path: base + "/data-imports", icon: FileSpreadsheet },
@@ -185,7 +184,7 @@ export function AppShell({ role }: { role: AppRole }) {
     try { await logout(); } finally { navigate("/login", { replace: true }); }
   }
 
-  return <div className="app-shell" data-role={role === "TU/Admin" ? "admin" : "student"}>
+  return <div className="app-shell" data-role={role === "Staff Sekretariat" ? "admin" : "student"}>
     <a className="skip-link" href="#main-content">Lewati ke konten utama</a>
     <svg className="brand-filter-defs" width="0" height="0" aria-hidden="true" focusable="false">
       <defs>
@@ -212,7 +211,7 @@ export function AppShell({ role }: { role: AppRole }) {
     </svg>
     <aside className="desktop-sidebar" aria-label={role === "Student" ? "Navigasi mahasiswa" : "Navigasi administrasi"}>
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
-      <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "TU / ADMIN WORKSPACE"}</p>
+      <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "STAFF SEKRETARIAT WORKSPACE"}</p>
       <Navigation items={items} />
       <div className="sidebar-footer"><span className="online-dot" />RuangKampus <span>Web</span></div>
     </aside>
@@ -233,7 +232,7 @@ export function AppShell({ role }: { role: AppRole }) {
           </Link>
           <div className="account-menu" ref={accountMenuRef}>
             <button ref={accountTriggerRef} className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="account-menu-dropdown">
-              <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "TU / Administrator"}</small></span><ChevronDown size={15} />
+              <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "Staff Sekretariat"}</small></span><ChevronDown size={15} />
             </button>
             {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown"><Link to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
           </div>

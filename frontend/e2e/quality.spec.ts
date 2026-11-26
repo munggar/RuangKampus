@@ -3,10 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { test, expect, installMockApi, SCREEN_ROUTES, waitForPageReady } from "./support";
 
-const darkAccessibilityIds = new Set([
-  "login", "student-dashboard", "student-booking",
-  "admin-dashboard", "admin-data-imports", "admin-schedules-maintenance",
-]);
+const darkAccessibilityIds = new Set(SCREEN_ROUTES.map((screen) => screen.id));
 
 for (const screen of SCREEN_ROUTES) {
   test("axe WCAG 2.1 A/AA: " + screen.id + " light", async ({ page }, testInfo) => {
@@ -76,7 +73,7 @@ test("keyboard: skip link, main landmark, account dropdown and Escape handling",
 });
 
 test("keyboard: approval dialog traps focus and restores it after Escape", async ({ page }) => {
-  await installMockApi(page, "TU/Admin");
+  await installMockApi(page, "Staff Sekretariat");
   await page.goto("/admin/reservations");
   await waitForPageReady(page);
 

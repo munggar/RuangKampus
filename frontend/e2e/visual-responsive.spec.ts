@@ -40,16 +40,10 @@ for (const screen of SCREEN_ROUTES) {
 
 test("responsive layout: every protected route at all six target viewports", async ({ page }) => {
   test.setTimeout(8 * 60 * 1000);
-  const samples = new Set([
-    "student-dashboard", "student-rooms", "student-booking",
-    "admin-dashboard", "admin-reservations", "admin-rooms",
-    "admin-data-imports", "admin-schedules-maintenance",
-  ]);
-
   for (const viewport of viewportTargets) {
     for (const [role, routeScreens] of [
       ["Student", STUDENT_PATHS],
-      ["TU/Admin", ADMIN_PATHS],
+      ["Staff Sekretariat", ADMIN_PATHS],
     ] as const) {
       await page.unroute("**/api/v1/**");
       const api = await installMockApi(page, role);
@@ -88,7 +82,7 @@ test("responsive layout: every protected route at all six target viewports", asy
           expect(metrics.mobileNavDisplay, "Mobile navigation hidden at " + viewport.width).not.toBe("none");
           expect(metrics.mobileNavHeight).toBeGreaterThan(0);
           expect(Math.min(...metrics.mobileLinkHeights)).toBeGreaterThanOrEqual(44);
-          if (role === "TU/Admin") {
+          if (role === "Staff Sekretariat") {
             expect(metrics.mobileLabels.some((label) => label.includes("Jadwal"))).toBe(true);
             expect(metrics.mobileLabels.some((label) => label.includes("Impor"))).toBe(true);
           }
@@ -96,18 +90,39 @@ test("responsive layout: every protected route at all six target viewports", asy
           expect(metrics.mobileNavDisplay).toBe("none");
         }
 
-        if (samples.has(screen.id)) {
-          const responsiveScreenshot = resolve(
-            "test-results/screenshots/baseline/responsive",
-            role === "Student" ? "student" : "admin",
-            screen.id,
-            screen.id + "-" + viewport.width + "-light.png",
-          );
-          await saveScreenshot(page, responsiveScreenshot);
-        }
+        const responsiveScreenshot = resolve(
+          "test-results/screenshots/final/responsive",
+          role === "Student" ? "student" : "admin",
+          screen.id,
+          screen.id + "-" + viewport.width + "-light.png",
+        );
+        await saveScreenshot(page, responsiveScreenshot);
       }
       expect(api.unmatched, "Unmapped mock API requests for " + role + " at " + viewport.width).toEqual([]);
     }
+
+    await page.unroute("**/api/v1/**");
+    const publicApi = await installMockApi(page, null);
+    for (const screen of SCREEN_ROUTES.filter((item) => item.group === "auth")) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto(screen.path);
+      await waitForPageReady(page);
+      const publicMetrics = await page.evaluate(() => ({
+        viewportWidth: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        bodyWidth: document.body.scrollWidth,
+      }));
+      expect(publicMetrics.documentWidth, screen.path + " document overflow at " + viewport.width)
+        .toBeLessThanOrEqual(publicMetrics.viewportWidth + 1);
+      expect(publicMetrics.bodyWidth, screen.path + " body overflow at " + viewport.width)
+        .toBeLessThanOrEqual(publicMetrics.viewportWidth + 1);
+      await saveScreenshot(page, resolve(
+        "test-results/screenshots/final/responsive/auth",
+        screen.id,
+        screen.id + "-" + viewport.width + "-light.png",
+      ));
+    }
+    expect(publicApi.unmatched, "Unmapped public mock API requests at " + viewport.width).toEqual([]);
   }
 });
 

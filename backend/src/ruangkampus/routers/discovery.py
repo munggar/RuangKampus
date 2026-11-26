@@ -16,8 +16,15 @@ from ruangkampus.schemas import (
     AssistantChatStructuredData,
     serialize_room,
 )
-from ruangkampus.services.assistant_catalog import FACILITY_TERMS
+from ruangkampus.services.assistant_catalog import build_assistant_data_catalog
 from ruangkampus.services.availability import check_room_availability, campus_today
+from ruangkampus.services.indonesian_normalizer import (
+    PARSER_STOP_WORDS,
+    find_positive_catalog_values,
+    find_positive_facility_filters,
+    normalize_indonesian_message,
+)
+from ruangkampus.services.assistant_intent import detect_assistant_intent
 
 
 router = APIRouter(tags=["Room discovery and assistant"])
@@ -37,6 +44,7 @@ STOP_WORDS = {
     "dengan", "yang", "ada", "buat", "booking", "reservasi", "peminjaman",
     "gedung", "fakultas", "dan", "atau", "butuh", "bisa", "apakah",
 }
+STOP_WORDS.update(PARSER_STOP_WORDS)
 def _parse_time(value: str | time) -> time:
     return value if isinstance(value, time) else time.fromisoformat(value)
 
@@ -137,8 +145,13 @@ def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dic
     return [item for _, item in ranked[:request.limit]]
 
 
-def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
-    message = payload.message.lower()
+def _parse_message_filters(
+    db: Session,
+    payload: AssistantChatIn,
+    catalog: dict | None = None,
+) -> dict:
+    message = payload.message.casefold()
+    catalog = catalog if catalog is not None else build_assistant_data_catalog(db)
     min_capacity = payload.min_capacity
     if min_capacity is None:
         capacity_match = re.search(r"\b(\d{1,4})\s*(?:orang|peserta|pax|people|person)\b", message)
@@ -147,22 +160,21 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
 
     building = payload.building
     if building is None:
-        building_match = re.search(r"\b(?:gedung|building)\s+([a-z0-9][a-z0-9._-]*)", message)
-        if building_match:
-            building = building_match.group(1)
+        building_matches = find_positive_catalog_values(message, catalog.get("buildings", []))
+        if len(building_matches) == 1:
+            building = building_matches[0]
 
     faculty = payload.faculty
     if faculty is None:
-        faculty_names = db.scalars(
-            select(Room.faculty).where(Room.faculty.is_not(None)).distinct()
-        ).all()
-        faculty = next((name for name in faculty_names if name and name.lower() in message), None)
+        faculty_matches = find_positive_catalog_values(message, catalog.get("faculties", []))
+        if len(faculty_matches) == 1:
+            faculty = faculty_matches[0]
 
+    # Only facilities observed in active room data can become canonical filters.
+    # A facility mentioned in a negated clause is retained in text but not treated as required.
     facilities = list(payload.facilities)
     if not facilities:
-        for canonical, aliases in FACILITY_TERMS.items():
-            if any(alias in message for alias in aliases):
-                facilities.append(canonical)
+        facilities = find_positive_facility_filters(message, catalog)
 
     requested_date = payload.requested_date
     if requested_date is None:
@@ -172,7 +184,7 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
                 requested_date = date.fromisoformat(date_match.group(1))
             except ValueError:
                 requested_date = None
-        elif "besok" in message:
+        elif re.search(r"\bbesok\b", message):
             requested_date = campus_today() + timedelta(days=1)
         else:
             for label, weekday in WEEKDAYS.items():
@@ -192,15 +204,45 @@ def _parse_message_filters(db: Session, payload: AssistantChatIn) -> dict:
             start_time = time(int(time_match.group(1)), int(time_match.group(2)))
             end_time = time(int(time_match.group(3)), int(time_match.group(4)))
 
+    message_tokens = re.findall(r"[a-z0-9-]+", message)
+    expanded_tokens = []
+    for token in message_tokens:
+        if "-" in token and not any(character.isdigit() for character in token):
+            expanded_tokens.extend(token.split("-"))
+        else:
+            expanded_tokens.append(token)
     tokens = [
-        token for token in re.findall(r"[a-z0-9-]+", message)
+        token for token in expanded_tokens
         if len(token) >= 3 and token not in STOP_WORDS and not token.isdigit()
     ]
-    # Facility and room metadata terms are handled by their own structured filters.
-    for aliases in FACILITY_TERMS.values():
-        tokens = [token for token in tokens if token not in aliases]
+
+    # Remove all catalogue facility and faculty/building labels from free-text terms.
+    # This is especially important for negated clauses: "jangan pakai proyektor"
+    # must not become a positive room-description search for "proyektor".
+    metadata_tokens: set[str] = set()
+    for entry in [*catalog.get("faculties", []), *catalog.get("buildings", [])]:
+        for value in [entry.get("value"), *entry.get("source_values", [])]:
+            if isinstance(value, str):
+                metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
+    for entry in catalog.get("facilities", []):
+        values = [
+            entry.get("canonical_name"),
+            *entry.get("source_values", []),
+            *entry.get("aliases", []),
+        ]
+        for value in values:
+            if isinstance(value, str):
+                metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
+    tokens = [
+        token for token in tokens
+        if token not in metadata_tokens
+        and not any(part in metadata_tokens for part in re.split(r"[-._/]", token))
+    ]
     if building:
-        tokens = [token for token in tokens if token != building.lower()]
+        tokens = [token for token in tokens if token not in re.findall(r"[a-z0-9-]+", building.casefold())]
+    if faculty:
+        tokens = [token for token in tokens if token not in re.findall(r"[a-z0-9-]+", faculty.casefold())]
+
     return {
         "faculty": faculty,
         "building": building,
@@ -235,35 +277,225 @@ def alternative_slots(
     return success(data, "Alternative room slots retrieved")
 
 
+def _assistant_empty_slots(payload: AssistantChatIn) -> AssistantChatSlots:
+    return AssistantChatSlots(
+        faculty=payload.faculty,
+        building=payload.building,
+        min_capacity=payload.min_capacity,
+        facilities=payload.facilities,
+        requested_date=payload.requested_date,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        participant_count=payload.participant_count,
+        search_terms=[],
+    )
+
+
+def _assistant_legacy_filters(slots: AssistantChatSlots) -> dict:
+    return {
+        "faculty": slots.faculty,
+        "building": slots.building,
+        "min_capacity": slots.min_capacity,
+        "facilities": slots.facilities,
+        "date": slots.requested_date.isoformat() if slots.requested_date else None,
+        "start_time": slots.start_time.isoformat() if slots.start_time else None,
+        "end_time": slots.end_time.isoformat() if slots.end_time else None,
+        "participant_count": slots.participant_count,
+    }
+
+
+def _intent_response_message(intent: str, response_variant: str | None = None) -> str:
+    if intent == "RESERVATION_HELP":
+        return (
+            "Untuk mengajukan reservasi, pilih ruangan, tentukan tanggal dan jam "
+            "mulai/selesai, isi jumlah peserta serta tujuan kegiatan, lalu kirim "
+            "permohonan melalui fitur Reservasi. Permohonan yang dikirim berstatus "
+            "menunggu persetujuan TU/Admin. Aku belum membuat reservasi dari chat ini."
+        )
+    if intent == "MY_RESERVATIONS":
+        return (
+            "Aku paham kamu ingin melihat daftar reservasi. Pembacaan riwayat "
+            "reservasi melalui chat belum diaktifkan. Kamu bisa memeriksanya melalui "
+            "fitur Reservasi di aplikasi; aku tidak mengambil data reservasi pribadi "
+            "pada respons ini."
+        )
+    if intent == "RESERVATION_STATUS":
+        return (
+            "Aku paham kamu ingin mengecek status reservasi. Status reservasi melalui "
+            "chat belum diaktifkan. Periksa melalui fitur Reservasi di aplikasi agar "
+            "informasi tetap terikat pada akunmu."
+        )
+    if intent == "RESERVATION_CREATE_PREVIEW":
+        return (
+            "Aku bisa membantu mencari ruangan terlebih dahulu. Pengajuan reservasi "
+            "belum dibuat melalui chat ini. Setelah memilih ruangan dan jadwal, "
+            "lanjutkan pengajuan melalui fitur Reservasi di aplikasi."
+        )
+    if intent == "RESERVATION_CANCEL_PREVIEW":
+        return (
+            "Aku belum membatalkan reservasi apa pun. Pembatalan harus dilakukan "
+            "melalui detail reservasi di aplikasi dan dikonfirmasi oleh pemilik "
+            "reservasi sesuai aturan sistem."
+        )
+    if intent == "ROOM_DETAIL":
+        return (
+            "Aku bisa membantu mencari informasi ruangan. Sebutkan nama atau kode "
+            "ruangan yang ingin kamu ketahui, misalnya kapasitas, fasilitas, gedung, "
+            "atau lokasinya."
+        )
+    if intent == "FAQ":
+        return (
+            "Aku bisa membantu mencari ruangan, memeriksa ketersediaan berdasarkan "
+            "tanggal dan waktu, menemukan alternatif slot, serta menjelaskan alur "
+            "pengajuan reservasi RuangKampus."
+        )
+    if intent == "SMALLTALK":
+        if response_variant == "THANKS":
+            return "Sama-sama! Semoga kegiatan kampusmu lancar. Ada yang bisa kubantu lagi?"
+        if response_variant == "GREETING":
+            return "Halo! Mau mencari ruangan, mengecek ketersediaan, atau bertanya tentang fasilitas?"
+        return "Wkwk, aku asisten virtual RuangKampus. Aku siap membantu urusan ruangan kampus."
+    return (
+        "Aku fokus membantu urusan ruangan kampus: pencarian, ketersediaan, "
+        "fasilitas, alternatif waktu, dan informasi reservasi."
+    )
+
+
+def _intent_only_response(
+    payload: AssistantChatIn,
+    normalization,
+    detection,
+    *,
+    missing_fields: list[str] | None = None,
+):
+    slots = _assistant_empty_slots(payload)
+    follow_up = [detection.clarification_message] if detection.clarification_message else []
+    structured_response = AssistantChatResponseData(
+        message=_intent_response_message(detection.intent, detection.response_variant),
+        conversation_id=None,
+        intent=detection.intent,
+        slots=slots,
+        confidence=None,
+        missing_fields=missing_fields or [],
+        requires_clarification=detection.requires_clarification,
+        clarification_message=detection.clarification_message,
+        result_type="NO_RESULTS",
+        requires_confirmation=False,
+        data=AssistantChatStructuredData(
+            rooms=[],
+            alternative_slots=[],
+            filters=slots,
+        ),
+        normalization=normalization,
+        engine="RULE_BASED",
+        filters=_assistant_legacy_filters(slots),
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=follow_up,
+        reservation_action="NOT_CREATED",
+        privacy=(
+            "Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim "
+            "ke penyedia AI eksternal."
+        ),
+    )
+    return success(
+        structured_response.model_dump(mode="json", by_alias=True),
+        "Assistant intent classified",
+    )
+
+
 @router.post("/assistant/chat")
 def room_assistant_chat(
     payload: AssistantChatIn,
     user: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
-    filters = _parse_message_filters(db, payload)
-    rooms = _room_candidates(
-        db,
-        faculty=filters["faculty"],
-        building=filters["building"],
-        min_capacity=filters["min_capacity"],
-        facilities=filters["facilities"],
-        search_terms=filters["search_terms"],
+    catalog = build_assistant_data_catalog(db)
+    normalization = normalize_indonesian_message(payload.message, catalog)
+    normalized_payload = payload.model_copy(update={"message": normalization.parser_text})
+    filters = _parse_message_filters(db, normalized_payload, catalog)
+
+    has_complete_availability_window = bool(
+        filters["date"] and filters["start_time"] and filters["end_time"]
+    )
+    has_structured_filters = any((
+        filters["faculty"],
+        filters["building"],
+        filters["min_capacity"],
+        filters["facilities"],
+        filters["date"],
+        filters["start_time"],
+        filters["end_time"],
+        payload.faculty,
+        payload.building,
+        payload.min_capacity,
+        payload.facilities,
+    ))
+    detection = detect_assistant_intent(
+        normalization.normalized_text,
+        catalog,
+        has_structured_room_filters=has_structured_filters,
+        has_complete_availability_window=has_complete_availability_window,
     )
 
-    available = []
-    if filters["date"] and filters["start_time"] and filters["end_time"]:
-        available = [
+    search_intents = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+    if detection.intent not in search_intents:
+        return _intent_only_response(payload, normalization, detection)
+
+    if detection.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"} and not has_complete_availability_window:
+        return _intent_only_response(
+            payload,
+            normalization,
+            detection,
+            missing_fields=["date", "start_time", "end_time"],
+        )
+
+    has_room_criteria = any((
+        filters["faculty"],
+        filters["building"],
+        filters["min_capacity"],
+        filters["facilities"],
+        filters["search_terms"],
+    ))
+    has_effective_search_criteria = (
+        has_complete_availability_window
+        if detection.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
+        else has_room_criteria or has_complete_availability_window
+    )
+
+    if detection.intent == "ALTERNATIVE_SLOTS":
+        rooms = []
+    elif has_effective_search_criteria:
+        rooms = _room_candidates(
+            db,
+            faculty=filters["faculty"],
+            building=filters["building"],
+            min_capacity=filters["min_capacity"],
+            facilities=filters["facilities"],
+            search_terms=filters["search_terms"],
+        )
+    else:
+        rooms = []
+
+    if detection.intent == "ROOM_AVAILABILITY" and has_complete_availability_window:
+        rooms = [
             room for room in rooms
             if check_room_availability(
                 db, room, filters["date"], filters["start_time"], filters["end_time"],
                 filters["participant_count"],
             ).available
         ]
-        rooms = available
 
     alternatives = []
-    if not rooms and filters["date"] and filters["start_time"] and filters["end_time"]:
+    should_find_alternatives = (
+        detection.intent == "ALTERNATIVE_SLOTS"
+        or (
+            not rooms
+            and has_complete_availability_window
+            and detection.intent in {"ROOM_SEARCH", "ROOM_AVAILABILITY"}
+        )
+    )
+    if should_find_alternatives and has_complete_availability_window:
         duration = int(
             (
                 datetime.combine(filters["date"], filters["end_time"])
@@ -284,19 +516,39 @@ def room_assistant_chat(
                 limit=5,
             ))
 
-    if rooms:
+    if not has_effective_search_criteria:
+        response_message = (
+            "Aku bisa bantu mencari ruangan. Beri tahu fakultas atau gedung, "
+            "fasilitas, kapasitas, atau kata kunci ruangan yang kamu butuhkan. "
+            "Untuk mengecek ketersediaan, sertakan tanggal serta jam mulai dan selesai."
+        )
+    elif detection.intent == "ALTERNATIVE_SLOTS":
+        response_message = (
+            f"Aku menemukan {len(alternatives)} pilihan slot alternatif."
+            if alternatives else
+            "Belum menemukan slot alternatif yang cocok. Coba ubah fakultas, gedung, "
+            "fasilitas, tanggal, atau durasi penggunaan."
+        )
+    elif rooms:
         response_message = f"Saya menemukan {len(rooms)} ruangan yang sesuai dengan kriteria pencarian."
-        if filters["date"] and filters["start_time"] and filters["end_time"]:
+        if has_complete_availability_window:
             response_message += " Slot tersebut lolos pemeriksaan ketersediaan saat ini."
     elif alternatives:
         response_message = "Tidak ada ruangan yang tersedia pada slot persis tersebut. Berikut beberapa alternatif tanggal, waktu, atau ruangan."
     else:
         response_message = "Belum ada ruangan yang cocok. Coba ubah fakultas, gedung, kapasitas, fasilitas, atau waktu."
+
     follow_up = []
-    if not (filters["date"] and filters["start_time"] and filters["end_time"]):
+    if not has_effective_search_criteria:
+        follow_up.append(
+            "Kamu ingin mencari berdasarkan fakultas, gedung, fasilitas, kapasitas, "
+            "atau kata kunci ruangan? Untuk cek jadwal, tambahkan tanggal dan rentang waktu."
+        )
+    elif detection.intent == "ROOM_SEARCH" and not has_complete_availability_window:
         follow_up.append("Untuk mengecek ketersediaan, kirim tanggal, jam mulai, dan jam selesai.")
-    if not filters["min_capacity"]:
+    if detection.intent == "ROOM_SEARCH" and has_effective_search_criteria and not filters["min_capacity"]:
         follow_up.append("Berapa jumlah peserta yang akan menggunakan ruangan?")
+
     room_data = [serialize_room(room) for room in rooms[:10]]
     legacy_filters = {
         "faculty": filters["faculty"],
@@ -320,9 +572,9 @@ def room_assistant_chat(
         search_terms=filters["search_terms"],
     )
     missing_fields = []
-    if not (filters["date"] and filters["start_time"] and filters["end_time"]):
+    if detection.intent == "ROOM_SEARCH" and not has_complete_availability_window:
         missing_fields.extend(["date", "start_time", "end_time"])
-    if not filters["min_capacity"]:
+    if detection.intent == "ROOM_SEARCH" and not filters["min_capacity"]:
         missing_fields.append("min_capacity")
 
     result_type = (
@@ -333,7 +585,7 @@ def room_assistant_chat(
     structured_response = AssistantChatResponseData(
         message=response_message,
         conversation_id=None,
-        intent="ROOM_SEARCH",
+        intent=detection.intent,
         slots=slots,
         confidence=None,
         missing_fields=missing_fields,
@@ -346,12 +598,19 @@ def room_assistant_chat(
             alternative_slots=alternatives,
             filters=slots,
         ),
+        normalization=normalization,
         engine="RULE_BASED",
         filters=legacy_filters,
         rooms=room_data,
         alternative_slots=alternatives,
         follow_up_questions=follow_up,
         reservation_action="NOT_CREATED",
-        privacy="Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim ke penyedia AI eksternal.",
+        privacy=(
+            "Pesan tidak disimpan sebagai riwayat percakapan dan tidak dikirim "
+            "ke penyedia AI eksternal."
+        ),
     )
-    return success(structured_response.model_dump(mode="json", by_alias=True), "Room assistant response generated")
+    return success(
+        structured_response.model_dump(mode="json", by_alias=True),
+        "Room assistant response generated",
+    )

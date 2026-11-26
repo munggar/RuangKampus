@@ -58,11 +58,11 @@ class UserOut(BaseOut):
     @field_validator("role", mode="before")
     @classmethod
     def map_internal_role_to_client_label(cls, value):
-        mapping = {"STUDENT": "Student", "TU_ADMIN": "TU/Admin"}
+        mapping = {"STUDENT": "Student", "TU_ADMIN": "Staff Sekretariat"}
         if value in mapping:
             return mapping[value]
-        if value in mapping.values():
-            return value
+        if value in mapping.values() or value == "TU/Admin":
+            return "Staff Sekretariat"
         raise ValueError("Unsupported account role")
 
 
@@ -443,12 +443,36 @@ class AssistantChatStructuredData(BaseModel):
     filters: AssistantChatSlots
 
 
+class AssistantTextCorrection(BaseModel):
+    """Traceable deterministic text correction; confidence is intentionally unset."""
+
+    original_token: str
+    normalized_token: str
+    correction_type: str
+    source: str
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class AssistantNormalizationResult(BaseModel):
+    """Typed normalization result consumed by the deterministic ROOM_SEARCH parser."""
+
+    raw_text: str
+    normalized_text: str
+    tokens: list[str] = Field(default_factory=list)
+    normalized_tokens: list[str] = Field(default_factory=list)
+    filler_tokens: list[str] = Field(default_factory=list)
+    corrections: list[AssistantTextCorrection] = Field(default_factory=list)
+    unknown_tokens: list[str] = Field(default_factory=list)
+    normalization_applied: bool = False
+    parser_text: str = ""
+
+
 class AssistantChatResponseData(BaseModel):
     """Structured inner response; existing legacy fields remain present."""
 
     message: str
     conversation_id: UUID | None = None
-    intent: Literal["ROOM_SEARCH"]
+    intent: Literal["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL", "RESERVATION_HELP", "MY_RESERVATIONS", "RESERVATION_STATUS", "RESERVATION_CREATE_PREVIEW", "RESERVATION_CANCEL_PREVIEW", "FAQ", "SMALLTALK", "OUT_OF_SCOPE"]
     slots: AssistantChatSlots
     confidence: float | None = Field(default=None, ge=0, le=1)
     missing_fields: list[str] = Field(default_factory=list)
@@ -457,6 +481,7 @@ class AssistantChatResponseData(BaseModel):
     result_type: Literal["ROOMS_FOUND", "ALTERNATIVE_SLOTS", "NO_RESULTS"]
     requires_confirmation: bool = False
     data: AssistantChatStructuredData
+    normalization: AssistantNormalizationResult | None = None
 
     # Backward-compatible fields consumed by the current frontend.
     engine: Literal["RULE_BASED"]
