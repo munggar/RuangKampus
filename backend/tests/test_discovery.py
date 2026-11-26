@@ -291,7 +291,7 @@ def test_structured_slots_serialize_explicit_date_and_time(
     result = client.post(
         "/api/v1/assistant/chat",
         json={
-            "message": f"Carikan ruangan pada {booking_date.isoformat()} 09:00-10:00",
+            "message": "Carikan ruangan",
             "date": booking_date.isoformat(),
             "start_time": "09:00",
             "end_time": "10:00",
