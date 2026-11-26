@@ -392,3 +392,17 @@ def test_ambiguous_and_regional_slang_are_not_flattened_by_the_new_dataset():
 
 def test_existing_legacy_gue_and_gua_meaning_wins_dataset_conflict():
     assert normalize_indonesian_message("gue gua").normalized_text == "aku aku"
+
+
+
+def test_additive_student_chat_abbreviations_do_not_change_existing_legacy_forms():
+    result = normalize_indonesian_message("GW mw pinjem rgn, jgn yg ksong")
+
+    assert result.normalized_text == "aku mau meminjam ruangan jangan yang kosong"
+    assert normalize_indonesian_message("gue gua lau sokap").normalized_text == "aku aku kamu siapa"
+
+
+def test_heat_avoidance_is_a_cooling_facility_preference_not_a_room_name_keyword():
+    assert find_positive_facility_filters("jangan yang panas", {}) == ["air conditioner"]
+    assert find_positive_facility_filters("tidak mau ruangan ber-AC", {}) == []
+    assert find_positive_facility_filters("ingin ruangan yang sejuk", {}) == ["air conditioner"]
