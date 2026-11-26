@@ -11,7 +11,7 @@ Last updated: 2026-11-25
 - Repository: `munggar/RuangKampus`.
 - `main` and `develop` remain at bootstrap commit `86c2fa77480a268a08e86d5d080684d9c731349c` during this backend implementation.
 - Account A created `backend/core-api` from `develop`.
-- A separate `feat/frontend-foundation` branch appeared during this task. Its current head is `2534066161e19f823bfc29db1691d185a5fa4cb5`; it includes React/TypeScript/Vite student and TU/Admin shells, navigation, login UI, API HTTP/auth clients, and dashboard placeholders. This branch was inspected read-only and was not merged or modified.
+- A separate `feat/frontend-foundation` branch appeared during this task. Its current head is `2534066161e19f823bfc29db1691d185a5fa4cb5`; it includes React/TypeScript/Vite student and Staff Sekretariat shells, navigation, login UI, API HTTP/auth clients, and dashboard placeholders. This branch was inspected read-only and was not merged or modified.
 - Existing project decision remains React + TypeScript, FastAPI, and PostgreSQL. The Node/Express fallback is not applicable because FastAPI was already selected in project documentation.
 
 ## Implemented in `backend/`
@@ -19,8 +19,8 @@ Last updated: 2026-11-25
 - FastAPI app, modular routers, OpenAPI/Swagger, health check, CORS, security headers, request-size guard, centralized error handling, and per-process auth endpoint rate limits.
 - SQLAlchemy models and Alembic initial migration for users, auth sessions, password reset tokens, rooms, reservations, lecture schedules, room unavailability, notifications, and room update logs.
 - Argon2id password hashing, short-lived access JWT, hashed/rotating HttpOnly refresh cookie, logout revocation, protected dependencies, and Student/TU_Admin RBAC.
-- Student registration with server-assigned role, login/logout/refresh/me, profile update, password change, forgot/reset password, and CLI bootstrap for first TU/Admin.
-- Admin user listing, role/status updates, and soft deactivation. Last active TU/Admin cannot be removed/demoted through management routes.
+- Student registration with server-assigned role, login/logout/refresh/me, profile update, password change, forgot/reset password, and CLI bootstrap for first Staff Sekretariat.
+- Admin user listing, role/status updates, and soft deactivation. Last active Staff Sekretariat cannot be removed/demoted through management routes.
 - Room list/detail/create/update/soft-delete, search/building/capacity/facility/status filters, pagination/sort, room constraints, and audit snapshots.
 - Availability checks for operating hours, capacity, room state, one-time/recurring lecture schedules, maintenance blocks, and overlapping `PENDING`/`APPROVED` reservations.
 - Reservation create/list/detail/cancel/approve/reject/complete, owner scoping, transaction-bound room row locks for writes/approvals, and decision notifications/audit.
@@ -28,7 +28,7 @@ Last updated: 2026-11-25
 
 ## Frontend compatibility review
 
-The `feat/frontend-foundation` branch was inspected without modification. Its existing `frontend/src/api/auth.ts` expects direct login payloads (`access_token`, `token_type`, `expires_in`, `user`), public role labels `Student` / `TU/Admin`, direct `/auth/me` user data, and `{ success: true }` from logout. Its HTTP client sends bearer access tokens and `credentials: include`. Backend auth serialization was adjusted to these expectations while database/RBAC role values remain `STUDENT` and `TU_ADMIN`. Other business endpoints continue using the general success envelope.
+The `feat/frontend-foundation` branch was inspected without modification. Its existing `frontend/src/api/auth.ts` expects direct login payloads (`access_token`, `token_type`, `expires_in`, `user`), public role labels `Student` / `Staff Sekretariat`, direct `/auth/me` user data, and `{ success: true }` from logout. Its HTTP client sends bearer access tokens and `credentials: include`. Backend auth serialization was adjusted to these expectations while database/RBAC role values remain `STUDENT` and `TU_ADMIN`. Other business endpoints continue using the general success envelope.
 
 The frontend currently does not call `/auth/refresh` or restore sessions after a full page reload. Its password-recovery page is a placeholder and is not yet wired to the backend reset endpoints. Dashboard and other feature pages remain scaffolds, not verified end-to-end integrations.
 
