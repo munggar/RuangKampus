@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 
 import httpx
+import pytest
 from sqlalchemy import select
 
 from ruangkampus.config import Settings
@@ -115,6 +116,34 @@ def test_general_reasoning_prompts_do_not_become_room_database_searches():
     for message in GENERAL_REASONING_PROMPTS:
         result = detect_assistant_intent(message)
         assert result.intent == "OUT_OF_SCOPE", (message, result)
+
+
+@pytest.mark.parametrize("message", GENERAL_REASONING_PROMPTS)
+def test_each_reasoning_qa_prompt_reaches_the_general_ai_provider(
+    monkeypatch, client, auth_headers, student, message
+):
+    answer = "RUKKA menganalisis masalah, membandingkan beberapa pilihan, lalu menjelaskan alasan dan kesimpulannya."
+
+    def fake_post(url, **kwargs):
+        return FakeResponse({
+            "choices": [{"message": {"content": json.dumps({"message": answer})}}]
+        })
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr("ruangkampus.routers.discovery.get_settings", configured_settings)
+
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": message},
+        headers=auth_headers(),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["intent"] == "OUT_OF_SCOPE"
+    assert data["engine"] == "HYBRID"
+    assert data["message"] == answer
+    assert data["rooms"] == []
+    assert data["follow_up_questions"] == []
 
 
 def test_explicit_room_tasks_keep_their_domain_intents():
