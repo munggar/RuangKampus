@@ -155,3 +155,23 @@ def test_change_password_rejects_fewer_than_eight_characters(client, admin, auth
         headers=headers,
     )
     assert response.status_code == 422
+
+
+
+def test_forgot_password_sends_branded_email_with_reset_link(client, student, monkeypatch):
+    captured = {}
+
+    def fake_send_email(to_email, subject, body, html_body=None):
+        captured.update(to=to_email, subject=subject, body=body, html=html_body)
+        return True
+
+    monkeypatch.setattr("ruangkampus.routers.auth.send_email", fake_send_email)
+    response = client.post("/api/v1/auth/forgot-password", json={"email": student.email})
+    assert response.status_code == 202
+    assert captured["to"] == student.email
+    assert "Atur ulang password" in captured["subject"]
+    assert "reset-password#token=" in captured["body"]
+    assert "reset-password#token=" in captured["html"]
+    assert "KEAMANAN AKUN" in captured["html"]
+    assert "Masa berlaku" in captured["html"]
+    assert "Atur ulang password" in captured["html"]
