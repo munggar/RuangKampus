@@ -253,6 +253,7 @@ type AssistantTurn = {
   alternatives?: AlternativeSlot[];
   reservations?: import("./types").AssistantReservationSummary[];
   followUps?: string[];
+  engine?: string;
 };
 const assistantPrompts = [
   "Cari ruang untuk 20 orang dengan proyektor",
@@ -289,6 +290,7 @@ export function RoomAssistantPage() {
         alternatives: response.alternative_slots,
         reservations: response.data?.reservations || [],
         followUps: response.follow_up_questions,
+        engine: response.engine,
       }]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
@@ -303,12 +305,13 @@ export function RoomAssistantPage() {
       <div><h2>Teman pencarian ruangan</h2><p className="muted">Ceritakan kebutuhan acara Anda. Asisten akan menyaring data ruangan dan menampilkan slot alternatif jika tersedia.</p></div>
     </section>
     <section className="panel assistant-chat-panel">
-      <div className="assistant-engine-label"><span className="online-dot" />Asisten berbasis aturan · data backend</div>
+      <div className="assistant-engine-label"><span className="online-dot" />Rule-based first · AI fallback opsional · data backend</div>
       <div className="assistant-chat-list" aria-live="polite">
         {turns.map((turn) => <article key={turn.id} className={"assistant-message assistant-message--" + turn.sender}>
           <span className="assistant-message__avatar">{turn.sender === "assistant" ? <Sparkles size={16} /> : <Users size={16} />}</span>
           <div className="assistant-message__body">
             <p>{turn.message}</p>
+            {turn.sender === "assistant" && turn.engine === "HYBRID" ? <small className="muted">AI membantu memahami pesan; hasil tetap divalidasi backend.</small> : null}
             {turn.rooms?.length ? <div className="assistant-inline-results">
               {turn.rooms.map((room) => <Link className="assistant-room-link" key={room.id} to={"/student/rooms/" + room.id}>
                 <span><b>{room.room_name}</b><small>{roomLocation(room) || room.building} · {room.capacity} orang</small></span><ArrowRight size={16} />
@@ -337,6 +340,6 @@ export function RoomAssistantPage() {
         <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
       </form>
     </section>
-    <Notice tone="info">Asisten menggunakan pencarian berbasis aturan dari data RuangKampus, bukan model AI generatif. Pesan tidak membuat reservasi otomatis; permohonan tetap harus dikirim melalui halaman reservasi.</Notice>
+    <Notice tone="info">Asisten mengutamakan pencocokan aturan dan data RuangKampus. Jika provider dikonfigurasi, AI hanya membantu memahami maksud pesan; semua data dan hasil tetap divalidasi backend. Chat tidak membuat reservasi otomatis, dan pengajuan tetap melalui alur Reservasi.</Notice>
   </div>;
 }
