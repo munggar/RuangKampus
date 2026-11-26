@@ -29,11 +29,11 @@ After setting the variables, Railway redeploys the API. Production configuration
 
 ## Events already connected to the mail service
 
-- New reservation request: polished email to active TU/Admin accounts, with applicant and booking details and a direct Admin reservation link.
+- New reservation request: polished email to active Staff Sekretariat accounts, with applicant and booking details and a direct Staff Sekretariat reservation link.
 - Reservation approved: email to the student, with booking details and a direct Student reservation link.
 - Reservation rejected: email to the student, including the rejection reason and a direct Student reservation link.
-- Reservation cancelled by TU/Admin: email to the student, including cancellation details and a direct Student reservation link.
-- Reservation cancelled by student: email to active TU/Admin accounts, including the student, reason, booking details and a direct Admin reservation link.
+- Reservation cancelled by Staff Sekretariat: email to the student, including cancellation details and a direct Student reservation link.
+- Reservation cancelled by student: email to active Staff Sekretariat accounts, including the student, reason, booking details and a direct Staff Sekretariat reservation link.
 - Password reset: branded security email with a one-time reset button and expiry information.
 
 In-app notifications remain persisted in PostgreSQL and the existing API responses do not change. Email is an additional delivery channel.
