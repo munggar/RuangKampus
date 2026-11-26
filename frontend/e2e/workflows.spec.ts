@@ -167,14 +167,27 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     await expect(approvedCard.getByText("Selesai")).toBeVisible();
   });
 
-  test("marks an unread notification as read", async ({ page }) => {
+  test("shows a notification action link and marks it as read", async ({ page }) => {
     const api = await installMockApi(page, "Student");
     await page.goto("/student/notifications");
     await waitForPageReady(page);
-    await expect(page.getByText("Reservation approved")).toBeVisible();
+    await expect(page.getByText("Reservasi disetujui")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Lihat detail reservasi/ })).toHaveAttribute("href", "/student/reservations/reservation-approved-e2e");
+    await expect(page.getByText(/Email: Terkirim/)).toBeVisible();
     await page.getByRole("button", { name: "Tandai dibaca" }).click();
     await expect(page.getByText("Dibaca")).toBeVisible();
     expect(api.calls).toContain("PATCH /notifications/notification-e2e-001/read");
+  });
+
+  test("marks all notifications as read and filters unread notifications", async ({ page }) => {
+    const api = await installMockApi(page, "Student");
+    await page.goto("/student/notifications");
+    await waitForPageReady(page);
+    await page.getByRole("button", { name: /Tandai semua dibaca/ }).click();
+    await expect(page.getByText("Dibaca")).toBeVisible();
+    await page.getByRole("button", { name: /Belum dibaca/ }).click();
+    await expect(page.getByText("Semua notifikasi sudah dibaca")).toBeVisible();
+    expect(api.calls).toContain("PATCH /notifications/read-all");
   });
 
   test("sends a message to the Student assistant and renders a fixture reply", async ({ page }) => {
