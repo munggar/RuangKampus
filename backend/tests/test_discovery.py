@@ -791,6 +791,7 @@ def test_general_question_uses_conversation_generation_not_room_intent_fallback(
     assert data["engine"] == "HYBRID"
     assert data["message"].startswith("Ada beberapa pilihan")
     assert data["requires_clarification"] is False
+    assert data["follow_up_questions"] == []
     assert data["rooms"] == []
     assert "penyedia AI" in data["privacy"]
 
