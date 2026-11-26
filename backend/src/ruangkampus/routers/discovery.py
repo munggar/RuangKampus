@@ -415,15 +415,18 @@ def _intent_only_response(
     slots = slots_override or _assistant_empty_slots(payload)
     follow_up = [detection.clarification_message] if detection.clarification_message else []
     base_message = message_override or detection.clarification_message or _intent_response_message(detection.intent, detection.response_variant)
-    final_message, ai_response_used = _maybe_generate_ai_message(
-        message=payload.message,
-        intent=detection.intent,
-        deterministic_message=base_message,
-        filters=_assistant_legacy_filters(slots),
-        rooms=rooms or [],
-        follow_up_questions=follow_up,
-        availability_checked=availability_checked,
-    )
+    if ai_fallback_used:
+        final_message, ai_response_used = base_message, False
+    else:
+        final_message, ai_response_used = _maybe_generate_ai_message(
+            message=payload.message,
+            intent=detection.intent,
+            deterministic_message=base_message,
+            filters=_assistant_legacy_filters(slots),
+            rooms=rooms or [],
+            follow_up_questions=follow_up,
+            availability_checked=availability_checked,
+        )
     engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
