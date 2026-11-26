@@ -1,4 +1,4 @@
-export type AppRole = "Student" | "TU/Admin";
+export type AppRole = "Student" | "Staff Sekretariat";
 export type ReservationStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 export type RoomStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 

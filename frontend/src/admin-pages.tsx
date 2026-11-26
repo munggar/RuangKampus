@@ -125,7 +125,7 @@ export function AdminDashboardPage() {
   }
 
   return <div className="page-stack">
-    <PageTitle eyebrow="TU / ADMIN DASHBOARD" title="Selamat datang, Administrator" description="Pantau pengajuan reservasi dan pengelolaan fasilitas kampus." action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruang</Link>} />
+    <PageTitle eyebrow="STAFF SEKRETARIAT DASHBOARD" title="Selamat datang, Administrator" description="Pantau pengajuan reservasi dan pengelolaan fasilitas kampus." action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruang</Link>} />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat ringkasan administrasi…" /> : <>
       <div className="stat-grid stat-grid--four">

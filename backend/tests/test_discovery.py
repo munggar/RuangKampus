@@ -478,3 +478,13 @@ def test_assistant_does_not_return_unfiltered_rooms_for_conversational_messages(
             assert data["requires_clarification"] is True, message
             assert data["clarification_message"], message
         assert data["slots"]["search_terms"] == [], message
+
+
+
+def test_room_assistant_endpoint_is_student_only(client, auth_headers, admin):
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Cari ruangan untuk rapat"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert response.status_code == 403
