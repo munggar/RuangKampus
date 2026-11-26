@@ -22,7 +22,7 @@ Do not put the provider key in a `VITE_*` frontend variable. If the provider is 
 - Room names, capacity, facilities, locations, and availability are grounded only in backend catalogue/database results.
 - The model cannot issue SQL, change reservation records, approve/cancel bookings, or invent room availability.
 - A failed exact search may offer alternative slots, but mandatory capacity and facility filters must be retained.
-- The browser sends at most ten previous user/assistant turns with each request. They are bounded, PII-redacted before provider transmission, held only in the current tab, and not persisted as raw chat by the API.
+- The browser sends at most ten previous user/assistant turns with each request. Common email, phone, and long-number patterns are redacted before provider transmission; history is packed as untrusted quoted text rather than trusted model roles. It is held only in the current tab and is not persisted as raw chat by the API. Avoid entering secrets or sensitive personal information into chat.
 - Private reservation data and user identity are not sent to the generation provider.
 - Existing slang data, normalization rules, adaptive-learning feedback, deterministic search, availability, and reservation flows remain in place.
 
