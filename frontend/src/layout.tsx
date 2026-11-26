@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Bell, Building2, CalendarDays, CalendarCheck, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
+  Bell, Building2, CalendarDays, CalendarCheck, Clock3, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
   LogOut, Moon, Sparkles, Sun, UserRound,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
@@ -54,6 +54,23 @@ function useTheme() {
     };
   }, []);
   return { theme, setTheme: setThemeState };
+}
+function CampusClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const time = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).format(now);
+  const date = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta", weekday: "short", day: "2-digit", month: "short",
+  }).format(now);
+  return <div className="campus-clock" aria-label={"Waktu kampus WIB " + time}>
+    <Clock3 size={17} aria-hidden="true" />
+    <span><small>Waktu kampus · WIB · {date}</small><strong>{time}</strong></span>
+  </div>;
 }
 function ThemeButton({ theme, toggle }: { theme: "light" | "dark"; toggle: () => void }) {
   const dark = theme === "dark";
