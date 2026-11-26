@@ -104,6 +104,26 @@ The command reads only active, non-deleted rows from `rooms`, prints a JSON qual
 
 See [AI Assistant API Contract](../docs/AI_ASSISTANT_API_CONTRACT.md) for the structured chat response and compatibility details.
 
+## RAKA — OpenRouter / Google Gemma setup
+
+The Student room assistant is named **RAKA (Ruang Asisten Kampus)**. It uses the deterministic backend as its source of truth. When explicitly enabled, an OpenRouter Gemma model writes friendlier Indonesian responses from verified room-search results; it does not execute database queries or reservation transactions.
+
+Recommended model: `google/gemma-4-26b-a4b-it:free`.
+
+Configure these variables in `backend/.env` for local development, or in the Railway **API service Variables** for a deployed backend:
+
+```dotenv
+ASSISTANT_AI_ENABLED=true
+ASSISTANT_AI_ENDPOINT_URL=https://openrouter.ai/api/v1/chat/completions
+ASSISTANT_AI_MODEL=google/gemma-4-26b-a4b-it:free
+ASSISTANT_AI_API_KEY=sk-or-v1-REPLACE_WITH_YOUR_SECRET
+ASSISTANT_AI_TIMEOUT_SECONDS=6
+```
+
+Create the key from [OpenRouter Keys](https://openrouter.ai/keys). Treat it like a password: never commit it, put it in frontend/`VITE_*` variables, or expose it to the browser. The detailed click-by-click setup, rate-limit notes, and smoke test are in [RAKA OpenRouter Setup](../docs/RAKA_OPENROUTER_SETUP.md).
+
+Leave `ASSISTANT_AI_ENABLED=false` until the secret is installed. Restart/redeploy only the backend API service after changing its variables. No database migration is needed for this provider configuration. When a supported chat turn uses the model successfully, the response reports `assistant_name=RAKA` and `engine=HYBRID`; when the provider is unavailable, the deterministic answer remains available.
+
 ## Run and inspect the API
 
 ```bash
