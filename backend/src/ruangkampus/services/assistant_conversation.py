@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -104,6 +104,13 @@ def merge_room_slots(
             continue
         candidate = prior.get(field)
         if candidate is not None and candidate != []:
+            try:
+                if field == "date" and isinstance(candidate, str):
+                    candidate = date.fromisoformat(candidate)
+                elif field in {"start_time", "end_time"} and isinstance(candidate, str):
+                    candidate = time.fromisoformat(candidate)
+            except ValueError:
+                continue
             merged[field] = candidate
     return merged
 
