@@ -52,9 +52,17 @@ LEGACY_SLANG_DICTIONARY: dict[str, str] = {
 }
 
 
-# Keep every existing project mapping and let it win over any conflicting dataset pair.
+
+# Preserve high-frequency fillers that the previous normalizer intentionally kept verbatim.
+LEGACY_PRESERVED_SLANG: dict[str, str] = {
+    "makasih": "makasih",
+}
+
+# Keep every existing project mapping and explicitly preserved form above any dataset pair.
 try:
-    SLANG_DICTIONARY: dict[str, str] = merge_slang_normalization_map(LEGACY_SLANG_DICTIONARY)
+    SLANG_DICTIONARY: dict[str, str] = merge_slang_normalization_map(
+        {**LEGACY_SLANG_DICTIONARY, **LEGACY_PRESERVED_SLANG}
+    )
 except (OSError, ValueError) as exc:
     logging.getLogger(__name__).error(
         "RUKKA slang dataset unavailable; using legacy dictionary only (error_type=%s)",
