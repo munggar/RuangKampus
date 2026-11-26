@@ -185,6 +185,53 @@ def _parse_time(value: str | time) -> time:
     return value if isinstance(value, time) else time.fromisoformat(value)
 
 
+def _parse_time_only_follow_up(message: str) -> time | None:
+    """Parse a short time-only reply such as 'sampai jam 12 siang'."""
+    match = re.fullmatch(
+        r"\\s*(?:(?:sampai|hingga|sd|s/d|jam|pukul)\\s*)?"
+        r"([01]?\\d|2[0-3])(?:[:.]([0-5]\\d))?\\s*"
+        r"(pagi|siang|sore|malam)?[.!?\\s]*",
+        message.casefold(),
+    )
+    if not match:
+        return None
+    hour = int(match.group(1))
+    minute = int(match.group(2) or 0)
+    period = match.group(3)
+    if period in {"pagi", "malam"} and hour == 12:
+        hour = 0
+    elif period in {"siang", "sore", "malam"} and hour < 12:
+        hour += 12
+    return time(hour, minute) if 0 <= hour <= 23 else None
+
+
+def _apply_contextual_end_time_follow_up(filters: dict, conversation, message: str) -> bool:
+    """Treat a short time-only reply as the missing end time for the prior room request."""
+    if conversation.last_intent not in SEARCH_INTENTS:
+        return False
+    previous = conversation.state.get("slots", {}) if isinstance(conversation.state, dict) else {}
+    if not isinstance(previous, dict) or previous.get("end_time") is not None:
+        return False
+    previous_date = previous.get("date")
+    previous_start = previous.get("start_time")
+    if not previous_date or not previous_start:
+        return False
+    end_time = _parse_time_only_follow_up(message)
+    if end_time is None:
+        return False
+    try:
+        requested_date = date.fromisoformat(previous_date) if isinstance(previous_date, str) else previous_date
+        start_time = _parse_time(previous_start)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(requested_date, date) or end_time <= start_time:
+        return False
+    filters["date"] = requested_date
+    filters["start_time"] = start_time
+    filters["end_time"] = end_time
+    return True
+
+
 def _room_candidates(
     db: Session,
     *,
@@ -685,6 +732,11 @@ def room_assistant_chat(
     normalization = normalize_indonesian_message(payload.message, catalog)
     normalized_payload = payload.model_copy(update={"message": normalization.parser_text})
     filters = _parse_message_filters(db, normalized_payload, catalog)
+    _apply_contextual_end_time_follow_up(
+        filters,
+        conversation,
+        normalization.parser_text,
+    )
 
     explicit_fields = set(payload.model_fields_set)
     if "requested_date" in explicit_fields:
