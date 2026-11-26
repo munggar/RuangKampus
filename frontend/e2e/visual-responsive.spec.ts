@@ -38,7 +38,7 @@ for (const screen of SCREEN_ROUTES) {
   }
 }
 
-test("responsive layout: every protected route at all six target viewports", async ({ browser }) => {
+test("responsive layout: every protected route at all six target viewports", async ({ context }) => {
   test.setTimeout(8 * 60 * 1000);
   const samples = new Set([
     "student-dashboard", "student-rooms", "student-booking",
@@ -51,7 +51,7 @@ test("responsive layout: every protected route at all six target viewports", asy
       ["Student", STUDENT_PATHS],
       ["TU/Admin", ADMIN_PATHS],
     ] as const) {
-      const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
+      const page = await context.newPage();
       const api = await installMockApi(page, role);
       for (const screen of routeScreens) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
