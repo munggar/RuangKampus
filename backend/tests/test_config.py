@@ -78,3 +78,32 @@ def test_production_brevo_rejects_invalid_sender_email():
             brevo_api_key="xkeysib-test-secret",
             brevo_sender_email="not-an-email",
         )
+
+
+
+def test_production_brevo_accepts_legacy_sender_mail_variable():
+    settings = production_settings(
+        email_backend="brevo",
+        brevo_api_key="xkeysib-test-secret",
+        brevo_sender_mail="notifications@example.test",
+    )
+    assert settings.brevo_sender_address == "notifications@example.test"
+
+
+def test_email_backend_normalizes_case_and_whitespace():
+    settings = production_settings(
+        email_backend="  BREVO  ",
+        brevo_api_key="xkeysib-test-secret",
+        brevo_sender_email="notifications@example.test",
+    )
+    assert settings.email_backend == "brevo"
+
+
+def test_brevo_sender_email_has_priority_over_legacy_alias():
+    settings = production_settings(
+        email_backend="brevo",
+        brevo_api_key="xkeysib-test-secret",
+        brevo_sender_email="primary@example.test",
+        brevo_sender_mail="legacy@example.test",
+    )
+    assert settings.brevo_sender_address == "primary@example.test"
