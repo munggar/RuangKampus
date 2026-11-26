@@ -383,8 +383,9 @@ def _intent_only_response(
     result_type: str = "NO_RESULTS",
     requires_clarification: bool | None = None,
     ai_fallback_used: bool = False,
+    slots_override: AssistantChatSlots | None = None,
 ):
-    slots = _assistant_empty_slots(payload)
+    slots = slots_override or _assistant_empty_slots(payload)
     follow_up = [detection.clarification_message] if detection.clarification_message else []
     structured_response = AssistantChatResponseData(
         message=message_override or detection.clarification_message or _intent_response_message(detection.intent, detection.response_variant),
@@ -648,6 +649,17 @@ def room_assistant_chat(
         return response
 
     if detection.intent in {"ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"} and not has_complete_availability_window:
+        pending_slots = AssistantChatSlots(
+            faculty=filters["faculty"],
+            building=filters["building"],
+            min_capacity=filters["min_capacity"],
+            facilities=filters["facilities"],
+            requested_date=filters["date"],
+            start_time=filters["start_time"],
+            end_time=filters["end_time"],
+            participant_count=filters["participant_count"],
+            search_terms=filters["search_terms"],
+        )
         response = _intent_only_response(
             payload, normalization, detection,
             missing_fields=["date", "start_time", "end_time"],
@@ -663,7 +675,9 @@ def room_assistant_chat(
                 "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit."
             ),
             ai_fallback_used=ai_fallback_used,
+            slots_override=pending_slots,
         )
+        save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
         db.commit()
         return response
 
