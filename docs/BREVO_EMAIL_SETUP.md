@@ -18,10 +18,10 @@ Set these variables on the `ruangkampus-api` service in the production environme
 | `EMAIL_BACKEND` | `brevo` |
 | `BREVO_API_KEY` | The Brevo API v3 key |
 | `BREVO_SENDER_EMAIL` | The exact verified sender email address |
-| `BREVO_SENDER_NAME` | `RuangKampus` |
+| `BREVO_SENDER_NAME` | `RuangKampus` (shown as `RuangKampus · Tim CodeMu · UHAMKA`) |
 | `PUBLIC_APP_URL` | `https://ruangkampus-web-production.up.railway.app` |
 
-For compatibility with an existing Railway setup, the backend also accepts `BREVO_SENDER_MAIL`. Prefer renaming it to `BREVO_SENDER_EMAIL` when convenient; no sender address needs to be changed. The `EMAIL_BACKEND` value is normalized to lowercase, so `BREVO` also works.
+For compatibility with an existing Railway setup, the backend also accepts `BREVO_SENDER_MAIL`. Prefer renaming it to `BREVO_SENDER_EMAIL` when convenient; no sender address needs to be changed. The sender display name is automatically branded as `RuangKampus · Tim CodeMu · UHAMKA`, including when an older Railway variable still contains only `RuangKampus`. SMTP delivery uses the same display name. Email headers show the official `Universitas Muhammadiyah Prof Dr Hamka` name and the CodeMu team identity. The header logo is served from `/brand/logo-primary.png`; the frontend build extracts and verifies that official asset from `RuangKampus-Brand-Assets (1).zip` in the repository. The `EMAIL_BACKEND` value is normalized to lowercase, so `BREVO` also works.
 
 The existing `SMTP_TIMEOUT_SECONDS` value is also used as the Brevo HTTP request timeout. `PUBLIC_APP_URL` is the base URL used to build role-specific buttons in all reservation emails. Do not set the Brevo key in `ruangkampus-web`; it belongs only in `ruangkampus-api`.
 
