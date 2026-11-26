@@ -70,7 +70,11 @@ def send_email(
         return False
 
     if settings.email_backend == "brevo":
-        sender_email = settings.brevo_sender_address
+        sender_email = (
+            getattr(settings, "brevo_sender_address", None)
+            or getattr(settings, "brevo_sender_email", None)
+            or getattr(settings, "brevo_sender_mail", None)
+        )
         if not settings.brevo_api_key or not sender_email:
             logger.warning("Brevo email provider is not configured; no email was sent")
             return False
