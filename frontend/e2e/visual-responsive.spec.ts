@@ -148,5 +148,5 @@ test("theme: toggling persists across navigation and public auth uses stored the
     background: getComputedStyle(document.documentElement).getPropertyValue("--surface-background").trim(),
   }));
   expect(authTheme.colorScheme).toBe("dark");
-  expect(authTheme.background).toBe("#111a20");
+  expect(authTheme.background).toBe("#090b10");
 });

@@ -24,6 +24,8 @@ function navigationFor(role: AppRole): NavigationItem[] {
     { label: "Dashboard", shortLabel: "Home", path: base + "/dashboard", icon: LayoutDashboard },
     { label: "Reservation requests", shortLabel: "Requests", path: base + "/reservations", icon: ClipboardList },
     { label: "Manage rooms", shortLabel: "Rooms", path: base + "/rooms", icon: Building2 },
+    { label: "Jadwal", shortLabel: "Jadwal", path: base + "/schedules", icon: CalendarDays },
+    { label: "Impor data kampus", shortLabel: "Impor", path: base + "/data-imports", icon: FileSpreadsheet },
     { label: "Profile", shortLabel: "Profile", path: base + "/profile", icon: UserRound },
   ];
 }
@@ -94,7 +96,7 @@ function pageLabel(path: string, role: AppRole) {
   return items.find(([route]) => path === route)?.[1] || "RuangKampus";
 }
 function Navigation({ items, mobile = false }: { items: NavigationItem[]; mobile?: boolean }) {
-  return <nav className={mobile ? "mobile-nav__items" : "sidebar-nav"} aria-label="Navigasi utama">
+  return <nav className={mobile ? "mobile-nav__items" : "sidebar-nav"} style={mobile ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined} aria-label="Navigasi utama">
     {items.map((item) => {
       const Icon = item.icon;
       return <NavLink key={item.path} to={item.path} end={item.path.endsWith("/dashboard")}
@@ -183,6 +185,7 @@ export function AppShell({ role }: { role: AppRole }) {
   }
 
   return <div className="app-shell">
+    <a className="skip-link" href="#main-content">Lewati ke konten utama</a>
     <svg className="brand-filter-defs" width="0" height="0" aria-hidden="true" focusable="false">
       <defs>
         <filter id="rk-dark-wordmark-filter" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
@@ -210,7 +213,7 @@ export function AppShell({ role }: { role: AppRole }) {
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
       <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "STAFF SEKRETARIAT WORKSPACE"}</p>
       <Navigation items={items} />
-      {role === "Staff Sekretariat" ? <><Link className="sidebar-secondary-link" to="/admin/schedules"><CalendarDays size={17} />Jadwal & pemeliharaan</Link><Link className="sidebar-secondary-link" to="/admin/data-imports"><FileSpreadsheet size={17} />Impor data kampus</Link></> : null}
+
       <div className="sidebar-footer"><span className="online-dot" />RuangKampus <span>Web</span></div>
     </aside>
     <div className="app-main">
@@ -232,11 +235,11 @@ export function AppShell({ role }: { role: AppRole }) {
             <button ref={accountTriggerRef} className="account-trigger" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="account-menu-dropdown">
               <span className="avatar">{initials}</span><span className="account-trigger__name"><b>{name}</b><small>{role === "Student" ? "Mahasiswa" : "Staff Sekretariat"}</small></span><ChevronDown size={15} />
             </button>
-            {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown"><Link to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
+            {menuOpen ? <div id="account-menu-dropdown" className="account-dropdown" role="menu"><Link role="menuitem" to={root + "/profile"} onClick={() => setMenuOpen(false)}>Profil akun</Link><button role="menuitem" type="button" onClick={() => { setMenuOpen(false); void handleLogout(); }}><LogOut size={15} />Keluar</button></div> : null}
           </div>
         </div>
       </header>
-      <main className="main-content"><Outlet /></main>
+      <main id="main-content" className="main-content" tabIndex={-1}><Outlet /></main>
       <footer className="desktop-footer">© {new Date().getFullYear()} RuangKampus · Campus facilities</footer>
     </div>
     <div className="mobile-nav-shell"><Navigation items={items} mobile /></div>

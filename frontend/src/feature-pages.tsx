@@ -309,9 +309,22 @@ export function RoomAssistantPage() {
     setTurns((current) => [...current, { id: Date.now(), sender: "user", message: text }]);
     setLoading(true);
     try {
+      const context = turns.slice(-10).map((turn) => ({
+        role: turn.sender,
+        content: [
+          turn.message,
+          ...(turn.rooms?.length ? ["Kandidat ruangan yang ditampilkan: " + turn.rooms.map((room) =>
+            room.room_name + " (kapasitas " + room.capacity + "; fasilitas " + room.facilities.join(", ") + ")"
+          ).join("; ")] : []),
+          ...(turn.alternatives?.length ? ["Slot alternatif yang ditampilkan: " + turn.alternatives.map((slot) =>
+            slot.room.room_name + " pada " + slot.date + " " + slot.start_time + "–" + slot.end_time
+          ).join("; ")] : []),
+        ].filter(Boolean).join("\n").slice(0, 1200),
+      }));
       const response: AssistantChatResult = await discoveryApi.chat({
         message: text,
         conversation_id: conversationId,
+        context,
       });
       if (response.conversation_id) setConversationId(response.conversation_id);
       setTurns((current) => [...current, {
@@ -330,10 +343,10 @@ export function RoomAssistantPage() {
 
   return <div className="page-stack">
     <PageTitle eyebrow="FITUR ANDALAN" title="RUKKA AI"
-      description="Teman ngobrol kampus buat cari ruangan, cek jadwal, dan nemuin alternatif slot." />
+      description="Teman ngobrol kampus untuk diskusi, mencari ruangan, mengecek jadwal, dan menemukan alternatif slot." />
     <section className="panel assistant-intro">
       <span className="assistant-intro__icon"><Bot size={25} /></span>
-      <div><h2>Ngobrol aja seperti biasa</h2><p className="muted">Ceritain kebutuhanmu. RUKKA bantu cari solusi dari data ruangan RuangKampus.</p></div>
+      <div><h2>Ngobrol aja seperti biasa</h2><p className="muted">Tanya, diskusi, minta ide, atau ceritakan kebutuhan ruang. Untuk informasi kampus, RUKKA tetap mengacu pada data RuangKampus.</p></div>
     </section>
     <section className="panel assistant-chat-panel">
       <div className="assistant-engine-label"><span className="online-dot" />RUKKA AI <span aria-hidden="true">·</span> Asisten kampusmu</div>
@@ -407,6 +420,6 @@ export function RoomAssistantPage() {
         <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
       </form>
     </section>
-    <Notice tone="info">RUKKA membantu pencarian dan informasi ruangan. Jadwal tetap dicek dari data kampus, dan pengajuan reservasi dilakukan lewat fitur Reservasi. Feedback bersifat opsional; yang disimpan hanya penilaian dan kategori alasan, bukan isi chat.</Notice>
+    <Notice tone="info">RUKKA dapat membantu diskusi umum sekaligus urusan ruangan. Jadwal dan fakta kampus tetap harus bersumber dari data terverifikasi, sedangkan pengajuan reservasi dilakukan lewat fitur Reservasi. Saat AI aktif, maksimal sepuluh pesan terakhir dari tab ini dapat dikirim ke penyedia AI sebagai konteks; backend tidak menyimpan isi chat mentah, hanya filter pencarian dan ID kandidat terverifikasi sementara maksimal 30 menit. Mode AI mengikuti konfigurasi backend dan tidak bisa diaktifkan lewat chat. Feedback hanya menyimpan penilaian dan kategori alasan.</Notice>
   </div>;
 }

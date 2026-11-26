@@ -93,8 +93,49 @@ SMALLTALK_THANKS = (
 FAQ_PHRASES = (
     "apa itu ruangkampus", "tentang ruangkampus", "fitur ruangkampus",
     "fitur apa", "apa saja yang bisa kamu bantu", "kamu bisa apa",
-    "apa yang bisa dibantu", "bantuan ruangkampus",
+    "apa yang bisa dibantu", "bantuan ruangkampus", "mode ai",
+    "aktifkan mode ai", "gunakan ai", "mode standar",
 )
+
+# These are explicit signs that a student wants explanation, analysis, or planning,
+# not a database lookup. Domain-specific intents above retain precedence.
+HYPOTHETICAL_REASONING_PHRASES = (
+    "ada 3 kelompok", "ada tiga kelompok", "hanya tersedia dua ruangan",
+    "jika seseorang meminta", "jika kamu tidak memiliki data",
+    "ketika tidak memiliki data", "belum berhasil mengakses",
+    "tidak dapat mengakses database", "apa yang harus kamu katakan",
+    "apa yang seharusnya kamu lakukan", "bagaimana seharusnya",
+)
+
+GENERAL_REASONING_PHRASES = (
+    "menurutmu", "menurut kamu", "menurut pendapatmu", "bayangkan",
+    "analisis", "analisa", "jelaskan", "berikan argumen", "berikan contoh",
+    "dari beberapa sudut pandang", "apa perbedaan", "apa kemungkinan penyebab",
+    "bagaimana kamu mengatur", "bagaimana sistem", "rancang", "buat simulasi",
+    "simulasikan", "kalau semua mahasiswa", "jika semua mahasiswa",
+    "ada 3 kelompok", "ada tiga kelompok", "apa saja yang perlu aku",
+    "apa saja yang perlu saya", "bagaimana cara terbaik", "menentukan jadwal",
+    "menentukan waktu", "buatkan rencana", "rencana acara",
+    "apakah selalu", "apa dampak", "apa solusi", "menyelesaikan masalah",
+    "kenapa", "mengapa", "jika seseorang meminta", "apa yang harus kamu katakan",
+    "apa yang seharusnya kamu lakukan", "ketika tidak memiliki data",
+    "jika tidak memiliki data", "tidak dapat mengakses database",
+)
+
+ROOM_OPERATION_PATTERN = re.compile(
+    r"\b(?:cari(?:kan)?|nyari|temukan|cek|periksa|booking|reservasi|"
+    r"pinjam|meminjam|pesan|butuh|perlu|mau|ingin|alternatif|slot)\b"
+    r".{0,100}\b(?:ruang(?:an)?|rgn|room|jadwal|slot)\b"
+    r"|\b(?:ruang(?:an)?|rgn|room)\b.{0,90}"
+    r"\b(?:kosong|tersedia|available|kapasitas|fasilitas|proyektor|"
+    r"\bac\b|\bwi-?fi\b|jadwal|alternatif|booking|reservasi)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def is_room_operation_candidate(message: str) -> bool:
+    """Return true only when the utterance plausibly asks the assistant to act on room data."""
+    return bool(ROOM_OPERATION_PATTERN.search(" ".join(message.casefold().split())))
 
 
 def _phrase_matches(text: str, phrase: str) -> list[re.Match[str]]:
@@ -211,6 +252,12 @@ def detect_assistant_intent(
             ),
         )
 
+    if _has_phrase(text, HYPOTHETICAL_REASONING_PHRASES):
+        return IntentDetection(
+            intent="OUT_OF_SCOPE",
+            matched_rule="HYPOTHETICAL_REASONING_REQUEST",
+        )
+
     if has_room and (
         _has_phrase(text, AVAILABILITY_TERMS)
         or has_complete_availability_window
@@ -241,6 +288,12 @@ def detect_assistant_intent(
         return IntentDetection(
             intent="ROOM_SEARCH",
             matched_rule="ROOM_SEARCH_VERB",
+        )
+
+    if _has_phrase(text, GENERAL_REASONING_PHRASES):
+        return IntentDetection(
+            intent="OUT_OF_SCOPE",
+            matched_rule="GENERAL_REASONING_REQUEST",
         )
 
     if has_structured_room_filters:
@@ -287,12 +340,9 @@ def detect_assistant_intent(
             ),
         )
 
+    # An unrecognized utterance is eligible for general conversation generation.
+    # Missing or ambiguous room-search information is clarified by the room-specific branches above.
     return IntentDetection(
         intent="OUT_OF_SCOPE",
-        matched_rule="NO_SUPPORTED_INTENT",
-        requires_clarification=True,
-        clarification_message=(
-            "Aku fokus membantu urusan ruangan kampus: pencarian, ketersediaan, "
-            "fasilitas, alternatif waktu, dan informasi reservasi."
-        ),
+        matched_rule="GENERAL_CONVERSATION_REQUEST",
     )

@@ -303,7 +303,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     {loading ? <Loading label="Memuat direktori ruangan…" /> : rooms.length ? (
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
-          <Link className="room-card__media" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
+          <Link className="room-card__media" aria-label={"Lihat detail ruangan " + room.room_name} to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>
             <RoomPhoto photoUrl={room.photo_url} roomName={room.room_name} />
           </Link>
           <div className="room-card__body">
@@ -700,9 +700,10 @@ export function ProfilePage({ role }: { role: AppRole }) {
         </section>
         <form className="panel stack-form" onSubmit={savePassword}>
           <h2>Ubah password</h2>
-          <Field label="Password saat ini">
+          <div className="form-field">
+            <label className="form-field__label" htmlFor="profile-current-password">Password saat ini</label>
             <div className="input-with-action">
-              <input type={showCurrentPassword ? "text" : "password"} autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+              <input id="profile-current-password" type={showCurrentPassword ? "text" : "password"} autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
               <button
                 className="field-action"
                 type="button"
@@ -713,10 +714,11 @@ export function ProfilePage({ role }: { role: AppRole }) {
                 {showCurrentPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
               </button>
             </div>
-          </Field>
-          <Field label="Password baru" hint="Minimal 8 karakter.">
+          </div>
+          <div className="form-field">
+            <label className="form-field__label" htmlFor="profile-new-password">Password baru</label>
             <div className="input-with-action">
-              <input type={showNewPassword ? "text" : "password"} minLength={8} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+              <input id="profile-new-password" type={showNewPassword ? "text" : "password"} minLength={8} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required aria-describedby="profile-new-password-hint" />
               <button
                 className="field-action"
                 type="button"
@@ -727,10 +729,12 @@ export function ProfilePage({ role }: { role: AppRole }) {
                 {showNewPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
               </button>
             </div>
-          </Field>
-          <Field label="Konfirmasi password baru">
+            <small id="profile-new-password-hint" className="form-field__hint">Minimal 8 karakter.</small>
+          </div>
+          <div className="form-field">
+            <label className="form-field__label" htmlFor="profile-confirm-password">Konfirmasi password baru</label>
             <div className="input-with-action">
-              <input type={showConfirmPassword ? "text" : "password"} minLength={8} maxLength={128} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+              <input id="profile-confirm-password" type={showConfirmPassword ? "text" : "password"} minLength={8} maxLength={128} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
               <button
                 className="field-action"
                 type="button"
@@ -741,7 +745,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
                 {showConfirmPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
               </button>
             </div>
-          </Field>
+          </div>
           <Button type="submit" variant="secondary" disabled={saving}>Ubah password</Button>
         </form>
       </div>

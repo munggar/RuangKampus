@@ -118,3 +118,33 @@ def test_public_app_url_can_be_configured_for_production_email_links():
 
 
 
+
+
+def test_openrouter_key_auto_enables_default_provider_configuration():
+    settings = Settings(_env_file=None, openrouter_api_key="sk-or-test-key")
+
+    assert settings.is_assistant_ai_enabled is True
+    assert settings.resolved_assistant_ai_api_key == "sk-or-test-key"
+    assert settings.assistant_ai_endpoint_url == "https://openrouter.ai/api/v1/chat/completions"
+    assert settings.resolved_assistant_ai_model == "google/gemma-4-26b-a4b-it:free"
+
+
+def test_openrouter_model_can_be_overridden_without_changing_default_endpoint():
+    settings = Settings(
+        _env_file=None,
+        openrouter_api_key="sk-or-test-key",
+        openrouter_model="google/gemma-4-31b-it:free",
+    )
+
+    assert settings.resolved_assistant_ai_model == "google/gemma-4-31b-it:free"
+    assert settings.is_assistant_ai_enabled is True
+
+
+def test_explicit_provider_disable_wins_even_when_openrouter_key_exists():
+    settings = Settings(
+        _env_file=None,
+        assistant_ai_enabled=False,
+        openrouter_api_key="sk-or-test-key",
+    )
+
+    assert settings.is_assistant_ai_enabled is False

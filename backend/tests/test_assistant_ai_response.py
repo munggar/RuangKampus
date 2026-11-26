@@ -178,3 +178,38 @@ def test_rukka_does_not_call_provider_when_disabled(monkeypatch):
         settings=Settings(assistant_ai_enabled=False),
     )
     assert answer is None
+
+
+def test_openrouter_key_activates_default_model_and_authenticates_real_request_shape(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured["body"] = kwargs["json"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(provider_response(json.dumps({
+            "message": "Ada tiga faktor yang perlu dipertimbangkan sebelum menentukan pilihan."
+        })))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    settings = Settings(_env_file=None, openrouter_api_key="sk-or-test-key")
+
+    answer = generate_grounded_assistant_message(
+        message="Menurutmu bagaimana cara memilih ruangan yang tepat?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku bisa bantu pertimbangkan beberapa hal.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=settings,
+    )
+
+    assert answer == "Ada tiga faktor yang perlu dipertimbangkan sebelum menentukan pilihan."
+    assert captured["url"] == "https://openrouter.ai/api/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer sk-or-test-key"
+    assert captured["headers"]["X-OpenRouter-Title"] == "RuangKampus - RUKKA AI"
+    assert captured["headers"]["HTTP-Referer"] == settings.public_app_url
+    assert captured["body"]["model"] == "google/gemma-4-26b-a4b-it:free"
+    assert captured["body"]["response_format"] == {"type": "json_object"}

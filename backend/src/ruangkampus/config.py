@@ -37,11 +37,13 @@ class Settings(BaseSettings):
     brevo_sender_name: str = "RuangKampus"
     campus_timezone: str = "Asia/Jakarta"
     room_media_dir: str = ".room-media"
-    # Optional OpenAI-compatible endpoint. Disabled by default; no provider is called unless enabled.
-    assistant_ai_enabled: bool = False
-    assistant_ai_endpoint_url: str | None = None
-    assistant_ai_model: str | None = None
+    # OpenRouter defaults. The provider is effectively enabled only when a server-side API key exists.
+    assistant_ai_enabled: bool = True
+    assistant_ai_endpoint_url: str = "https://openrouter.ai/api/v1/chat/completions"
+    assistant_ai_model: str = "google/gemma-4-26b-a4b-it:free"
     assistant_ai_api_key: str | None = None
+    openrouter_api_key: str | None = None
+    openrouter_model: str | None = None
     assistant_ai_timeout_seconds: float = Field(default=8.0, gt=0, le=8)
 
     @field_validator("email_backend", mode="before")
@@ -103,16 +105,34 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_assistant_ai_configuration(self):
-        if not self.assistant_ai_enabled:
+        if not self.is_assistant_ai_enabled:
             return self
-        if not self.assistant_ai_endpoint_url or not self.assistant_ai_model:
-            raise ValueError("ASSISTANT_AI_ENABLED requires ASSISTANT_AI_ENDPOINT_URL and ASSISTANT_AI_MODEL")
         parsed = urlsplit(self.assistant_ai_endpoint_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
             raise ValueError("ASSISTANT_AI_ENDPOINT_URL must be an absolute HTTP(S) URL without embedded credentials")
         if self.assistant_ai_timeout_seconds > 8:
             raise ValueError("ASSISTANT_AI_TIMEOUT_SECONDS must not exceed 8 seconds")
         return self
+
+    @property
+    def resolved_assistant_ai_api_key(self) -> str | None:
+        """Prefer the native OpenRouter variable while preserving the legacy alias."""
+        return self.openrouter_api_key or self.assistant_ai_api_key
+
+    @property
+    def resolved_assistant_ai_model(self) -> str:
+        """Allow OPENROUTER_MODEL to override the safe default model."""
+        return self.openrouter_model or self.assistant_ai_model
+
+    @property
+    def is_assistant_ai_enabled(self) -> bool:
+        """Never send unauthenticated provider requests; an API key activates the default setup."""
+        return bool(
+            self.assistant_ai_enabled
+            and self.resolved_assistant_ai_api_key
+            and self.assistant_ai_endpoint_url
+            and self.resolved_assistant_ai_model
+        )
 
     @property
     def brevo_sender_address(self) -> str | None:

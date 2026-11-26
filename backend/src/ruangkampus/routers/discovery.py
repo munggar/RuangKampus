@@ -27,7 +27,11 @@ from ruangkampus.services.indonesian_normalizer import (
     find_positive_facility_filters,
     normalize_indonesian_message,
 )
-from ruangkampus.services.assistant_intent import IntentDetection, detect_assistant_intent
+from ruangkampus.services.assistant_intent import (
+    IntentDetection,
+    detect_assistant_intent,
+    is_room_operation_candidate,
+)
 from ruangkampus.services.assistant_ai_fallback import interpret_with_ai_fallback
 from ruangkampus.services.assistant_ai_response import generate_grounded_assistant_message
 from ruangkampus.services.assistant_confidence import evaluate_rule_confidence
@@ -171,14 +175,60 @@ def _availability_clarification(filters: dict) -> str:
     if missing == {"date"}:
         return "Jamnya sudah aku catat. Tanggal pemakaiannya kapan?"
     if missing == {"start_time"}:
-        return "Jam mulai sudah aku catat. Jam selesai berapa?"
+        return "Jam selesai sudah aku catat. Jam mulai berapa?"
     if missing == {"end_time"}:
-        return "Jam selesai sudah aku catat. Jam mulainya pukul berapa?"
+        return "Jam mulai sudah aku catat. Jam selesai berapa?"
     return "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
 
 
 def _parse_time(value: str | time) -> time:
     return value if isinstance(value, time) else time.fromisoformat(value)
+
+
+def _parse_time_only_follow_up(message: str) -> time | None:
+    """Parse a short time-only reply such as 'sampai jam 12 siang'."""
+    match = re.fullmatch(
+        r"\s*(?:(?:sampai|hingga|sd|s/d)\s*)?(?:(?:jam|pukul)\s*)?"
+        r"([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*"
+        r"(pagi|siang|sore|malam)?[.!?\s]*",
+        message.casefold(),
+    )
+    if not match:
+        return None
+    hour = int(match.group(1))
+    minute = int(match.group(2) or 0)
+    period = match.group(3)
+    if period in {"pagi", "malam"} and hour == 12:
+        hour = 0
+    elif period in {"siang", "sore", "malam"} and hour < 12:
+        hour += 12
+    return time(hour, minute) if 0 <= hour <= 23 else None
+
+def _apply_contextual_end_time_follow_up(filters: dict, conversation, message: str) -> bool:
+    """Treat a short time-only reply as the missing end time for the prior room request."""
+    if conversation.last_intent not in SEARCH_INTENTS:
+        return False
+    previous = conversation.state.get("slots", {}) if isinstance(conversation.state, dict) else {}
+    if not isinstance(previous, dict) or previous.get("end_time") is not None:
+        return False
+    previous_date = previous.get("date")
+    previous_start = previous.get("start_time")
+    if not previous_date or not previous_start:
+        return False
+    end_time = _parse_time_only_follow_up(message)
+    if end_time is None:
+        return False
+    try:
+        requested_date = date.fromisoformat(previous_date) if isinstance(previous_date, str) else previous_date
+        start_time = _parse_time(previous_start)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(requested_date, date) or end_time <= start_time:
+        return False
+    filters["date"] = requested_date
+    filters["start_time"] = start_time
+    filters["end_time"] = end_time
+    return True
 
 
 def _room_candidates(
@@ -343,6 +393,21 @@ def _parse_message_filters(
         if time_match:
             start_time = time(int(time_match.group(1)), int(time_match.group(2)))
             end_time = time(int(time_match.group(3)), int(time_match.group(4)))
+        else:
+            single_time = re.search(
+                r"\b(?:jam|pukul)\s*(\d{1,2})(?:[:.]([0-5]\d))?\s*(pagi|siang|sore|malam)?\b",
+                message,
+            )
+            if single_time:
+                hour = int(single_time.group(1))
+                minute = int(single_time.group(2) or 0)
+                period = single_time.group(3)
+                if period in {"pagi", "malam"} and hour == 12:
+                    hour = 0
+                elif period in {"siang", "sore", "malam"} and hour < 12:
+                    hour += 12
+                if 0 <= hour <= 23:
+                    start_time = time(hour, minute)
 
     # An activity's purpose is not always a room-name/description filter.
     # Keep explicit types ("ruang rapat") searchable but ignore "buat rapat".
@@ -521,6 +586,45 @@ def _intent_response_message(intent: str, response_variant: str | None = None) -
     return compose_intent_response(intent, response_variant)
 
 
+def _references_previous_room_result(message: str) -> bool:
+    normalized = " ".join(message.casefold().split())
+    phrases = (
+        "ruangan itu", "ruang itu", "ruangannya", "ruangan tadi",
+        "ruang tadi", "rekomendasi tadi", "direkomendasikan",
+        "kenapa ruangan", "kenapa ruang", "alasan rekomendasi",
+        "pilihan tadi", "kandidat tadi", "hasil pencarian tadi",
+        "yang tadi kamu rekomendasikan", "yang kamu rekomendasikan",
+    )
+    return any(
+        re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", normalized)
+        for phrase in phrases
+    )
+
+
+def _verified_previous_room_context(db: Session, conversation) -> list[dict]:
+    state = conversation.state if isinstance(conversation.state, dict) else {}
+    candidates = state.get("room_ids", [])
+    room_ids: list[UUID] = []
+    for item in candidates[:10] if isinstance(candidates, list) else []:
+        try:
+            room_id = UUID(str(item))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if room_id not in room_ids:
+            room_ids.append(room_id)
+    if not room_ids:
+        return []
+    records = db.scalars(
+        select(Room).where(
+            Room.id.in_(room_ids),
+            Room.deleted_at.is_(None),
+            Room.room_status == "ACTIVE",
+        )
+    ).all()
+    by_id = {room.id: room for room in records}
+    return [serialize_room(by_id[room_id]) for room_id in room_ids if room_id in by_id]
+
+
 def _maybe_generate_ai_message(
     *,
     message: str,
@@ -533,6 +637,7 @@ def _maybe_generate_ai_message(
     availability_checked: bool = False,
     db: Session | None = None,
     user_id: UUID | None = None,
+    context_messages: list[dict[str, str]] | None = None,
 ) -> tuple[str, bool]:
     settings = get_settings()
     adaptive_preferences = (
@@ -551,6 +656,7 @@ def _maybe_generate_ai_message(
         availability_checked=availability_checked,
         settings=settings,
         adaptive_preferences=adaptive_preferences,
+        context_messages=context_messages,
     )
     return (generated, True) if generated else (deterministic_message, False)
 
@@ -568,6 +674,7 @@ def _intent_only_response(
     privacy_message: str | None = None,
     message_override: str | None = None,
     rooms: list[dict] | None = None,
+    provider_rooms: list[dict] | None = None,
     reservations: list[dict] | None = None,
     result_type: str = "NO_RESULTS",
     requires_clarification: bool | None = None,
@@ -588,16 +695,18 @@ def _intent_only_response(
             intent=detection.intent,
             deterministic_message=base_message,
             filters=_assistant_legacy_filters(slots),
-            rooms=rooms or [],
+            rooms=provider_rooms if provider_rooms is not None else (rooms or []),
             follow_up_questions=follow_up,
             availability_checked=availability_checked,
             db=db,
             user_id=user_id,
+            context_messages=[item.model_dump() for item in payload.context],
         )
     engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
-        "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
+        "Maksimal sepuluh pesan terakhir dari tab percakapan dapat ikut dikirim sebagai konteks dan tidak disimpan sebagai isi chat oleh backend. "
+        "Backend hanya menyimpan slot pencarian terstruktur dan ID kandidat terverifikasi selama maksimal 30 menit, bukan isi chat mentah. Identitas akun dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_response_used else
         "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
         "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
@@ -662,6 +771,11 @@ def room_assistant_chat(
     normalization = normalize_indonesian_message(payload.message, catalog)
     normalized_payload = payload.model_copy(update={"message": normalization.parser_text})
     filters = _parse_message_filters(db, normalized_payload, catalog)
+    _apply_contextual_end_time_follow_up(
+        filters,
+        conversation,
+        normalization.parser_text,
+    )
 
     explicit_fields = set(payload.model_fields_set)
     if "requested_date" in explicit_fields:
@@ -695,7 +809,14 @@ def room_assistant_chat(
         contextual_followup_used = True
 
     ai_fallback_used = False
-    if detection.intent == "OUT_OF_SCOPE":
+    if (
+        detection.intent == "OUT_OF_SCOPE"
+        and detection.matched_rule not in {
+            "GENERAL_REASONING_REQUEST",
+            "HYPOTHETICAL_REASONING_REQUEST",
+        }
+        and is_room_operation_candidate(normalization.parser_text)
+    ):
         interpretation = interpret_with_ai_fallback(payload.message, catalog, get_settings())
         if interpretation is not None:
             ai_fallback_used = True
@@ -874,12 +995,54 @@ def room_assistant_chat(
         return response
 
     if detection.intent not in search_intents:
+        contextual_room_reference = (
+            detection.intent == "OUT_OF_SCOPE"
+            and _references_previous_room_result(normalization.parser_text)
+        )
+        provider_rooms = (
+            _verified_previous_room_context(db, conversation)
+            if contextual_room_reference else []
+        )
+        slots_override = None
+        if contextual_room_reference:
+            prior_explicit_fields = set(payload.model_fields_set)
+            if "requested_date" in prior_explicit_fields:
+                prior_explicit_fields.add("date")
+            prior_filters = merge_room_slots(
+                {
+                    "faculty": payload.faculty,
+                    "building": payload.building,
+                    "min_capacity": payload.min_capacity,
+                    "facilities": payload.facilities,
+                    "date": payload.requested_date,
+                    "start_time": payload.start_time,
+                    "end_time": payload.end_time,
+                    "participant_count": payload.participant_count,
+                    "search_terms": [],
+                },
+                conversation.state,
+                message=normalization.normalized_text,
+                explicitly_supplied=prior_explicit_fields,
+            )
+            slots_override = AssistantChatSlots(
+                faculty=prior_filters["faculty"],
+                building=prior_filters["building"],
+                min_capacity=prior_filters["min_capacity"],
+                facilities=prior_filters["facilities"],
+                requested_date=prior_filters["date"],
+                start_time=prior_filters["start_time"],
+                end_time=prior_filters["end_time"],
+                participant_count=prior_filters["participant_count"],
+                search_terms=prior_filters["search_terms"],
+            )
         response = _intent_only_response(
             payload, normalization, detection,
             conversation_id=conversation.id,
             db=db,
             user_id=user.id,
             confidence=confidence,
+            provider_rooms=provider_rooms,
+            slots_override=slots_override,
         )
         db.commit()
         return response
@@ -950,7 +1113,13 @@ def room_assistant_chat(
             ai_fallback_used=ai_fallback_used,
             slots_override=pending_slots,
         )
-        save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
+        save_conversation_state(
+            db,
+            conversation,
+            intent=detection.intent,
+            slots=filters,
+            room_ids=[room.id for room in partial_rooms[:10]],
+        )
         db.commit()
         return response
 
@@ -1085,6 +1254,7 @@ def room_assistant_chat(
             availability_checked=has_complete_availability_window,
             db=db,
             user_id=user.id,
+            context_messages=[item.model_dump() for item in payload.context],
         )
     structured_response = AssistantChatResponseData(
         message=response_message,
@@ -1117,9 +1287,19 @@ def room_assistant_chat(
         ) if ai_response_used else (
             "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
             "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
-        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan.",
+        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur dan ID kandidat ruangan terverifikasi disimpan sementara selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan.",
     )
-    save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
+    saved_room_ids = [item["id"] for item in room_data]
+    saved_room_ids.extend(
+        item["room"]["id"] for item in alternatives if item.get("room", {}).get("id")
+    )
+    save_conversation_state(
+        db,
+        conversation,
+        intent=detection.intent,
+        slots=filters,
+        room_ids=list(dict.fromkeys(saved_room_ids))[:10],
+    )
     record_assistant_outcome(
         intent=detection.intent,
         matched_rule=detection.matched_rule,

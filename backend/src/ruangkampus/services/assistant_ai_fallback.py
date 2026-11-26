@@ -83,10 +83,10 @@ def interpret_with_ai_fallback(
     settings: Settings,
 ) -> AIIntentInterpretation | None:
     """Call one configured OpenAI-compatible provider once; fail closed on any issue."""
-    if not settings.assistant_ai_enabled:
+    if not settings.is_assistant_ai_enabled:
         return None
     endpoint = settings.assistant_ai_endpoint_url
-    model = settings.assistant_ai_model
+    model = settings.resolved_assistant_ai_model
     if not endpoint or not model:
         return None
 
@@ -110,9 +110,15 @@ def interpret_with_ai_fallback(
         ensure_ascii=False,
         separators=(",", ":"),
     )
-    headers = {"Accept": "application/json", "Content-Type": "application/json"}
-    if settings.assistant_ai_api_key:
-        headers["Authorization"] = f"Bearer {settings.assistant_ai_api_key}"
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "HTTP-Referer": settings.public_app_url,
+        "X-OpenRouter-Title": "RuangKampus - RUKKA AI",
+    }
+    api_key = settings.resolved_assistant_ai_api_key
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
     try:
         response = httpx.post(

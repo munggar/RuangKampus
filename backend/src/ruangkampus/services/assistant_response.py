@@ -32,9 +32,9 @@ def compose_intent_response(intent: str, response_variant: str | None = None) ->
         return "Sebutkan nama atau kode ruangan agar aku bisa menampilkan detail yang tepat."
     if intent == "FAQ":
         return (
-            "Aku bisa membantu mencari ruangan, memeriksa ketersediaan berdasarkan "
-            "tanggal dan waktu, menemukan alternatif slot, melihat detail ruangan, "
-            "dan menjelaskan alur pengajuan reservasi RuangKampus."
+            "Aku bisa membantu diskusi umum, mencari ruangan, memeriksa ketersediaan, "
+            "menemukan alternatif slot, melihat detail ruang, dan menjelaskan alur reservasi. "
+            "Mode AI generatif mengikuti konfigurasi layanan dan tidak bisa diaktifkan hanya lewat chat."
         )
     if intent == "SMALLTALK":
         if response_variant == "THANKS":

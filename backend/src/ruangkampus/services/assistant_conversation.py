@@ -134,8 +134,9 @@ def save_conversation_state(
     *,
     intent: str,
     slots: dict,
+    room_ids: list[UUID | str] | None = None,
 ) -> None:
-    """Persist bounded structured slots; never persist raw or normalized chat text."""
+    """Persist bounded search slots and verified public room IDs, never raw chat text."""
     safe_slots: dict = {}
     for field in _SLOT_FIELDS:
         value = slots.get(field)
@@ -148,7 +149,29 @@ def save_conversation_state(
             safe_slots[field] = value.isoformat()
         elif isinstance(value, (str, int, float, bool)):
             safe_slots[field] = value if not isinstance(value, str) else value[:160]
-    conversation.state = {"version": _STATE_VERSION, "slots": safe_slots}
+
+    stored_state = {"version": _STATE_VERSION, "slots": safe_slots}
+    candidate_ids = (
+        room_ids
+        if room_ids is not None
+        else conversation.state.get("room_ids", [])
+        if isinstance(conversation.state, dict)
+        else []
+    )
+    if not isinstance(candidate_ids, list):
+        candidate_ids = []
+    verified_room_ids: list[str] = []
+    for item in candidate_ids[:10]:
+        try:
+            value = str(UUID(str(item)))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if value not in verified_room_ids:
+            verified_room_ids.append(value)
+    if verified_room_ids:
+        stored_state["room_ids"] = verified_room_ids
+
+    conversation.state = stored_state
     conversation.last_intent = intent[:40]
     conversation.updated_at = utc_now()
     conversation.expires_at = conversation.updated_at + timedelta(minutes=CONVERSATION_TTL_MINUTES)

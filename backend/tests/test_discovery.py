@@ -754,26 +754,29 @@ def test_assistant_returns_grounded_room_details_from_catalog(
     assert room["room_name"] in data["message"]
 
 
-def test_ai_fallback_is_used_only_after_rule_engine_cannot_classify(
+def test_general_question_uses_conversation_generation_not_room_intent_fallback(
     client, auth_headers, student, admin, monkeypatch
 ):
     from ruangkampus.config import Settings
     from ruangkampus.routers import discovery
-    from ruangkampus.services.assistant_ai_fallback import AIIntentInterpretation
 
     settings = Settings(
         assistant_ai_enabled=True,
         assistant_ai_endpoint_url="https://ai.example.test/v1/chat/completions",
         assistant_ai_model="test-model",
     )
-    calls = []
+    generated = []
 
-    def fake_interpretation(message, catalog, provider_settings):
-        calls.append((message, provider_settings.assistant_ai_enabled))
-        return AIIntentInterpretation(intent="ROOM_AVAILABILITY")
+    def fail_intent_fallback(*args, **kwargs):
+        raise AssertionError("general conversation must not use the room-intent classifier fallback")
+
+    def fake_general_response(**kwargs):
+        generated.append(kwargs)
+        return ("Ada beberapa pilihan yang bisa kamu pertimbangkan. Mulailah dari prioritas dan waktumu.", True)
 
     monkeypatch.setattr(discovery, "get_settings", lambda: settings)
-    monkeypatch.setattr(discovery, "interpret_with_ai_fallback", fake_interpretation)
+    monkeypatch.setattr(discovery, "interpret_with_ai_fallback", fail_intent_fallback)
+    monkeypatch.setattr(discovery, "_maybe_generate_ai_message", fake_general_response)
     response = client.post(
         "/api/v1/assistant/chat",
         json={"message": "what should I do with my day?"},
@@ -782,11 +785,13 @@ def test_ai_fallback_is_used_only_after_rule_engine_cannot_classify(
 
     assert response.status_code == 200, response.text
     data = response.json()["data"]
-    assert calls == [("what should I do with my day?", True)]
-    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert len(generated) == 1
+    assert generated[0]["intent"] == "OUT_OF_SCOPE"
+    assert data["intent"] == "OUT_OF_SCOPE"
     assert data["engine"] == "HYBRID"
-    assert data["confidence_basis"] == "AI_FALLBACK"
-    assert data["requires_clarification"] is True
+    assert data["message"].startswith("Ada beberapa pilihan")
+    assert data["requires_clarification"] is False
+    assert data["follow_up_questions"] == []
     assert data["rooms"] == []
     assert "penyedia AI" in data["privacy"]
 
