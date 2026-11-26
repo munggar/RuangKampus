@@ -224,15 +224,14 @@ def _parse_message_filters(
             if isinstance(value, str):
                 metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
     for entry in catalog.get("facilities", []):
-        if entry.get("canonical_name"):
-            values = [
-                entry.get("canonical_name"),
-                *entry.get("source_values", []),
-                *entry.get("aliases", []),
-            ]
-            for value in values:
-                if isinstance(value, str):
-                    metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
+        values = [
+            entry.get("canonical_name"),
+            *entry.get("source_values", []),
+            *entry.get("aliases", []),
+        ]
+        for value in values:
+            if isinstance(value, str):
+                metadata_tokens.update(re.findall(r"[a-z0-9-]+", value.casefold()))
     tokens = [
         token for token in tokens
         if token not in metadata_tokens
