@@ -183,7 +183,7 @@ export function AdminRoomsPage() {
       {visible.map((room) => <article className="room-card" key={room.id}>
         <div className="room-card__media">{room.photo_url ? <img src={apiAssetUrl(room.photo_url)} alt={room.room_name} loading="lazy" /> : <span className="room-card__placeholder"><Building2 size={36} /></span>}</div>
         <div className="room-card__body">
-          <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang</span></div>
+          <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang{room.capacity_estimate ? " · estimasi " + room.capacity_estimate : ""}</span></div>
           <strong className="room-card__title">{room.room_name}</strong>
           <p>{room.building}{room.floor ? " · Lantai " + room.floor : ""}</p>
           <div className="chip-list">{room.facilities.slice(0, 3).map((item) => <span key={item}>{item}</span>)}</div>
