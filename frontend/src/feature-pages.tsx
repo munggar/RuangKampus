@@ -407,6 +407,6 @@ export function RoomAssistantPage() {
         <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
       </form>
     </section>
-    <Notice tone="info">RUKKA membantu pencarian dan informasi ruangan. Jadwal tetap dicek dari data kampus, dan pengajuan reservasi dilakukan lewat fitur Reservasi.</Notice>
+    <Notice tone="info">RUKKA membantu pencarian dan informasi ruangan. Jadwal tetap dicek dari data kampus, dan pengajuan reservasi dilakukan lewat fitur Reservasi. Feedback bersifat opsional; yang disimpan hanya penilaian dan kategori alasan, bukan isi chat.</Notice>
   </div>;
 }
