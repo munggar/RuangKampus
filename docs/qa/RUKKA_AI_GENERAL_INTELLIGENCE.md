@@ -28,7 +28,7 @@ Do not put the provider key in a `VITE_*` frontend variable. If the provider is 
 
 ## Regression prompts — repeat after every upgrade
 
-Run these in the student RUKKA chat. Items 1–13 should produce a reasoned conversational answer, not a room-search result.
+Run these in the student RUKKA chat. Items 1–15 should produce a reasoned conversational answer, not a room-search result.
 
 1. "Kalau semua mahasiswa membutuhkan ruang belajar, tetapi tidak semua ruang belajar cocok untuk semua mahasiswa, menurut kamu sistem peminjaman ruang kampus yang ideal harus bekerja seperti apa? Jelaskan alasanmu."
 2. "Ada 3 kelompok mahasiswa. Kelompok A membutuhkan ruangan untuk 15 orang, kelompok B untuk 25 orang, dan kelompok C untuk 40 orang. Hanya tersedia dua ruangan dengan kapasitas masing-masing 30 dan 50 orang. Bagaimana kamu mengatur pemakaiannya agar semua kelompok tetap bisa belajar?"
