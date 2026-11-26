@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ruangkampus.database import get_db
@@ -23,10 +24,26 @@ def get_profile(current_user: User = Depends(get_current_user)):
 @router.patch("/me")
 def update_profile(payload: ProfileUpdateIn, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     changes = payload.model_dump(exclude_unset=True)
+    if "email" in changes:
+        normalized_email = str(changes["email"]).strip().lower()
+        existing_email_user_id = db.scalar(
+            select(User.id).where(
+                func.lower(User.email) == normalized_email,
+                User.id != current_user.id,
+            )
+        )
+        if existing_email_user_id is not None:
+            raise HTTPException(status_code=409, detail="Email is already used by another account")
+        changes["email"] = normalized_email
+
     for key, value in changes.items():
         setattr(current_user, key, str(value) if key == "profile_image_url" and value is not None else value)
     current_user.updated_at = utcnow()
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Email is already used by another account") from exc
     db.refresh(current_user)
     return success(UserOut.model_validate(current_user).model_dump(mode="json"), "Profile updated")
 
