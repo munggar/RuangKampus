@@ -850,7 +850,7 @@ def test_rukka_greeting_is_not_misused_as_a_room_search_keyword(
     data = result.json()["data"]
     assert data["intent"] == "ROOM_SEARCH"
     assert data["rooms"] == []
-    assert data["filters"]["search_terms"] == []
+    assert data["slots"]["search_terms"] == []
     assert data["requires_clarification"] is True
     assert "belum ada ruangan yang cocok" not in data["message"].lower()
 
