@@ -170,7 +170,9 @@ def detect_assistant_intent(
             matched_rule="MY_RESERVATION_LIST",
         )
 
-    if has_reservation and _has_phrase(text, HELP_PHRASES):
+    if _has_phrase(text, HELP_PHRASES) and (
+        has_reservation or _has_phrase(text, ("cara pinjam ruangan", "cara meminjam ruangan"))
+    ):
         return IntentDetection(
             intent="RESERVATION_HELP",
             matched_rule="RESERVATION_HELP_QUESTION",

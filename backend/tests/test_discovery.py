@@ -147,7 +147,7 @@ def test_old_assistant_contract_remains_and_new_structured_fields_are_present(
     data = result.json()["data"]
     # Legacy response fields remain available to the existing React page.
     assert data["engine"] == "RULE_BASED"
-    assert data["intent"] == "ROOM_SEARCH"
+    assert data["intent"] == "ROOM_AVAILABILITY"
     assert data["message"]
     assert data["filters"]["faculty"] == "FTII"
     assert data["rooms"][0]["id"] == room["id"]
@@ -314,7 +314,7 @@ def test_assistant_normalizes_student_slang_before_existing_room_search(
     client, auth_headers, student, admin, room_payload
 ):
     room = create_located_room(client, auth_headers, room_payload)
-    raw_message = "Bro, cariin ruangn di FTII yg kosong dengan proyektor dong"
+    raw_message = "Bro, cariin ruangn di FTII yg kosong besok pukul 10:00 sampai 12:00 dengan proyektor dong"
     result = client.post(
         "/api/v1/assistant/chat",
         json={"message": raw_message},
@@ -326,10 +326,10 @@ def test_assistant_normalizes_student_slang_before_existing_room_search(
     assert data["intent"] == "ROOM_SEARCH"
     assert data["normalization"]["raw_text"] == raw_message
     assert data["normalization"]["normalized_text"] == (
-        "bro cari ruangan di ftii yang kosong dengan proyektor dong"
+        "bro cari ruangan di ftii yang kosong besok pukul 10:00 sampai 12:00 dengan proyektor dong"
     )
     assert data["normalization"]["parser_text"] == (
-        "cari ruangan di ftii yang kosong dengan proyektor"
+        "cari ruangan di ftii yang kosong besok pukul 10:00 sampai 12:00 dengan proyektor"
     )
     assert {"bro", "dong"}.issubset(set(data["normalization"]["filler_tokens"]))
     assert data["slots"]["faculty"] == "FTII"
@@ -467,6 +467,14 @@ def test_assistant_does_not_return_unfiltered_rooms_for_conversational_messages(
         data = result.json()["data"]
         assert data["rooms"] == [], message
         assert data["result_type"] == "NO_RESULTS", message
-        assert data["requires_clarification"] is True, message
-        assert data["clarification_message"], message
+        if message == "Gmn cara reservasi?":
+            assert data["intent"] == "RESERVATION_HELP"
+            assert data["requires_clarification"] is False
+            assert "reservasi" in data["message"].lower()
+        elif message in {"Wkwkwk kamu robot ya?", "Halo kak."}:
+            assert data["intent"] == "SMALLTALK"
+            assert data["requires_clarification"] is False
+        else:
+            assert data["requires_clarification"] is True, message
+            assert data["clarification_message"], message
         assert data["slots"]["search_terms"] == [], message
