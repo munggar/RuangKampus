@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   availabilityReasonLabel,
   authApi,
+  apiAssetUrl,
   buildApiUrl,
   formatTime,
   statusLabel,
@@ -12,6 +13,11 @@ describe("frontend API display helpers", () => {
     expect(buildApiUrl("/auth/register")).toContain("/api/v1/auth/register");
     expect(typeof authApi.register).toBe("function");
   });
+  it("resolves imported relative room photo paths against the API origin", () => {
+    expect(apiAssetUrl("/media/rooms/room-photo.jpg")).toMatch(/\\/media\\/rooms\\/room-photo\\.jpg$/);
+    expect(apiAssetUrl("https://cdn.example.com/room.jpg")).toBe("https://cdn.example.com/room.jpg");
+  });
+
   it("formats API time values without changing their timezone meaning", () => {
     expect(formatTime("09:30:00")).toBe("09:30");
     expect(formatTime(null)).toBe("—");
