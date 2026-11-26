@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent, type ChangeEvent } from "react";
 import {
-  AlertCircle, BookOpen, Building2, Database, FileDown,
+  AlertCircle, BookOpen, Building2, CalendarDays, Database, FileDown,
   FileSpreadsheet, GraduationCap, Info, UploadCloud,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -153,7 +153,7 @@ export function AdminDataImportsPage() {
       eyebrow="CAMPUS MASTER DATA"
       title="Impor data kampus"
       description="Siapkan data mahasiswa, mata kuliah, dan inventaris ruangan melalui file Excel."
-      action={<Link className="button button--secondary" to="/admin/schedule-imports"><FileSpreadsheet size={16} />Impor jadwal ruang</Link>}
+      action={<div className="data-import-page-actions"><Link className="button button--secondary" to="/admin/schedules"><CalendarDays size={16} />Jadwal & pemeliharaan</Link><Link className="button button--secondary" to="/admin/schedule-imports"><FileSpreadsheet size={16} />Impor jadwal</Link></div>}
     />
 
     <Notice tone="warning">
