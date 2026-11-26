@@ -706,7 +706,7 @@ def _intent_only_response(
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
         "Maksimal sepuluh pesan terakhir dari tab percakapan dapat ikut dikirim sebagai konteks dan tidak disimpan sebagai isi chat oleh backend. "
-        "Identitas akun dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
+        "Backend hanya menyimpan slot pencarian terstruktur dan ID kandidat terverifikasi selama maksimal 30 menit, bukan isi chat mentah. Identitas akun dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_response_used else
         "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
         "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
@@ -1287,7 +1287,7 @@ def room_assistant_chat(
         ) if ai_response_used else (
             "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
             "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
-        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan.",
+        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur dan ID kandidat ruangan terverifikasi disimpan sementara selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan.",
     )
     saved_room_ids = [item["id"] for item in room_data]
     saved_room_ids.extend(
