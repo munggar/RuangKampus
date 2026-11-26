@@ -38,7 +38,7 @@ for (const screen of SCREEN_ROUTES) {
   }
 }
 
-test("responsive layout: every protected route at all six target viewports", async ({ context }) => {
+test("responsive layout: every protected route at all six target viewports", async ({ page }) => {
   test.setTimeout(8 * 60 * 1000);
   const samples = new Set([
     "student-dashboard", "student-rooms", "student-booking",
@@ -107,7 +107,6 @@ test("responsive layout: every protected route at all six target viewports", asy
         }
       }
       expect(api.unmatched, "Unmapped mock API requests for " + role + " at " + viewport.width).toEqual([]);
-      await page.close();
     }
   }
 });
