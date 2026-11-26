@@ -70,20 +70,17 @@ test.describe("Authentication UI — mocked session only", () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("role guards redirect Student away from Admin routes and Admin away from Student routes", async ({ context }) => {
-    const studentPage = await context.newPage();
-    await installMockApi(studentPage, "Student");
-    await studentPage.goto("/admin/schedules");
-    await waitForPageReady(studentPage);
-    await expect(studentPage).toHaveURL(/\/student\/dashboard$/);
-    await studentPage.close();
+  test("role guards redirect Student away from Admin routes and Admin away from Student routes", async ({ page }) => {
+    await installMockApi(page, "Student");
+    await page.goto("/admin/schedules");
+    await waitForPageReady(page);
+    await expect(page).toHaveURL(/\/student\/dashboard$/);
 
-    const adminPage = await context.newPage();
-    await installMockApi(adminPage, "TU/Admin");
-    await adminPage.goto("/student/reservations");
-    await waitForPageReady(adminPage);
-    await expect(adminPage).toHaveURL(/\/admin\/dashboard$/);
-    await adminPage.close();
+    await page.unroute("**/api/v1/**");
+    await installMockApi(page, "TU/Admin");
+    await page.goto("/student/reservations");
+    await waitForPageReady(page);
+    await expect(page).toHaveURL(/\/admin\/dashboard$/);
   });
 
   test("logout clears the mocked session and returns to login", async ({ page }) => {
