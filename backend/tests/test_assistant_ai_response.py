@@ -431,3 +431,66 @@ def test_general_intent_handles_empty_content_after_token_limit(monkeypatch, cap
     assert "finish_reason=length" in caplog.text
     assert "reasoning_tokens=1980" in caplog.text
     assert "sample/free-reasoning-model" in caplog.text
+
+
+
+def test_rukka_uses_casual_student_friendly_dynamic_response_style(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["body"] = kwargs["json"]
+        return FakeResponse(provider_response(
+            "Sistem yang adil perlu transparan dan memberi kesempatan yang setara."
+        ))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Menurutmu gimana sistem pinjam ruang yang adil?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku fokus membantu urusan ruangan kampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer is not None
+    system_prompt = captured["body"]["messages"][0]["content"]
+    assert "teman kampus yang asik" in system_prompt
+    assert "sapaan 'aku/kamu'" in system_prompt
+    assert "3-5 poin pendek" in system_prompt
+    assert "bullet '•'" in system_prompt
+    assert "Emoji maksimal satu" in system_prompt
+    assert "kartu hasil ruangan" in system_prompt
+    assert "verified_backend_facts" in system_prompt
+
+
+def test_rukka_preserves_paragraph_and_bullet_structure(monkeypatch):
+    expected = (
+        "Oke, menurutku sistemnya perlu dibuat transparan.\n\n"
+        "Pertimbangannya:\n"
+        "• Prioritaskan aksesibilitas dan kebutuhan khusus.\n"
+        "• Atur durasi supaya kesempatan terbagi merata.\n"
+        "• Gunakan aturan yang jelas dan bisa dipantau.\n\n"
+        "Intinya, semua mahasiswa harus punya kesempatan yang adil."
+    )
+
+    def fake_post(url, **kwargs):
+        return FakeResponse(provider_response(expected))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Gimana sistem peminjaman ruang kampus yang adil?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku fokus membantu urusan ruangan kampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer == expected
