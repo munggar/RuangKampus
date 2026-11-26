@@ -298,3 +298,20 @@ def test_phrase_negation_is_overridden_by_a_later_contrast():
 
     assert is_negated_phrase(message, ac_start) is True
     assert is_negated_phrase(message, wifi_start) is False
+
+
+
+def test_unknown_catalogue_facility_is_filtered_by_its_observed_label_without_canonicalizing():
+    catalog = {
+        "facilities": [
+            {
+                "canonical_name": None,
+                "display_name": "CCTV",
+                "source_values": ["CCTV"],
+                "aliases": [],
+            }
+        ]
+    }
+
+    assert find_positive_facility_filters("butuh CCTV", catalog) == ["CCTV"]
+    assert find_positive_facility_filters("jangan gunakan CCTV", catalog) == []
