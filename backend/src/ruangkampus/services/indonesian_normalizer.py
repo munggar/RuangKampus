@@ -247,7 +247,7 @@ def _normalize_token(token: str, vocabulary: set[str]) -> tuple[list[str], Assis
 
     repeated = _REPEAT.sub(r"\1", value)
     if repeated != value:
-        mapped = SLANG_DICTIONARY.get(repeated, repeated)
+        mapped = SLANG_DICTIONARY.get(repeated) or TYPO_DICTIONARY.get(repeated) or repeated
         return mapped.split(), AssistantTextCorrection(
             original_token=original,
             normalized_token=mapped,
