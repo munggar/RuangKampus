@@ -115,3 +115,11 @@ def test_public_app_url_can_be_configured_for_production_email_links():
         public_app_url="https://ruangkampus-web-production.up.railway.app",
     )
     assert settings.public_app_url == "https://ruangkampus-web-production.up.railway.app"
+
+
+
+def test_public_app_url_can_be_configured_for_production_email_links():
+    settings = production_settings(
+        public_app_url="https://ruangkampus-web-production.up.railway.app",
+    )
+    assert settings.public_app_url == "https://ruangkampus-web-production.up.railway.app"
