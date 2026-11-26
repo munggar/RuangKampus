@@ -107,3 +107,14 @@ def test_brevo_sender_email_has_priority_over_legacy_alias():
         brevo_sender_mail="legacy@example.test",
     )
     assert settings.brevo_sender_address == "primary@example.test"
+
+
+
+def test_public_app_url_can_be_configured_for_production_email_links():
+    settings = production_settings(
+        public_app_url="https://ruangkampus-web-production.up.railway.app",
+    )
+    assert settings.public_app_url == "https://ruangkampus-web-production.up.railway.app"
+
+
+

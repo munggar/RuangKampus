@@ -187,17 +187,33 @@ def forgot_password(payload: ForgotPasswordIn, request: Request, db: Session = D
         db.commit()
         # A URL fragment stays client-side and is not sent in HTTP requests or normal access logs.
         reset_url = f"{get_settings().password_reset_base_url}#token={raw_token}"
-        subject = "RuangKampus password reset"
+        expiry_minutes = get_settings().password_reset_expire_minutes
+        subject = "🔐 Atur ulang password RuangKampus"
         plain = (
-            f"Use this one-time link to reset your password: {reset_url}\n\n"
-            f"The link expires in {get_settings().password_reset_expire_minutes} minutes."
+            f"Halo {user.name}, kami menerima permintaan untuk mengatur ulang password akun RuangKampus.\n\n"
+            f"Buka tautan satu kali ini untuk membuat password baru: {reset_url}\n"
+            f"Tautan berlaku selama {expiry_minutes} menit dan hanya dapat digunakan satu kali.\n\n"
+            "Jika kamu tidak meminta pengaturan ulang password, abaikan email ini."
         )
         try:
             send_email(
                 user.email,
                 subject,
                 plain,
-                render_html_email("Reset your RuangKampus password", "This one-time link expires soon.", reset_url, "Reset password"),
+                render_html_email(
+                    "Amankan kembali akunmu",
+                    "Kami menerima permintaan untuk mengatur ulang password akun RuangKampus. Tekan tombol di bawah untuk membuat password baru.",
+                    reset_url,
+                    "Atur ulang password",
+                    preheader="Tautan aman untuk mengatur ulang password RuangKampus.",
+                    eyebrow="KEAMANAN AKUN",
+                    details=[
+                        ("Masa berlaku", f"{expiry_minutes} menit"),
+                        ("Penggunaan", "Satu kali untuk satu pengaturan ulang"),
+                    ],
+                    accent_color="#7655d6",
+                    footer_note="Jika kamu tidak meminta reset password, abaikan email ini. Jangan bagikan tautan ini kepada siapa pun.",
+                ),
             )
         except Exception as exc:
             logger.error("Password reset delivery failed (exception_type=%s)", type(exc).__name__)

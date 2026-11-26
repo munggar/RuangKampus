@@ -75,7 +75,18 @@ def _notify_once(
         return existing, False
 
 
-def _deliver_notification_email(db: Session, notification: Notification, recipient: User) -> None:
+def _deliver_notification_email(
+    db: Session,
+    notification: Notification,
+    recipient: User,
+    *,
+    reservation: Reservation,
+    email_subject: str,
+    email_intro: str,
+    eyebrow: str,
+    accent_color: str,
+    extra_details: list[tuple[str, str]] | None = None,
+) -> None:
     # Claim the one permitted attempt under a row lock. Email providers cannot guarantee
     # exactly-once delivery across network timeouts, so retries are not automatic.
     record = db.scalar(select(Notification).where(Notification.id == notification.id).with_for_update())
@@ -85,18 +96,59 @@ def _deliver_notification_email(db: Session, notification: Notification, recipie
     record.email_attempt_count += 1
     record.email_delivery_status = "ATTEMPTED"
     db.commit()
+
+    settings = get_settings()
+    role_path = "admin" if recipient.role == "TU_ADMIN" else "student"
+    action_url = (
+        settings.public_app_url.rstrip("/")
+        + f"/{role_path}/reservations/{reservation.id}"
+    )
+    reservation_date = reservation.reservation_date.strftime("%d/%m/%Y")
+    reservation_time = (
+        reservation.start_time.strftime("%H:%M")
+        + "–"
+        + reservation.end_time.strftime("%H:%M")
+        + " WIB"
+    )
+    details: list[tuple[str, str]] = []
+    if recipient.role == "TU_ADMIN":
+        details.append(("Nama pemohon", reservation.user.name))
+    details.extend([
+        ("Ruangan", reservation.room.room_name),
+        ("Gedung", reservation.room.building),
+        ("Tanggal", reservation_date),
+        ("Waktu", reservation_time),
+        ("Jumlah peserta", str(reservation.participant_count)),
+        ("Keperluan", reservation.purpose),
+    ])
+    if extra_details:
+        details.extend(extra_details)
+
+    plain_body = email_intro + "\n\n"
+    plain_body += "\n".join(f"{label}: {value}" for label, value in details)
+    plain_body += f"\n\nBuka detail reservasi: {action_url}"
+
     try:
         delivered = send_email(
             recipient.email,
-            record.title,
-            record.message,
-            render_html_email(record.title, record.message),
+            email_subject,
+            plain_body,
+            render_html_email(
+                email_subject,
+                email_intro,
+                action_url,
+                "Lihat detail reservasi",
+                preheader=email_intro,
+                eyebrow=eyebrow,
+                details=details,
+                accent_color=accent_color,
+            ),
         )
         if delivered:
             record.email_delivery_status = (
-                "LOCAL_MAILBOX_WRITTEN" if get_settings().email_backend == "console" else "SENT"
+                "LOCAL_MAILBOX_WRITTEN" if settings.email_backend == "console" else "SENT"
             )
-            record.email_sent_at = utcnow() if get_settings().email_backend in {"smtp", "brevo"} else None
+            record.email_sent_at = utcnow() if settings.email_backend in {"smtp", "brevo"} else None
         else:
             record.email_delivery_status = "NOT_CONFIGURED"
     except Exception as exc:
@@ -148,7 +200,13 @@ def create_reservation(payload: ReservationCreateIn, user: User = Depends(requir
             pending_deliveries.append((notification, admin))
     db.commit()
     for notification, recipient in pending_deliveries:
-        _deliver_notification_email(db, notification, recipient)
+        _deliver_notification_email(
+            db, notification, recipient, reservation=reservation,
+            email_subject=f"📥 Pengajuan reservasi baru · {room.room_name}",
+            email_intro=f"Halo, ada pengajuan reservasi baru dari {user.name} yang menunggu pemeriksaan.",
+            eyebrow="PENGAJUAN BARU",
+            accent_color="#3268dc",
+        )
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation request submitted")
 
@@ -240,7 +298,24 @@ def cancel_reservation(reservation_id: UUID, payload: ReservationCancelIn | None
                 pending_deliveries.append((notification, admin))
     db.commit()
     for notification, recipient in pending_deliveries:
-        _deliver_notification_email(db, notification, recipient)
+        if user.role == "TU_ADMIN":
+            _deliver_notification_email(
+                db, notification, recipient, reservation=reservation,
+                email_subject=f"⚠️ Reservasi dibatalkan · {reservation.room.room_name}",
+                email_intro="Administrator membatalkan reservasi kamu. Buka detail untuk melihat status dan informasi terbaru.",
+                eyebrow="RESERVASI DIBATALKAN",
+                accent_color="#ea8a32",
+                extra_details=[("Alasan pembatalan", reservation.cancellation_reason or "Tidak ada alasan yang dicantumkan")],
+            )
+        else:
+            _deliver_notification_email(
+                db, notification, recipient, reservation=reservation,
+                email_subject=f"↩️ Pembatalan dari mahasiswa · {reservation.room.room_name}",
+                email_intro=f"{user.name} membatalkan reservasi ruang. Mohon periksa perubahan jadwal dan ketersediaan ruang.",
+                eyebrow="PEMBATALAN OLEH MAHASISWA",
+                accent_color="#ea8a32",
+                extra_details=[("Alasan pembatalan", reservation.cancellation_reason or "Tidak ada alasan yang dicantumkan")],
+            )
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation cancelled")
 
@@ -269,7 +344,13 @@ def approve_reservation(reservation_id: UUID, admin: User = Depends(require_admi
     )
     db.commit()
     if is_new:
-        _deliver_notification_email(db, notification, reservation.user)
+        _deliver_notification_email(
+            db, notification, reservation.user, reservation=reservation,
+            email_subject=f"🎉 Reservasi disetujui · {room.room_name}",
+            email_intro="Kabar baik! Pengajuan reservasi kamu telah disetujui. Ruangan sudah tercatat untuk jadwal berikut.",
+            eyebrow="RESERVASI DISETUJUI",
+            accent_color="#159b70",
+        )
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation approved")
 
@@ -292,7 +373,14 @@ def reject_reservation(reservation_id: UUID, payload: ReservationRejectIn, admin
     )
     db.commit()
     if is_new:
-        _deliver_notification_email(db, notification, reservation.user)
+        _deliver_notification_email(
+            db, notification, reservation.user, reservation=reservation,
+            email_subject=f"Pembaruan pengajuan · {reservation.room.room_name}",
+            email_intro="Pengajuan reservasi kamu belum dapat disetujui. Silakan baca alasan berikut dan hubungi pengelola jika perlu klarifikasi.",
+            eyebrow="RESERVASI BELUM DISETUJUI",
+            accent_color="#dc5b62",
+            extra_details=[("Alasan penolakan", reservation.rejection_reason or "Tidak ada alasan yang dicantumkan")],
+        )
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation rejected")
 

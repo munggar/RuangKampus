@@ -18,26 +18,72 @@ def render_html_email(
     body: str,
     action_url: str | None = None,
     action_label: str | None = None,
+    *,
+    preheader: str | None = None,
+    eyebrow: str = "PEMBARUAN RUANGKAMPUS",
+    details: list[tuple[str, str]] | None = None,
+    accent_color: str = "#2f68dc",
+    footer_note: str = "Pesan ini dikirim otomatis oleh RuangKampus. Mohon jangan membalas email ini.",
 ) -> str:
-    """Render the shared HTML email template with all user-controlled text escaped."""
+    """Render the branded transactional email. All dynamic text and URLs are escaped."""
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
     safe_title = html.escape(title)
     safe_body = "<br>".join(html.escape(line) for line in body.splitlines())
+    preheader_text = preheader or (body.splitlines()[0] if body else "Pembaruan dari RuangKampus")
+    safe_preheader = html.escape(preheader_text)
+    safe_eyebrow = html.escape(eyebrow)
+    safe_footer_note = html.escape(footer_note)
+
+    details_html = ""
+    if details:
+        rows = []
+        for label, value in details:
+            rows.append(
+                '<tr><td style="padding:11px 14px;color:#69778d;font-size:13px;'
+                'border-bottom:1px solid #e8edf5;width:38%;">'
+                f"{html.escape(str(label))}</td>"
+                '<td style="padding:11px 14px;color:#17243b;font-size:13px;font-weight:700;'
+                'border-bottom:1px solid #e8edf5;">'
+                f"{html.escape(str(value))}</td></tr>"
+            )
+        details_html = (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+            'style="margin:24px 0 4px;border:1px solid #e5eaf3;border-radius:14px;'
+            'border-collapse:separate;border-spacing:0;overflow:hidden;background:#f8faff;">'
+            + "".join(rows)
+            + "</table>"
+        )
+
     action_html = ""
     if action_url and action_label:
         safe_url = html.escape(action_url, quote=True)
         safe_label = html.escape(action_label)
         action_html = (
-            '<p style="margin:24px 0 0;">'
-            f'<a href="{safe_url}" style="display:inline-block;padding:12px 18px;'
-            'background:#173b69;color:#ffffff;text-decoration:none;border-radius:8px;">'
-            f"{safe_label}</a></p>"
+            '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 8px;">'
+            '<tr><td align="center" bgcolor="' + html.escape(accent_color, quote=True) + '" '
+            'style="border-radius:12px;">'
+            f'<a href="{safe_url}" style="display:inline-block;padding:14px 24px;'
+            'font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;'
+            'color:#ffffff;text-decoration:none;border-radius:12px;">'
+            f"{safe_label} &nbsp; &#8599;</a></td></tr></table>"
+            '<p style="margin:12px 0 0;color:#7a879b;font-size:11px;line-height:1.6;">'
+            'Jika tombol tidak terbuka, salin tautan berikut ke browser:<br>'
+            f'<a href="{safe_url}" style="color:#315fc7;word-break:break-all;text-decoration:underline;">'
+            f"{safe_url}</a></p>"
         )
-    return (
-        template.replace("{{ title }}", safe_title)
-        .replace("{{ message_html }}", safe_body)
-        .replace("{{ action_html }}", action_html)
-    )
+
+    replacements = {
+        "{{ title }}": safe_title,
+        "{{ preheader }}": safe_preheader,
+        "{{ eyebrow }}": safe_eyebrow,
+        "{{ message_html }}": safe_body,
+        "{{ details_html }}": details_html,
+        "{{ action_html }}": action_html,
+        "{{ footer_note }}": safe_footer_note,
+    }
+    for token, value in replacements.items():
+        template = template.replace(token, value)
+    return template
 
 
 def send_email(
