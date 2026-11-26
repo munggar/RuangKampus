@@ -10,8 +10,9 @@ function BrandHero() {
   return <aside className="auth-hero">
     <div className="auth-brand"><img className="brand-logo brand-logo--auth" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." /></div>
     <div className="auth-hero__text">
-      <p className="eyebrow">CAMPUS FACILITY RESERVATIONS</p>
-      <h1>Make room for great ideas.</h1>
+      <p className="eyebrow">RUANG KAMPUS · RESERVASI FASILITAS</p>
+      <h1>Temukan ruang.
+Mulai kolaborasi.</h1>
       <p>Temukan ruang kampus yang sesuai dan ajukan reservasi dalam satu tempat.</p>
     </div>
     <small className="auth-hero__copyright">© {new Date().getFullYear()} RuangKampus</small>
