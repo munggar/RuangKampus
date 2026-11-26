@@ -249,3 +249,55 @@ def test_context_is_bounded_and_rejects_untrusted_roles(client, auth_headers, st
         headers=auth_headers(),
     )
     assert invalid_role.status_code == 422
+
+
+def test_alternative_slots_never_relax_required_capacity_or_facilities(
+    client, auth_headers, student, admin, room_payload
+):
+    created_rooms = {}
+    candidates = [
+        ("Small room with all facilities", "RK-QA-SMALL", 30, ["Projector", "Air Conditioner"]),
+        ("Large room without AC", "RK-QA-NO-AC", 40, ["Projector"]),
+        ("Matching room", "RK-QA-MATCH", 45, ["Projector", "Air Conditioner"]),
+    ]
+    for name, code, capacity, facilities in candidates:
+        payload = {
+            **room_payload,
+            "room_name": name,
+            "room_code": code,
+            "capacity": capacity,
+            "facilities": facilities,
+        }
+        result = client.post(
+            "/api/v1/rooms",
+            json=payload,
+            headers=auth_headers("admin.uhamka"),
+        )
+        assert result.status_code == 201, result.text
+        created_rooms[name] = result.json()["data"]
+
+    requested_date = (campus_today() + timedelta(days=3)).isoformat()
+    response = client.post(
+        "/api/v1/rooms/alternative-slots",
+        json={
+            "date": requested_date,
+            "duration_minutes": 60,
+            "participant_count": 35,
+            "facilities": ["Projector", "Air Conditioner"],
+            "preferred_start_time": "10:00",
+            "search_days": 0,
+            "slot_step_minutes": 30,
+            "limit": 10,
+        },
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    items = response.json()["data"]["items"]
+    assert items
+    expected_room_id = created_rooms["Matching room"]["id"]
+    assert {item["room"]["id"] for item in items} == {expected_room_id}
+    assert all(item["participant_count"] == 35 for item in items)
+    assert all(item["room"]["capacity"] >= 35 for item in items)
+    assert all("Projector" in item["room"]["facilities"] for item in items)
+    assert all("Air Conditioner" in item["room"]["facilities"] for item in items)
