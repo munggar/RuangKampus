@@ -363,3 +363,88 @@ def test_time_only_follow_up_fills_end_time_and_preserves_room_filters(
     assert set(data["slots"]["facilities"]) == {"projector", "air conditioner"}
     assert room["id"] in {item["id"] for item in data["rooms"]}
     assert data["requires_clarification"] is False
+
+
+def test_recommendation_follow_up_uses_database_verified_room_context(
+    monkeypatch, client, auth_headers, student, admin, room_payload
+):
+    posted = []
+
+    def fake_post(url, **kwargs):
+        posted.append(kwargs["json"])
+        return FakeResponse({
+            "choices": [{
+                "message": {
+                    "content": json.dumps({
+                        "message": (
+                            "Ruangan ini direkomendasikan karena kapasitas dan fasilitasnya "
+                            "sesuai dengan kriteria yang kamu minta."
+                        )
+                    })
+                }
+            }]
+        })
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr("ruangkampus.routers.discovery.get_settings", configured_settings)
+
+    room_response = client.post(
+        "/api/v1/rooms",
+        json={
+            **room_payload,
+            "room_name": "Ruang Diskusi Rekomendasi",
+            "room_code": "RK-REC-QA-01",
+            "capacity": 45,
+            "facilities": ["Projector", "Air Conditioner"],
+        },
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert room_response.status_code == 201, room_response.text
+    room = room_response.json()["data"]
+
+    search = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan kapasitas 35 dengan proyektor dan AC."},
+        headers=auth_headers(),
+    )
+    assert search.status_code == 200, search.text
+    search_data = search.json()["data"]
+    assert room["id"] in {item["id"] for item in search_data["rooms"]}
+    assert search_data["conversation_id"]
+
+    follow_up = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "Jelaskan kenapa ruangan itu jadi rekomendasi lu.",
+            "conversation_id": search_data["conversation_id"],
+            "context": [
+                {
+                    "role": "user",
+                    "content": "Carikan ruangan kapasitas 35 dengan proyektor dan AC.",
+                },
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Kandidat yang ditampilkan: Ruang Diskusi Rekomendasi, "
+                        "kapasitas 45, fasilitas Projector dan Air Conditioner."
+                    ),
+                },
+            ],
+        },
+        headers=auth_headers(),
+    )
+    assert follow_up.status_code == 200, follow_up.text
+    follow_data = follow_up.json()["data"]
+    assert follow_data["intent"] == "OUT_OF_SCOPE"
+    assert follow_data["engine"] == "HYBRID"
+
+    latest_user_content = posted[-1]["messages"][-1]["content"]
+    marker = "\\n\\nPESAN TERBARU DAN FAKTA BACKEND:\\n"
+    current_payload = json.loads(latest_user_content.split(marker, 1)[1])
+    evidence = current_payload["verified_backend_facts"]
+    assert evidence["filters"]["min_capacity"] == 35
+    assert evidence["filters"]["facilities"] == ["air conditioner", "projector"]
+    assert len(evidence["rooms"]) == 1
+    assert evidence["rooms"][0]["room_name"] == "Ruang Diskusi Rekomendasi"
+    assert evidence["rooms"][0]["capacity"] == 45
+    assert set(evidence["rooms"][0]["facilities"]) == {"Projector", "Air Conditioner"}
