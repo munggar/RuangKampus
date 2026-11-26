@@ -549,3 +549,110 @@ def test_overdue_approved_reservation_holds_room_until_admin_completion(
         db_session, room, booking_date, time(10, 30), time(11, 30), 4,
     )
     assert available.available
+
+def test_overdue_approved_reservation_holds_room_across_calendar_days(
+    db_session, student, admin, create_room, monkeypatch,
+):
+    from datetime import datetime as RealDateTime, time
+    from uuid import UUID
+    from zoneinfo import ZoneInfo
+
+    from sqlalchemy import select
+
+    from ruangkampus.models import Reservation, Room
+    from ruangkampus.services import availability
+
+    room_data = create_room()
+    room = db_session.scalar(select(Room).where(Room.id == UUID(room_data["id"])))
+    previous_date = date(2026, 11, 25)
+    next_date = date(2026, 11, 26)
+    previous = Reservation(
+        user_id=student.id,
+        room_id=room.id,
+        purpose="Previous-day session",
+        reservation_date=previous_date,
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+        participant_count=4,
+        status="APPROVED",
+    )
+    db_session.add(previous)
+    db_session.commit()
+
+    class FrozenDateTime(RealDateTime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed = RealDateTime(2026, 11, 26, 10, 15, tzinfo=ZoneInfo("Asia/Jakarta"))
+            return fixed.astimezone(tz) if tz else fixed.replace(tzinfo=None)
+
+    monkeypatch.setattr(availability, "datetime", FrozenDateTime)
+
+    blocked = availability.check_room_availability(
+        db_session, room, next_date, time(11, 0), time(12, 0), 4,
+    )
+    assert not blocked.available
+    assert "ROOM_OCCUPANCY_NOT_CONFIRMED" in blocked.reasons
+
+    # The hold is released only after Admin confirms completion/vacancy.
+    previous.status = "COMPLETED"
+    db_session.commit()
+    available = availability.check_room_availability(
+        db_session, room, next_date, time(11, 0), time(12, 0), 4,
+    )
+    assert available.available
+
+def test_api_blocks_next_day_booking_until_admin_confirms_overdue_room_vacant(
+    client, db_session, auth_headers, student, admin, create_room, monkeypatch,
+):
+    from datetime import datetime as RealDateTime, time
+    from uuid import UUID
+    from zoneinfo import ZoneInfo
+
+    from sqlalchemy import select
+
+    from ruangkampus.models import Reservation, Room
+    from ruangkampus.services import availability
+
+    room_data = create_room()
+    room = db_session.scalar(select(Room).where(Room.id == UUID(room_data["id"])))
+    previous = Reservation(
+        user_id=student.id,
+        room_id=room.id,
+        purpose="Overrun from previous day",
+        reservation_date=date(2026, 11, 25),
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+        participant_count=4,
+        status="APPROVED",
+    )
+    db_session.add(previous)
+    db_session.commit()
+
+    class FrozenDateTime(RealDateTime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed = RealDateTime(2026, 11, 26, 10, 15, tzinfo=ZoneInfo("Asia/Jakarta"))
+            return fixed.astimezone(tz) if tz else fixed.replace(tzinfo=None)
+
+    monkeypatch.setattr(availability, "datetime", FrozenDateTime)
+    payload = {
+        "room_id": room_data["id"],
+        "purpose": "Next-day room use",
+        "date": "2026-11-26",
+        "start_time": "11:00:00",
+        "end_time": "12:00:00",
+        "participant_count": 4,
+    }
+
+    blocked = client.post("/api/v1/reservations", json=payload, headers=auth_headers())
+    assert blocked.status_code == 409
+
+    completed = client.patch(
+        f"/api/v1/reservations/{previous.id}/complete",
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["data"]["status"] == "COMPLETED"
+
+    allowed = client.post("/api/v1/reservations", json=payload, headers=auth_headers())
+    assert allowed.status_code == 201, allowed.text
