@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { inflateRawSync } from "node:zlib";
 
@@ -14,7 +14,7 @@ const requiredHashes = new Map([
   ["public/brand/favicon/favicon-32x32.png", "606b22a2a2598cb67c0ec0efcc7b3d0b4fb401e1a4e2f96f203e67872dc5541d"],
   ["public/brand/favicon/favicon-16x16.png", "c44f48d4b2391919356e5d308261d2c238f663aff4e00e10b05fb6e3adfcdb6b"],
   ["public/brand/favicon/apple-touch-icon.png", "269ee4c7e6695dcab913ba430b90afc4c4a1ab37f0ae5871602709221f58c1ea"],
-  ["public/brand/favicon/site.webmanifest", "395f5c5c2e9124b19a11f2f2e9e4be8dc4a6b4c8c7521430f5c03ac06ee8e87a"],
+  ["public/brand/favicon/site.webmanifest", "89aea36bfa6672353cd32d5b443399357512852c4027e6c1f6361c6952d76ea5"],
 ]);
 
 function crc32(buffer) {
@@ -98,7 +98,7 @@ for (let index = 0; index < entryCount; index += 1) {
 for (const [archivePath, expectedHash] of requiredHashes) {
   if (!extracted.has(archivePath)) throw new Error(`Required official asset missing: ${archivePath}`);
   const relativePath = archivePath.slice("public/brand/".length);
-  const bytes = await import("node:fs/promises").then((fs) => fs.readFile(path.resolve(outputRoot, relativePath)));
+  const bytes = await readFile(path.resolve(outputRoot, relativePath));
   const actualHash = createHash("sha256").update(bytes).digest("hex");
   if (actualHash !== expectedHash) {
     throw new Error(`Official asset checksum mismatch: ${archivePath}`);
