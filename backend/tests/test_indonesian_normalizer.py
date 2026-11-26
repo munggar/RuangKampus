@@ -17,8 +17,8 @@ NORMALIZATION_CASES = [
     ("nggak", "tidak"),
     ("enggak", "tidak"),
     ("engga", "tidak"),
-    ("lg", "sedang"),
-    ("lagi", "sedang"),
+    ("lg", "lagi"),
+    ("lagi", "lagi"),
     ("yg", "yang"),
     ("dmn", "di mana"),
     ("dpt", "dapat"),
@@ -64,7 +64,7 @@ NORMALIZATION_CASES = [
     ("ADA RUANGAN KOSONG???", "ada ruangan kosong"),
     ("  ruang   rapat  ", "ruang rapat"),
     ("mau, pinjem ruangan!!!", "mau meminjam ruangan"),
-    ("kelas yg lg ga dipake", "kelas yang sedang tidak digunakan"),
+    ("kelas yg lg ga dipake", "kelas yang lagi tidak digunakan"),
     ("gmn cara reservasi?", "bagaimana cara reservasi"),
     ("Cariin tempat buat nugas dong.", "cari tempat buat mengerjakan tugas dong"),
     ("Ruang FTII yg kosong jam 2 ada?", "ruang ftii yang kosong jam 2 ada"),
@@ -77,7 +77,7 @@ NORMALIZATION_CASES = [
     ("Cari ruang dengan fasilitas wifi, bukan proyektor.", "cari ruang dengan fasilitas wifi bukan proyektor"),
     ("Bro ada ruang kosong nggak?", "bro ada ruang kosong tidak"),
     ("Cariin tempat buat nugas dong", "cari tempat buat mengerjakan tugas dong"),
-    ("Ada kelas yg lg ga dipake?", "ada kelas yang sedang tidak digunakan"),
+    ("Ada kelas yg lg ga dipake?", "ada kelas yang lagi tidak digunakan"),
     ("Mau pinjem ruangan buat rapat", "mau meminjam ruangan buat rapat"),
     ("Ruang FTII yg kosong jam 2 ada", "ruang ftii yang kosong jam 2 ada"),
     ("Gmn cara reservasi", "bagaimana cara reservasi"),
@@ -158,6 +158,8 @@ NORMALIZATION_CASES = [
     ("09:00-10:00", "09:00-10:00"),
     ("2026-12-31", "2026-12-31"),
     ("A-1/B.2", "a-1/b.2"),
+    ("Cari lagi ruangan.", "cari lagi ruangan"),
+    ("Ada ruangan kosong lagi?", "ada ruangan kosong lagi"),
 ]
 
 
