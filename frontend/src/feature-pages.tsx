@@ -319,7 +319,7 @@ export function RoomAssistantPage() {
           ...(turn.alternatives?.length ? ["Slot alternatif yang ditampilkan: " + turn.alternatives.map((slot) =>
             slot.room.room_name + " pada " + slot.date + " " + slot.start_time + "–" + slot.end_time
           ).join("; ")] : []),
-        ].filter(Boolean).join("\\n").slice(0, 1200),
+        ].filter(Boolean).join("\n").slice(0, 1200),
       }));
       const response: AssistantChatResult = await discoveryApi.chat({
         message: text,
