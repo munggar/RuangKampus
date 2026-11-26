@@ -99,6 +99,13 @@ FAQ_PHRASES = (
 
 # These are explicit signs that a student wants explanation, analysis, or planning,
 # not a database lookup. Domain-specific intents above retain precedence.
+HYPOTHETICAL_REASONING_PHRASES = (
+    "jika seseorang meminta", "jika kamu tidak memiliki data",
+    "ketika tidak memiliki data", "belum berhasil mengakses",
+    "tidak dapat mengakses database", "apa yang harus kamu katakan",
+    "apa yang seharusnya kamu lakukan", "bagaimana seharusnya",
+)
+
 GENERAL_REASONING_PHRASES = (
     "menurutmu", "menurut kamu", "menurut pendapatmu", "bayangkan",
     "analisis", "analisa", "jelaskan", "berikan argumen", "berikan contoh",
@@ -241,6 +248,12 @@ def detect_assistant_intent(
                 "mulai dan selesai dari jadwal yang ingin diganti."
                 if missing_window else None
             ),
+        )
+
+    if _has_phrase(text, HYPOTHETICAL_REASONING_PHRASES):
+        return IntentDetection(
+            intent="OUT_OF_SCOPE",
+            matched_rule="HYPOTHETICAL_REASONING_REQUEST",
         )
 
     if has_room and (
