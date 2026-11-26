@@ -126,11 +126,15 @@ def _extract_generated_message(envelope: dict[str, Any], *, intent: str) -> str 
         except (ValueError, TypeError):
             continue
         parsed_json = True
-        if isinstance(parsed, dict) and isinstance(parsed.get("message"), str):
-            generated_text = parsed["message"]
-            break
-        logger.warning("RUKKA AI provider JSON did not contain a string message field")
-        return None
+        if not isinstance(parsed, dict) or not isinstance(parsed.get("message"), str):
+            logger.warning("RUKKA AI provider JSON did not contain a string message field")
+            return None
+        try:
+            generated_text = AssistantGeneratedMessage.model_validate(parsed).message
+        except ValidationError:
+            logger.warning("RUKKA AI provider JSON message failed response validation")
+            return None
+        break
 
     # General discussion does not contain unverified campus facts. Accept plain-text
     # responses from free-model routers that ignore JSON mode, but keep structured
