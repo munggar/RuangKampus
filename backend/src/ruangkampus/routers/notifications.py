@@ -1,21 +1,23 @@
 from math import ceil
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
 import logging
+from math import ceil
+from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, joinedload
 
-from ruangkampus.database import get_db
 from ruangkampus.config import get_settings
+from ruangkampus.database import get_db
 from ruangkampus.dependencies import get_current_user, require_admin
 from ruangkampus.models import Notification, User, utcnow
+from ruangkampus.responses import success
+from ruangkampus.schemas import NotificationOut
 from ruangkampus.services.mail import render_html_email, send_email
 
 logger = logging.getLogger(__name__)
-from ruangkampus.responses import success
-from ruangkampus.schemas import NotificationOut
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
