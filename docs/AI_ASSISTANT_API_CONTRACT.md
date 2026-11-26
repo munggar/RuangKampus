@@ -13,7 +13,7 @@ This document describes the Student-only room assistant, its deterministic backe
 | Current engine | `RULE_BASED` by default; `HYBRID` when the optional AI provider is used |
 | Assistant identity | `RAKA` — Ruang Asisten Kampus |
 | Current intent | Allowlisted deterministic intents (see section 11) |
-| Conversation persistence | Not implemented |
+| Conversation persistence | User-owned structured search slots for up to 30 minutes; raw messages and generated answers are not persisted |
 | External AI provider | Optional OpenRouter-compatible provider; disabled by default |
 
 The endpoint resolves identity through the existing `require_student` dependency. There is no `user_id` field in the request contract, and the assistant does not accept an identity supplied by the caller as an authorization source.
