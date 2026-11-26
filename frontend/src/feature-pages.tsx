@@ -8,7 +8,7 @@ import {
   apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
 } from "./api";
 import type {
-  AlternativeSlot, AlternativeSlotsResult, AppRole, AssistantChatResult,
+  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult,
   AvailabilityResult, Room,
 } from "./types";
 import { PageTitle } from "./layout";
@@ -259,13 +259,11 @@ const assistantPrompts = [
   "Cari ruang di fakultas saya dengan Wi-Fi",
 ];
 
-export function RoomAssistantPage({ role }: { role: AppRole }) {
+export function RoomAssistantPage() {
   const [message, setMessage] = useState("");
   const [turns, setTurns] = useState<AssistantTurn[]>([{
     id: 1, sender: "assistant",
-    message: role === "Student"
-      ? "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan."
-      : "Halo, administrator. Gunakan pintasan berikut untuk meninjau permohonan, mengelola ruangan, atau memperbarui jadwal fasilitas kampus.",
+    message: "Halo! Saya dapat membantu mencari ruangan berdasarkan jumlah peserta, fasilitas, fakultas, gedung, tanggal, dan waktu. Sertakan tanggal serta rentang jam untuk memeriksa ketersediaan.",
   }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -286,26 +284,6 @@ export function RoomAssistantPage({ role }: { role: AppRole }) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
     } finally { setLoading(false); }
-  }
-
-  if (role === "TU/Admin") {
-    return <div className="page-stack">
-      <PageTitle eyebrow="SMART CAMPUS SUPPORT" title="AI Facility Assistant"
-        description="Pusat bantuan untuk alur persetujuan, pengelolaan fasilitas, dan informasi operasional ruangan." />
-      <section className="panel assistant-intro">
-        <span className="assistant-intro__icon"><Sparkles size={25} /></span>
-        <div><h2>Halo, Administrator!</h2><p className="muted">Pilih pekerjaan yang ingin dilakukan. Panel ini menyediakan akses cepat ke fitur administrasi.</p></div>
-      </section>
-      <section className="panel stack-form">
-        <h2>Apa yang ingin Anda lakukan?</h2>
-        <div className="assistant-prompts">
-          <Link className="assistant-prompt-link" to="/admin/reservations"><MessageCircle size={19} /><span><b>Tinjau permohonan reservasi</b><small>Periksa dan proses pengajuan mahasiswa</small></span><ArrowRight size={17} /></Link>
-          <Link className="assistant-prompt-link" to="/admin/rooms"><Building2 size={19} /><span><b>Kelola ruangan kampus</b><small>Perbarui fasilitas, kapasitas, dan lokasi</small></span><ArrowRight size={17} /></Link>
-          <Link className="assistant-prompt-link" to="/admin/schedules"><CalendarDays size={19} /><span><b>Jadwal dan pemeliharaan</b><small>Atur waktu operasional dan periode tidak tersedia</small></span><ArrowRight size={17} /></Link>
-        </div>
-      </section>
-      <Notice tone="info">Endpoint asisten percakapan pada backend saat ini hanya mengizinkan role Student. Karena itu, halaman TU menampilkan pintasan operasional dan tidak mengirim pesan ke endpoint yang belum mengizinkan Admin.</Notice>
-    </div>;
   }
 
   return <div className="page-stack">
