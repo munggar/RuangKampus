@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from ruangkampus.config import get_settings
 from ruangkampus.database import get_db
@@ -57,7 +57,6 @@ def mark_read(notification_id: UUID, user: User = Depends(get_current_user), db:
 def retry_notification_email(notification_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     notification = db.scalar(
         select(Notification)
-        .options(joinedload(Notification.recipient))
         .where(Notification.id == notification_id)
         .with_for_update()
     )
@@ -77,7 +76,9 @@ def retry_notification_email(notification_id: UUID, user: User = Depends(get_cur
     db.commit()
 
     settings = get_settings()
-    recipient = notification.recipient
+    recipient = db.get(User, notification.recipient_id)
+    if recipient is None:
+        raise HTTPException(status_code=404, detail="Notification recipient not found")
     action_url = (
         settings.public_app_url.rstrip("/") + notification.action_url
         if notification.action_url else settings.public_app_url.rstrip("/")
