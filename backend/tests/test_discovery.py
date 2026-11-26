@@ -307,3 +307,166 @@ def test_structured_slots_serialize_explicit_date_and_time(
     assert data["data"]["filters"]["date"] == booking_date.isoformat()
     assert "date" not in data["missing_fields"]
     assert room["id"] in {item["id"] for item in data["rooms"]}
+
+
+
+def test_assistant_normalizes_student_slang_before_existing_room_search(
+    client, auth_headers, student, admin, room_payload
+):
+    room = create_located_room(client, auth_headers, room_payload)
+    raw_message = "Bro, cariin ruangn di FTII yg kosong dengan proyektor dong"
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": raw_message},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["intent"] == "ROOM_SEARCH"
+    assert data["normalization"]["raw_text"] == raw_message
+    assert data["normalization"]["normalized_text"] == (
+        "bro cari ruangan di ftii yang kosong dengan proyektor dong"
+    )
+    assert data["normalization"]["parser_text"] == (
+        "cari ruangan di ftii yang kosong dengan proyektor"
+    )
+    assert {"bro", "dong"}.issubset(set(data["normalization"]["filler_tokens"]))
+    assert data["slots"]["faculty"] == "FTII"
+    assert data["slots"]["facilities"] == ["projector"]
+    assert room["id"] in {item["id"] for item in data["rooms"]}
+
+
+def test_negated_facility_is_not_interpreted_as_a_positive_room_filter(
+    client, auth_headers, student, admin, room_payload
+):
+    create_located_room(client, auth_headers, room_payload)
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Jangan cari ruangan dengan proyektor."},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["normalization"]["normalized_tokens"] == [
+        "jangan", "cari", "ruangan", "dengan", "proyektor"
+    ]
+    assert data["slots"]["facilities"] == []
+    # Stage 2.2 does not yet implement negative-filter semantics. It must
+    # clarify rather than returning the entire room catalogue unfiltered.
+    assert data["rooms"] == []
+    assert data["requires_clarification"] is True
+
+
+def test_assistant_uses_only_positive_faculty_from_a_contrast_clause(
+    client, auth_headers, student, admin, room_payload
+):
+    ftii_room = create_located_room(client, auth_headers, room_payload, faculty="FTII")
+    fkip_payload = {
+        **room_payload,
+        "room_name": "Room FKIP 101",
+        "room_code": "RK-FKIP-101",
+        "faculty": "FKIP",
+        "location_description": "Lantai 1, dekat lobby",
+    }
+    created = client.post(
+        "/api/v1/rooms",
+        json=fkip_payload,
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created.status_code == 201, created.text
+    fkip_room = created.json()["data"]
+
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Bukan FTII, tetapi FKIP"},
+        headers=auth_headers(),
+    )
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["slots"]["faculty"] == "FKIP"
+    room_ids = {item["id"] for item in data["rooms"]}
+    assert fkip_room["id"] in room_ids
+    assert ftii_room["id"] not in room_ids
+
+
+def test_ambiguous_positive_faculties_are_not_arbitrarily_selected(
+    client, auth_headers, student, admin, room_payload
+):
+    create_located_room(client, auth_headers, room_payload, faculty="FTII")
+    second_payload = {
+        **room_payload,
+        "room_name": "Room FKIP 101",
+        "room_code": "RK-FKIP-201",
+        "faculty": "FKIP",
+    }
+    second = client.post(
+        "/api/v1/rooms",
+        json=second_payload,
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert second.status_code == 201, second.text
+
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Cari ruangan FTII atau FKIP"},
+        headers=auth_headers(),
+    )
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["slots"]["faculty"] is None
+    # Multiple positive faculties are ambiguous. Do not choose either one
+    # and do not fall back to an unfiltered room catalogue.
+    assert data["rooms"] == []
+    assert data["requires_clarification"] is True
+
+
+
+def test_empty_or_symbol_only_assistant_message_does_not_return_unfiltered_rooms(
+    client, auth_headers, student, admin, room_payload
+):
+    create_located_room(client, auth_headers, room_payload)
+    result = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "!!! ???"},
+        headers=auth_headers(),
+    )
+
+    assert result.status_code == 200, result.text
+    data = result.json()["data"]
+    assert data["normalization"]["normalized_text"] == ""
+    assert data["normalization"]["parser_text"] == ""
+    assert data["rooms"] == []
+    assert data["result_type"] == "NO_RESULTS"
+    assert data["requires_clarification"] is True
+
+
+def test_assistant_does_not_return_unfiltered_rooms_for_conversational_messages(
+    client, auth_headers, student, admin, room_payload
+):
+    create_located_room(client, auth_headers, room_payload)
+    messages = (
+        "Bro, ada ruang kosong nggak?",
+        "Gmn cara reservasi?",
+        "Wkwkwk kamu robot ya?",
+        "Halo kak.",
+        "Cari ruangan",
+        "!!! ???",
+    )
+
+    headers = auth_headers()
+    for message in messages:
+        result = client.post(
+            "/api/v1/assistant/chat",
+            json={"message": message},
+            headers=headers,
+        )
+
+        assert result.status_code == 200, (message, result.text)
+        data = result.json()["data"]
+        assert data["rooms"] == [], message
+        assert data["result_type"] == "NO_RESULTS", message
+        assert data["requires_clarification"] is True, message
+        assert data["clarification_message"], message
+        assert data["slots"]["search_terms"] == [], message
