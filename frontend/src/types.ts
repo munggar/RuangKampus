@@ -112,6 +112,7 @@ export interface AssistantReservationSummary {
 export type AssistantResultType = "ROOMS_FOUND" | "ALTERNATIVE_SLOTS" | "RESERVATIONS_FOUND" | "ROOM_DETAILS" | "NO_RESULTS";
 export interface AssistantChatResult {
   /** Structured fields are optional so the client remains compatible with an older API deployment. */
+  assistant_name?: string;
   conversation_id?: string | null;
   slots?: AssistantChatSlots;
   confidence?: number | null;
