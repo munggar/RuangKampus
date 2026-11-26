@@ -1,6 +1,6 @@
-# RAKA — Panduan Memasang Gemma melalui OpenRouter
+# RUKKA AI — Panduan Memasang Gemma melalui OpenRouter
 
-Panduan ini mengaktifkan model Google Gemma untuk menyusun jawaban chatbot RuangKampus. Identitas asisten adalah **RAKA (Ruang Asisten Kampus)**.
+Panduan ini mengaktifkan model Google Gemma untuk menyusun jawaban chatbot RuangKampus. Identitas asisten adalah **RUKKA AI (Ruang Asisten Kampus)**.
 
 ## 1. Buat API key OpenRouter
 
@@ -79,21 +79,21 @@ Perubahan ini tidak membutuhkan migration database. Apabila deployment API gagal
 ```
 
 5. Periksa hasil:
-   - `assistant_name` harus bernilai `RAKA`.
+   - `assistant_name` harus bernilai `RUKKA AI`.
    - `engine` akan bernilai `HYBRID` ketika model berhasil digunakan untuk menyusun jawaban.
    - `rooms` tetap berasal dari database RuangKampus.
    - Jawaban dapat lebih natural, menyebutkan hasil yang ditemukan, dan memberi langkah berikutnya.
-   - Bila pesan menanyakan ketersediaan tanpa tanggal/jam, RAKA boleh menampilkan kandidat ruangan yang sesuai, tetapi wajib menyatakan bahwa slot kosong belum diverifikasi.
+   - Bila pesan menanyakan ketersediaan tanpa tanggal/jam, RUKKA AI boleh menampilkan kandidat ruangan yang sesuai, tetapi wajib menyatakan bahwa slot kosong belum diverifikasi.
 
 Jangan menganggap `engine=HYBRID` sebagai bukti bahwa isi ruangan dibuat oleh AI. Data ruangan dan hasil cek ketersediaan tetap berasal dari fungsi backend.
 
-## 5. Cara kerja RAKA dan batasnya
+## 5. Cara kerja RUKKA AI dan batasnya
 
 - Backend mengklasifikasikan permintaan, mencari ruangan, mengecek jadwal, dan menghitung slot alternatif.
 - Gemma hanya menyusun kalimat jawaban berdasarkan ringkasan hasil backend yang sudah tersedia. Model tidak diberi akses ke SQL, fungsi backend, atau operasi tulis.
-- RAKA berusaha memberikan hasil terlebih dahulu dan hanya mengajukan satu pertanyaan lanjutan yang benar-benar diperlukan.
+- RUKKA AI berusaha memberikan hasil terlebih dahulu dan hanya mengajukan satu pertanyaan lanjutan yang benar-benar diperlukan.
 - Ketika tanggal dan rentang waktu belum lengkap, kandidat ruangan bukan berarti sudah dipastikan kosong.
-- Chat pribadi seperti daftar/status reservasi tetap diproses backend tanpa mengirim isi reservasi ke Gemma. RAKA tidak dapat membuat, membatalkan, atau menyetujui reservasi lewat chat.
+- Chat pribadi seperti daftar/status reservasi tetap diproses backend tanpa mengirim isi reservasi ke Gemma. RUKKA AI tidak dapat membuat, membatalkan, atau menyetujui reservasi lewat chat.
 - Jika provider timeout, mencapai rate limit, atau mengembalikan JSON yang tidak valid, backend kembali ke jawaban deterministik.
 - Dengan konfigurasi AI aktif, teks pesan saat ini yang telah disamarkan dan ringkasan terbatas fakta ruangan yang relevan dikirim ke OpenRouter. Riwayat percakapan, ID akun, dan data reservasi pribadi tidak dikirim.
 
