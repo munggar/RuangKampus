@@ -26,6 +26,7 @@ function ReservationCard({ item }: { item: Reservation }) {
         <span className="reservation-card__id">RK-{item.id.slice(0, 8).toUpperCase()}</span>
         <StatusBadge status={item.status} />
       </div>
+      {item.room?.photo_url ? <RoomPhoto photoUrl={item.room.photo_url} roomName={item.room.room_name} className="reservation-card__image" /> : null}
       <strong>{item.room?.room_name || "Ruangan"}</strong>
       <span className="muted">{item.room?.building || "Lokasi kampus belum tersedia"}</span>
       <div className="reservation-card__meta">
@@ -38,23 +39,24 @@ function ReservationCard({ item }: { item: Reservation }) {
 }
 
 
-function RoomPhoto({ photoUrl, roomName, detail = false }: {
+function RoomPhoto({ photoUrl, roomName, detail = false, className }: {
   photoUrl: string | null;
   roomName: string;
   detail?: boolean;
+  className?: string;
 }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => { setFailed(false); }, [photoUrl]);
 
   if (!photoUrl || failed) {
-    return <div className={detail ? "room-detail__image room-detail__image--empty" : "room-card__placeholder"}>
+    return <div className={detail ? "room-detail__image room-detail__image--empty" : className || "room-card__placeholder"}>
       <Building2 size={detail ? 48 : 34} aria-hidden="true" />
     </div>;
   }
 
   return <img
-    className={detail ? "room-detail__image" : undefined}
+    className={detail ? "room-detail__image" : className}
     src={apiAssetUrl(photoUrl)}
     alt={"Foto " + roomName}
     loading="lazy"
@@ -105,6 +107,7 @@ export function StudentDashboardPage() {
         {upcoming ? (
           <article className="next-session-card">
             <div className="next-session-card__top"><span>SESI ANDA</span><StatusBadge status={upcoming.status} /></div>
+            {upcoming.room?.photo_url ? <RoomPhoto photoUrl={upcoming.room.photo_url} roomName={upcoming.room.room_name} className="next-session-card__image" /> : null}
             <h2>{upcoming.room?.room_name || "Ruangan"}</h2>
             <p>{upcoming.room?.building || "Lokasi kampus"}</p>
             <div className="next-session-card__details">
