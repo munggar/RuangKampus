@@ -420,6 +420,6 @@ export function RoomAssistantPage() {
         <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
       </form>
     </section>
-    <Notice tone="info">RUKKA dapat membantu diskusi umum sekaligus urusan ruangan. Jadwal dan fakta kampus tetap harus bersumber dari data terverifikasi, sedangkan pengajuan reservasi dilakukan lewat fitur Reservasi. Saat AI aktif, maksimal sepuluh pesan terakhir dari tab ini dapat dikirim ke penyedia AI sebagai konteks; backend tidak menyimpan isi chat mentah. Feedback hanya menyimpan penilaian dan kategori alasan.</Notice>
+    <Notice tone="info">RUKKA dapat membantu diskusi umum sekaligus urusan ruangan. Jadwal dan fakta kampus tetap harus bersumber dari data terverifikasi, sedangkan pengajuan reservasi dilakukan lewat fitur Reservasi. Saat AI aktif, maksimal sepuluh pesan terakhir dari tab ini dapat dikirim ke penyedia AI sebagai konteks; backend tidak menyimpan isi chat mentah, hanya filter pencarian dan ID kandidat terverifikasi sementara maksimal 30 menit. Mode AI mengikuti konfigurasi backend dan tidak bisa diaktifkan lewat chat. Feedback hanya menyimpan penilaian dan kategori alasan.</Notice>
   </div>;
 }
