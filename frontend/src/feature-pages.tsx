@@ -153,7 +153,6 @@ export function StudentRoomAvailabilityPage() {
         <Field label="Fasilitas wajib"><input value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="Contoh: proyektor, Wi-Fi" /></Field>
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
-      {feedbackError ? <Notice tone="error">{feedbackError}</Notice> : null}
       <Button type="submit" disabled={loading}><Search size={16} />{loading ? "Memeriksa..." : "Cari ruangan tersedia"}</Button>
     </form>
     {loading ? <Loading label="Memeriksa jadwal dan ketersediaan ruangan..." /> : null}
@@ -396,6 +395,7 @@ export function RoomAssistantPage() {
         {loading ? <Loading label="RUKKA lagi mikir sebentar..." /> : null}
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
+      {feedbackError ? <Notice tone="error">{feedbackError}</Notice> : null}
       <div className="assistant-suggestions">
         <span className="muted small">Contoh pertanyaan</span>
         {assistantPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => setMessage(prompt)}>{prompt}</button>)}
