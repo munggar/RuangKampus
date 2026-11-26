@@ -202,7 +202,7 @@ This is actual PostgreSQL integration evidence, not an inference from SQLite. It
 - No RuangKampus cloud PostgreSQL, deployment, or SMTP provider has been confirmed; no cloud migration has been run.
 - The Figma file itself is not yet accessible for direct inspection; frontend branch and API client code were reviewed read-only.
 - CSV/XLSX schedule import preview/commit is implemented for TU/Admin through /api/v1/admin/schedules/imports/*.
-- The room-assistant endpoint uses a grounded rule engine by default. An optional OpenRouter/Gemma RUKKA AI response layer is available on the RAKA feature branch but remains disabled until operator credentials and privacy settings are configured.
+- The room-assistant endpoint uses a grounded rule engine by default. An optional OpenRouter/Gemma RUKKA AI response layer is available on the RUKKA AI feature branch but remains disabled until operator credentials and privacy settings are configured.
 - Media upload/storage is not implemented; room/profile image attributes accept URLs only.
 - Historical refresh-token replay-family detection is not implemented.
 - Rate limiting is an in-process guard; production multi-worker/multi-instance deployments require shared API gateway/WAF rate limiting.
