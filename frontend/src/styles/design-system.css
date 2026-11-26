@@ -1,39 +1,4 @@
 /* RuangKampus — Campus Editorial Utility */
-:root {
-  color-scheme: light;
-  font-family: Inter, "Segoe UI", system-ui, sans-serif;
-  --brand-primary:#17435c; --brand-primary-hover:#10374e; --brand-primary-solid:#17435c; --brand-primary-solid-hover:#10374e;
-  --brand-primary-soft:#e8eff1; --brand-red:#922a38;
-  --surface-background:#f2f1ec; --surface-card:#fffefa; --surface-navigation:#fffefa; --surface-elevated:#fff;
-  --surface-input:#fffefa; --surface-muted:#eeede7;
-  --text-primary:#192d38; --text-secondary:#536873; --text-muted:#788991;
-  --border-default:#d9dfdc; --border-strong:#bdc9c7;
-  --status-success:#28724e; --status-success-surface:#e9f2eb; --status-warning:#94601d; --status-warning-surface:#f7efdf;
-  --status-error:#a12f3b; --status-error-surface:#f6e9e7; --status-error-button-text:#fff; --status-error-button-hover-text:#fff;
-  --status-info:#285c76; --status-info-surface:#e8eff1;
-  --glass-background:#fffefa; --glass-border:#d9dfdc; --glass-highlight:#fff; --glass-shadow:none;
-  --focus-ring:0 0 0 3px rgb(23 67 92 / 20%);
-  --radius-card:10px; --radius-field:8px; --radius-button:8px; --radius-panel:12px; --radius-pill:999px;
-  --page-gutter:28px; --page-max:1480px; --space-xs:4px; --space-sm:8px; --space-md:12px; --space-lg:16px;
-  --space-xl:24px; --space-2xl:32px; --input-height:46px; --button-height:44px;
-  --shadow-card:none; --shadow-popover:0 12px 32px rgb(20 39 48 / 13%);
-  --font-xs:11px; --font-sm:12px; --font-base:14px; --font-md:16px; --font-lg:20px; --font-xl:28px; --line-body:1.55;
-  --motion-fast:120ms; --motion-ui:160ms;
-}
-:root[data-theme="dark"] {
-  color-scheme:dark;
-  --brand-primary:#a9c7d4; --brand-primary-hover:#c5dce4; --brand-primary-solid:#285873; --brand-primary-solid-hover:#326883;
-  --brand-primary-soft:#1d303a; --brand-red:#d88c91;
-  --surface-background:#111a20; --surface-card:#18242c; --surface-navigation:#141f26; --surface-elevated:#202f38;
-  --surface-input:#18242c; --surface-muted:#1d2a32;
-  --text-primary:#edf2f0; --text-secondary:#b7c5c8; --text-muted:#8fa0a5;
-  --border-default:#33434a; --border-strong:#4c5d64;
-  --status-success:#86cba4; --status-success-surface:#1d392e; --status-warning:#e4bd7a; --status-warning-surface:#3a3020;
-  --status-error:#e59b9d; --status-error-surface:#40282b; --status-error-button-text:#fff; --status-error-button-hover-text:#fff;
-  --status-info:#a9c7d4; --status-info-surface:#223943;
-  --glass-background:#141f26; --glass-border:#33434a; --glass-highlight:#24333b; --glass-shadow:none;
-  --focus-ring:0 0 0 3px rgb(129 179 202 / 25%); --shadow-card:none; --shadow-popover:0 14px 34px rgb(0 0 0 / 32%);
-}
 html { background:var(--surface-background); scroll-behavior:auto; }
 body { color:var(--text-primary); background:var(--surface-background); font-family:Inter,"Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.55; }
 button,input,select,textarea { font:inherit; }
