@@ -122,10 +122,10 @@ export function AdminDashboardPage() {
         <article className="stat-card"><div className="stat-card__top"><span>Disetujui</span><CheckCircle2 size={18} /></div><strong>{Number(summary?.approved || 0)}</strong><small>Reservasi terkonfirmasi</small></article>
         <article className="stat-card"><div className="stat-card__top"><span>Total ruangan</span><Building2 size={18} /></div><strong>{Number(summary?.total_rooms || 0)}</strong><small>{Number(summary?.active_rooms || 0)} ruangan aktif</small></article>
       </div>
-      <PageSection title="Pemantauan reservasi hari ini" action={<div className="reservation-monitor-toolbar">
+      <PageSection title="Pemantauan reservasi & keterlambatan" action={<div className="reservation-monitor-toolbar">
           <div className="campus-clock" aria-label={`Waktu kampus ${formatCampusClock(monitorNow)} WIB`}>
             <Clock3 size={16} aria-hidden="true" />
-            <span><small>WAKTU KAMPUS · WIB</small><strong>{formatCampusClock(monitorNow)}</strong></span>
+            <span><small>WAKTU KAMPUS · WIB</small><strong>{formatCampusClock(monitorNow)}</strong><small>{formatCampusDate(monitorNow)}</small></span>
           </div>
           <span className="muted small">Data diperbarui otomatis · 30 detik</span>
         </div>}>
@@ -151,7 +151,7 @@ export function AdminDashboardPage() {
               {timing.kind === "overdue" ? <Button variant="secondary" onClick={() => setFinishTarget(item)}>Konfirmasi ruangan kosong</Button> : null}
             </article>;
           })}
-        </div> : <EmptyState title="Tidak ada reservasi disetujui hari ini" description="Reservasi yang sudah disetujui akan tampil di sini beserta waktu mulai, sisa waktu, atau keterlambatannya." icon={<Clock3 size={22} />} />}
+        </div> : <EmptyState title="Tidak ada reservasi untuk dipantau" description="Reservasi hari ini dan sesi terdahulu yang belum dikonfirmasi selesai akan muncul di sini." icon={<Clock3 size={22} />} />}
       </PageSection>
       <PageSection title="Permohonan terbaru" action={<Link className="text-link" to="/admin/reservations">Lihat semua <ArrowRight size={15} /></Link>}>
         {recent.length ? <div className="table-wrap"><table className="data-table">
