@@ -96,6 +96,7 @@ async def add_security_headers_and_request_limit(request: Request, call_next):
         (f"{settings.api_v1_prefix}/auth/reset-password", "POST"): 5,
         (f"{settings.api_v1_prefix}/auth/refresh", "POST"): 10,
         (f"{settings.api_v1_prefix}/assistant/chat", "POST"): 12,
+        (f"{settings.api_v1_prefix}/assistant/feedback", "POST"): 20,
         (f"{settings.api_v1_prefix}/rooms/alternative-slots", "POST"): 20,
     }
     limit = rate_limits.get((request.url.path, request.method))
