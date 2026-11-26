@@ -9,6 +9,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ruangkampus.config import Settings
+from ruangkampus.services.assistant_ai_response import redact_assistant_user_text
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ def interpret_with_ai_fallback(
     )
     user_prompt = json.dumps(
         {
-            "message": message[:1000],
+            "message": redact_assistant_user_text(message),
             "observed_catalogue": vocabulary,
         },
         ensure_ascii=False,
