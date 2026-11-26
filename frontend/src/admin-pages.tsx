@@ -446,7 +446,7 @@ export function AdminRoomEditorPage() {
       </div>
       <Field label="Fasilitas" hint="Pisahkan setiap fasilitas dengan koma."><input value={facilities} onChange={(e) => setFacilities(e.target.value)} placeholder="Whiteboard, Wi-Fi, Stop kontak" /></Field>
       <Field label="Deskripsi"><textarea rows={3} maxLength={5000} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-      <Field label="URL foto ruangan (opsional)" hint="Backend saat ini hanya menerima URL; upload file belum tersedia."><input type="url" value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://…" /></Field>
+      <Field label="URL atau path foto ruangan (opsional)" hint="Bisa memakai URL lengkap atau path foto hasil impor, misalnya /media/rooms/nama-file.jpg."><input type="text" inputMode="url" autoComplete="off" maxLength={2048} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="/media/rooms/nama-file.jpg atau https://…" /></Field>
       <div className="form-divider" />
       <div><h2>Jam operasional</h2><p className="muted">Field ini diperlukan oleh backend untuk memeriksa ketersediaan. Jam yang sama akan diterapkan ke hari yang dipilih.</p></div>
       <div className="weekday-grid">{weekdays.map(([day, label]) => <label key={day} className="checkbox-card"><input type="checkbox" checked={days.includes(day)} onChange={() => toggleDay(day)} /><span>{label}</span></label>)}</div>
