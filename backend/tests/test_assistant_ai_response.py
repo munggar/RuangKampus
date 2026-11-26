@@ -213,3 +213,26 @@ def test_openrouter_key_activates_default_model_and_authenticates_real_request_s
     assert captured["headers"]["HTTP-Referer"] == settings.public_app_url
     assert captured["body"]["model"] == "google/gemma-4-26b-a4b-it:free"
     assert captured["body"]["response_format"] == {"type": "json_object"}
+
+
+def test_rukka_provider_timeout_has_safe_floor_for_slow_free_models(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["timeout"] = kwargs["timeout"]
+        return FakeResponse(provider_response(json.dumps({
+            "message": "Kita bisa membahas masalah ini dari beberapa sudut pandang."
+        })))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    settings = configured_settings()
+    answer = generate_grounded_assistant_message(
+        message="Bagaimana cara menyusun prioritas belajar?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku bisa bantu berpikir.",
+        filters={}, rooms=[], alternative_slots=[], follow_up_questions=[],
+        availability_checked=False, settings=settings,
+    )
+
+    assert answer == "Kita bisa membahas masalah ini dari beberapa sudut pandang."
+    assert captured["timeout"] == 30.0

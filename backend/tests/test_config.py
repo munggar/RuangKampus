@@ -148,3 +148,13 @@ def test_explicit_provider_disable_wins_even_when_openrouter_key_exists():
     )
 
     assert settings.is_assistant_ai_enabled is False
+
+
+def test_assistant_ai_accepts_realistic_provider_timeouts():
+    settings = Settings(_env_file=None, assistant_ai_timeout_seconds=30)
+    assert settings.assistant_ai_timeout_seconds == 30
+
+
+def test_assistant_ai_rejects_unbounded_provider_timeout():
+    with pytest.raises(ValidationError, match="must not exceed 45 seconds"):
+        Settings(_env_file=None, assistant_ai_timeout_seconds=46)
