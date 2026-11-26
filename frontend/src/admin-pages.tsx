@@ -43,9 +43,21 @@ function timerText(milliseconds: number): string {
 function reservationTiming(item: Reservation, now: number) {
   const startsAt = campusTimestamp(item.reservation_date, item.start_time);
   const endsAt = campusTimestamp(item.reservation_date, item.end_time);
-  if (now < startsAt) return { kind: "upcoming" as const, title: "Akan dimulai", caption: "Mulai dalam", value: timerText(startsAt - now) };
-  if (now < endsAt) return { kind: "active" as const, title: "Sedang berlangsung", caption: "Sisa waktu", value: timerText(endsAt - now) };
-  return { kind: "overdue" as const, title: "Melewati jadwal", caption: "Terlambat", value: timerText(now - endsAt) };
+  if (now < startsAt) {
+    return { kind: "upcoming" as const, title: "Akan dimulai", caption: "Mulai dalam", value: timerText(startsAt - now), urgent: false };
+  }
+  if (now < endsAt) {
+    const remaining = endsAt - now;
+    const urgent = remaining <= 5 * 60 * 1000;
+    return {
+      kind: "active" as const,
+      title: urgent ? "Segera berakhir" : "Sedang berlangsung",
+      caption: "Sisa waktu",
+      value: timerText(remaining),
+      urgent,
+    };
+  }
+  return { kind: "overdue" as const, title: "Melewati jadwal", caption: "Terlambat", value: timerText(now - endsAt), urgent: true };
 }
 
 export function AdminDashboardPage() {
@@ -133,6 +145,11 @@ export function AdminDashboardPage() {
         {todayReservations.length ? <div className="reservation-monitor-list">
           {todayReservations.map((item) => {
             const timing = reservationTiming(item, monitorNow);
+            const endsAt = campusTimestamp(item.reservation_date, item.end_time);
+            const nextSession = todayReservations
+              .filter((candidate) => candidate.room_id === item.room_id && candidate.id !== item.id)
+              .filter((candidate) => campusTimestamp(candidate.reservation_date, candidate.start_time) >= endsAt)
+              .sort((a, b) => campusTimestamp(a.reservation_date, a.start_time) - campusTimestamp(b.reservation_date, b.start_time))[0];
             return <article className={"reservation-monitor-item reservation-monitor-item--" + timing.kind} key={item.id}>
               <div className="reservation-monitor-item__details">
                 <div className="reservation-monitor-item__heading">
@@ -141,7 +158,9 @@ export function AdminDashboardPage() {
                 </div>
                 <p>{item.applicant?.name || "Mahasiswa"} · {item.room?.building || "Lokasi kampus"}</p>
                 <small>{formatDate(item.reservation_date)} · {formatTime(item.start_time)}–{formatTime(item.end_time)} WIB · {item.participant_count} peserta</small>
-                {timing.kind === "overdue" ? <p className="reservation-monitor-warning">Jadwal berakhir. Pastikan ruangan sudah dikosongkan sebelum sesi berikutnya. Reservasi tetap menahan ketersediaan ruang sampai Admin mengonfirmasi ruangan kosong.</p> : null}
+                {timing.kind === "active" && timing.urgent ? <p className="reservation-monitor-warning">Sisa waktu kurang dari 5 menit. Ingatkan mahasiswa untuk bersiap meninggalkan ruangan tepat waktu.</p> : null}
+                {timing.kind === "overdue" ? <p className="reservation-monitor-warning">Jadwal berakhir. Pastikan ruangan sudah dikosongkan. Reservasi tetap menahan ketersediaan ruang sampai Admin mengonfirmasi ruangan kosong.</p> : null}
+                {timing.kind === "overdue" && nextSession ? <p className="reservation-monitor-warning">PERHATIAN: sudah ada reservasi berikutnya untuk ruangan ini pada {formatDate(nextSession.reservation_date)} pukul {formatTime(nextSession.start_time)} WIB. Koordinasikan kondisi ruangan sebelum sesi tersebut dimulai.</p> : null}
               </div>
               <div className="reservation-monitor-item__timer">
                 <small>{timing.caption}</small>
