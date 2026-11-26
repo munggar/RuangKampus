@@ -2,10 +2,10 @@ import html
 import logging
 import smtplib
 from email.message import EmailMessage
-
-import httpx
 from pathlib import Path
 from uuid import uuid4
+
+import httpx
 
 from ruangkampus.config import get_settings
 
