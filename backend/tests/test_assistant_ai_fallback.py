@@ -139,3 +139,27 @@ def test_ai_fallback_fails_closed_on_timeout(monkeypatch):
 
     monkeypatch.setattr(httpx, "post", timeout)
     assert interpret_with_ai_fallback("cari tempat rapat", CATALOG, configured_settings()) is None
+
+
+def test_ai_fallback_parses_iso_date_and_time_values(monkeypatch):
+    response = provider_response(json.dumps({
+        "intent": "ROOM_AVAILABILITY",
+        "faculty": "FTII",
+        "building": None,
+        "min_capacity": 12,
+        "facilities": [],
+        "date": "2026-12-01",
+        "start_time": "09:00:00",
+        "end_time": "10:30:00",
+        "participant_count": 12,
+    }))
+    monkeypatch.setattr(httpx, "post", lambda *args, **kwargs: FakeResponse(response))
+    result = interpret_with_ai_fallback(
+        "need a room on December 1 from 9 to 10:30 for 12 people",
+        CATALOG,
+        configured_settings(),
+    )
+    assert result is not None
+    assert result.date.isoformat() == "2026-12-01"
+    assert result.start_time.isoformat() == "09:00:00"
+    assert result.end_time.isoformat() == "10:30:00"
