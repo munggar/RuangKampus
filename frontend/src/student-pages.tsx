@@ -761,41 +761,6 @@ export function NotificationsPage({ role }: { role: AppRole }) {
   </div>;
 }
 
-  const [items, setItems] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState("");
-  const root = role === "Student" ? "/student" : "/admin";
-  useEffect(() => {
-    let active = true; setLoading(true);
-    notificationApi.list(new URLSearchParams({ page: "1", limit: "100" }))
-      .then((result) => { if (active) setItems(result.items); })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Notifikasi belum dapat dimuat."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, []);
-  async function markRead(id: string) {
-    setBusyId(id);
-    try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); window.dispatchEvent(new Event("rk-notifications-updated")); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui."); }
-    finally { setBusyId(""); }
-  }
-  return <div className="page-stack">
-    <PageTitle eyebrow="UPDATES" title="Notifikasi" description="Tetap terhubung dengan informasi terbaru reservasi ruangan." />
-    {error ? <Notice tone="error">{error}</Notice> : null}
-    {loading ? <Loading label="Memuat notifikasi…" /> : items.length ? <div className="card-list">
-      {items.map((item) => <article className={"notification-card" + (!item.read_at ? " is-unread" : "")} key={item.id}>
-        <div className="notification-card__icon"><Bell size={18} /></div>
-        <div className="notification-card__content"><div className="notification-card__heading"><strong>{item.title}</strong><span>{item.notification_type === "RESERVATION_APPROVED" ? formatDateTime(item.created_at) : formatDate(item.created_at)}</span></div><p>{item.message}</p>
-          <small>In-app: {item.delivery_status.replaceAll("_", " ").toLowerCase()} · Email: {item.email_delivery_status.replaceAll("_", " ").toLowerCase()}</small>
-        </div>
-        {!item.read_at ? <Button variant="secondary" disabled={busyId === item.id} onClick={() => void markRead(item.id)}>Tandai dibaca</Button> : <span className="read-mark"><Check size={15} />Dibaca</span>}
-      </article>)}
-    </div> : <EmptyState title="Belum ada notifikasi" description="Pembaruan permohonan dan informasi akun akan muncul di sini." icon={<Bell size={22} />} />}
-    <Link className="button button--primary" to={root + (role === "Student" ? "/reservations" : "/reservations")}>Lihat reservasi</Link>
-  </div>;
-}
-
 export function ProfilePage({ role }: { role: AppRole }) {
   const { user, replaceUser, logout } = useAuth();
   const [profile, setProfile] = useState<AuthUser | null>(user);
