@@ -128,6 +128,10 @@ test("theme: toggling persists across navigation and public auth uses stored the
   await page.goto("/login");
   await waitForPageReady(page);
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
-  const authSurface = await page.evaluate(() => getComputedStyle(document.querySelector(".auth-panel") as HTMLElement).backgroundColor);
-  expect(authSurface).not.toBe("rgba(0, 0, 0, 0)");
+  const authTheme = await page.evaluate(() => ({
+    colorScheme: getComputedStyle(document.documentElement).colorScheme,
+    background: getComputedStyle(document.documentElement).getPropertyValue("--surface-background").trim(),
+  }));
+  expect(authTheme.colorScheme).toBe("dark");
+  expect(authTheme.background).toBe("#111a20");
 });
