@@ -48,7 +48,7 @@ def test_room_import_preview_maps_capacity_range_and_embedded_photo(client, auth
     assert payload["row_results"][0]["has_photo"] is True
 
 
-def test_room_import_commit_persists_rooms_and_photo(client, auth_headers, admin):
+def test_room_import_commit_persists_photo_for_student_directory(client, auth_headers, admin, student):
     headers = auth_headers("admin.uhamka")
     preview = upload(client, headers, make_room_workbook())
     assert preview.status_code == 201, preview.text
@@ -64,6 +64,24 @@ def test_room_import_commit_persists_rooms_and_photo(client, auth_headers, admin
     assert room["photo_url"].startswith("/media/rooms/")
     photo = client.get(room["photo_url"])
     assert photo.status_code == 200
+
+    activated = client.patch(
+        f"/api/v1/rooms/{room['id']}",
+        headers=headers,
+        json={"room_status": "ACTIVE"},
+    )
+    assert activated.status_code == 200, activated.text
+    student_rooms = client.get(
+        "/api/v1/rooms?search=Laboratorium%20Komputer%20Dasar",
+        headers=auth_headers(),
+    )
+    assert student_rooms.status_code == 200, student_rooms.text
+    student_room = student_rooms.json()["data"][0]
+    assert student_room["photo_url"] == room["photo_url"]
+    student_photo = client.get(student_room["photo_url"])
+    assert student_photo.status_code == 200
+    assert student_photo.headers["content-type"].startswith("image/")
+
     history = client.get("/api/v1/admin/rooms/imports", headers=headers)
     assert history.status_code == 200
     assert history.json()["data"][0]["status"] == "COMPLETED"
