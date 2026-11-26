@@ -764,3 +764,9 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
   .data-import-actions .button { width: 100%; }
   .data-import-bottom { padding: 14px; }
 }
+
+.data-import-page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 700px) {
+  .data-import-page-actions { width: 100%; flex-direction: column; }
+  .data-import-page-actions .button { width: 100%; }
+}
