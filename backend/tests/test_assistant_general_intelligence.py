@@ -306,3 +306,60 @@ def test_alternative_slots_never_relax_required_capacity_or_facilities(
     assert all(item["room"]["capacity"] >= 35 for item in items)
     assert all("Projector" in item["room"]["facilities"] for item in items)
     assert all("Air Conditioner" in item["room"]["facilities"] for item in items)
+
+
+def test_time_only_follow_up_fills_end_time_and_preserves_room_filters(
+    client, auth_headers, student, admin, room_payload
+):
+    room_request = {
+        **room_payload,
+        "room_name": "Ruang Diskusi AI QA",
+        "room_code": "RK-AI-QA-101",
+        "capacity": 45,
+        "facilities": ["Projector", "Air Conditioner"],
+    }
+    created = client.post(
+        "/api/v1/rooms",
+        json=room_request,
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created.status_code == 201, created.text
+    room = created.json()["data"]
+
+    first = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": (
+                "Carikan ruangan kosong besok jam 10 pagi untuk 35 orang "
+                "dengan proyektor dan AC."
+            )
+        },
+        headers=auth_headers(),
+    )
+    assert first.status_code == 200, first.text
+    first_data = first.json()["data"]
+    assert first_data["intent"] == "ROOM_AVAILABILITY"
+    assert first_data["slots"]["date"] == (campus_today() + timedelta(days=1)).isoformat()
+    assert first_data["slots"]["start_time"] == "10:00:00"
+    assert first_data["slots"]["end_time"] is None
+    assert first_data["missing_fields"] == ["end_time"]
+
+    second = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "sampai jam 12 siang",
+            "conversation_id": first_data["conversation_id"],
+        },
+        headers=auth_headers(),
+    )
+    assert second.status_code == 200, second.text
+    data = second.json()["data"]
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["slots"]["date"] == first_data["slots"]["date"]
+    assert data["slots"]["start_time"] == "10:00:00"
+    assert data["slots"]["end_time"] == "12:00:00"
+    assert data["slots"]["min_capacity"] == 35
+    assert data["slots"]["participant_count"] == 35
+    assert set(data["slots"]["facilities"]) == {"projector", "air conditioner"}
+    assert room["id"] in {item["id"] for item in data["rooms"]}
+    assert data["requires_clarification"] is False
