@@ -77,7 +77,7 @@ export function AdminDataImportsPage() {
 
   return <div className="page-stack">
     <PageTitle
-      eyebrow="CAMPUS MASTER DATA"
+      eyebrow="MASTER DATA KAMPUS"
       title="Impor data kampus"
       description="Impor data inventaris ruangan dari workbook Excel resmi, periksa hasilnya, lalu simpan melalui akun TU/Admin."
       action={<div className="data-import-page-actions"><Link className="button button--secondary" to="/admin/rooms"><Building2 size={16} />Kelola ruangan</Link><Link className="button button--secondary" to="/admin/schedules"><CalendarDays size={16} />Jadwal & pemeliharaan</Link></div>}
@@ -100,7 +100,7 @@ export function AdminDataImportsPage() {
         <Notice tone="info"><b>Belum diaktifkan.</b> Modul ini menunggu file Excel resmi dari unit akademik. Kolom dan validasinya akan dibuat berdasarkan file asli, bukan template perkiraan.</Notice>
       </div> : <div className="data-import-layout">
         <div className="data-import-main">
-          <div className="data-import-heading"><span className="data-import-heading__icon"><Building2 size={22} /></span><div><p className="eyebrow">ROOM MASTER DATA</p><h2>Impor data ruangan</h2><p>Format mengikuti workbook RUANG KELAS.xlsx: nama ruangan, kapasitas estimasi, fasilitas, dan foto yang tertanam di Excel.</p></div></div>
+          <div className="data-import-heading"><span className="data-import-heading__icon"><Building2 size={22} /></span><div><p className="eyebrow">DATA MASTER RUANG</p><h2>Impor data ruangan</h2><p>Format mengikuti workbook RUANG KELAS.xlsx: nama ruangan, kapasitas estimasi, fasilitas, dan foto yang tertanam di Excel.</p></div></div>
 
           <div className="data-import-step-title"><span>01</span><div><b>Pilih workbook Excel</b><small>Format .xlsx, ukuran maksimal 5 MB</small></div></div>
           <label className="data-import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
