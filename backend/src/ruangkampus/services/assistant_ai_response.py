@@ -104,7 +104,7 @@ def generate_grounded_assistant_message(
     if not endpoint or not model:
         return None
 
-    # Keep generation focused on room discovery; private and conversational intents stay deterministic.
+    # Generate only read-only room and general conversation responses; private reservation intents never reach the provider.
     if intent not in {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL", "SMALLTALK", "FAQ", "RESERVATION_HELP", "OUT_OF_SCOPE"}:
         return None
 
