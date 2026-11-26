@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from typing import Any
 
 from ruangkampus.services.assistant_catalog import FACILITY_TERMS
+from ruangkampus.services.indonesian_slang_data import merge_slang_normalization_map
 from ruangkampus.schemas import (
     AssistantNormalizationResult,
     AssistantTextCorrection,
@@ -12,7 +14,7 @@ from ruangkampus.schemas import (
 
 
 # Exact token mappings only: never use substring replacement for Indonesian slang.
-SLANG_DICTIONARY: dict[str, str] = {
+LEGACY_SLANG_DICTIONARY: dict[str, str] = {
     "gmn": "bagaimana",
     "gimana": "bagaimana",
     "ga": "tidak",
@@ -48,6 +50,25 @@ SLANG_DICTIONARY: dict[str, str] = {
     "gua": "aku",
     "sokap": "siapa",
 }
+
+
+
+# Preserve high-frequency fillers that the previous normalizer intentionally kept verbatim.
+LEGACY_PRESERVED_SLANG: dict[str, str] = {
+    "makasih": "makasih",
+}
+
+# Keep every existing project mapping and explicitly preserved form above any dataset pair.
+try:
+    SLANG_DICTIONARY: dict[str, str] = merge_slang_normalization_map(
+        {**LEGACY_SLANG_DICTIONARY, **LEGACY_PRESERVED_SLANG}
+    )
+except (OSError, ValueError) as exc:
+    logging.getLogger(__name__).error(
+        "RUKKA slang dataset unavailable; using legacy dictionary only (error_type=%s)",
+        type(exc).__name__,
+    )
+    SLANG_DICTIONARY = dict(LEGACY_SLANG_DICTIONARY)
 
 # Only the requested, high-certainty spelling corrections are hard-coded.
 TYPO_DICTIONARY: dict[str, str] = {
@@ -241,6 +262,15 @@ def _normalize_token(token: str, vocabulary: set[str]) -> tuple[list[str], Assis
 
     if value in SLANG_DICTIONARY:
         mapped = SLANG_DICTIONARY[value]
+        if mapped == value:
+            correction = AssistantTextCorrection(
+                original_token=original,
+                normalized_token=value,
+                correction_type="LOWERCASE_NORMALIZATION",
+                source="preprocessing.casefold",
+                confidence=None,
+            ) if lowercased else None
+            return [value], correction
         return mapped.split(), AssistantTextCorrection(
             original_token=original,
             normalized_token=mapped,

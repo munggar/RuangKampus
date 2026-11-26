@@ -1,4 +1,4 @@
-import type { AppNotification, AssistantChatRequest, AssistantChatResult, AuthUser, AvailabilityResult, AlternativeSlotSearch, AlternativeSlotsResult, PageMeta, PageResult, Reservation, Room, RoomStatus, RoomUnavailability, Schedule, TokenResponse } from "./types";
+import type { AppNotification, AssistantChatRequest, AssistantChatResult, AssistantFeedbackRequest, AuthUser, AvailabilityResult, AlternativeSlotSearch, AlternativeSlotsResult, PageMeta, PageResult, Reservation, Room, RoomStatus, RoomUnavailability, Schedule, TokenResponse } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -180,6 +180,8 @@ export const discoveryApi = {
     apiRequest<AlternativeSlotsResult>("/rooms/alternative-slots", { method: "POST", body: payload }),
   chat: (payload: AssistantChatRequest) =>
     apiRequest<AssistantChatResult>("/assistant/chat", { method: "POST", body: payload }),
+  feedback: (payload: AssistantFeedbackRequest) =>
+    apiRequest<{ recorded: boolean }>("/assistant/feedback", { method: "POST", body: payload }),
 };
 
 export const reservationApi = {

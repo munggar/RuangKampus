@@ -1,5 +1,6 @@
 import re
 from datetime import date, datetime, time, timedelta
+from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -7,11 +8,12 @@ from sqlalchemy.orm import Session, joinedload
 from ruangkampus.config import get_settings
 from ruangkampus.database import get_db
 from ruangkampus.dependencies import require_student
-from ruangkampus.models import Reservation, Room, User
+from ruangkampus.models import AssistantLearningFeedback, Reservation, Room, User
 from ruangkampus.responses import success
 from ruangkampus.schemas import (
     AlternativeSlotsIn,
     AssistantChatIn,
+    AssistantFeedbackIn,
     AssistantChatResponseData,
     AssistantChatSlots,
     AssistantChatStructuredData,
@@ -37,6 +39,7 @@ from ruangkampus.services.assistant_response import (
     compose_search_result,
 )
 from ruangkampus.services.assistant_analytics import record_assistant_outcome
+from ruangkampus.services.assistant_adaptive_learning import get_adaptive_learning_preferences
 from ruangkampus.services.assistant_conversation import (
     load_or_create_conversation,
     merge_room_slots,
@@ -344,6 +347,23 @@ def _parse_message_filters(
     }
 
 
+@router.post("/assistant/feedback")
+def assistant_feedback(
+    payload: AssistantFeedbackIn,
+    user: User = Depends(require_student),
+    db: Session = Depends(get_db),
+):
+    """Store only an authenticated student's explicit, allowlisted feedback signal."""
+    db.add(AssistantLearningFeedback(
+        user_id=user.id,
+        intent=payload.intent,
+        rating=payload.rating,
+        reason_code=payload.reason_code,
+    ))
+    db.commit()
+    return success({"recorded": True}, "Assistant feedback recorded")
+
+
 @router.post("/rooms/alternative-slots")
 def alternative_slots(
     payload: AlternativeSlotsIn,
@@ -448,7 +468,15 @@ def _maybe_generate_ai_message(
     alternative_slots: list[dict] | None = None,
     follow_up_questions: list[str] | None = None,
     availability_checked: bool = False,
+    db: Session | None = None,
+    user_id: UUID | None = None,
 ) -> tuple[str, bool]:
+    settings = get_settings()
+    adaptive_preferences = (
+        get_adaptive_learning_preferences(db, user_id)
+        if settings.assistant_ai_enabled and db is not None and user_id is not None
+        else []
+    )
     generated = generate_grounded_assistant_message(
         message=message,
         intent=intent,
@@ -458,7 +486,8 @@ def _maybe_generate_ai_message(
         alternative_slots=alternative_slots or [],
         follow_up_questions=follow_up_questions or [],
         availability_checked=availability_checked,
-        settings=get_settings(),
+        settings=settings,
+        adaptive_preferences=adaptive_preferences,
     )
     return (generated, True) if generated else (deterministic_message, False)
 
@@ -482,6 +511,8 @@ def _intent_only_response(
     ai_fallback_used: bool = False,
     slots_override: AssistantChatSlots | None = None,
     availability_checked: bool = False,
+    db: Session | None = None,
+    user_id: UUID | None = None,
 ):
     slots = slots_override or _assistant_empty_slots(payload)
     follow_up = [detection.clarification_message] if detection.clarification_message else []
@@ -497,17 +528,19 @@ def _intent_only_response(
             rooms=rooms or [],
             follow_up_questions=follow_up,
             availability_checked=availability_checked,
+            db=db,
+            user_id=user_id,
         )
     engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
-        "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+        "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_response_used else
         "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
-        "identitas akun, dan data reservasi pribadi tidak dikirim."
+        "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         if ai_fallback_used else
         "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara "
-        "selama maksimal 30 menit untuk menjaga konteks percakapan."
+        "selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
     )
     structured_response = AssistantChatResponseData(
         message=final_message,
@@ -701,6 +734,8 @@ def room_assistant_chat(
         response = _intent_only_response(
             payload, normalization, detection,
             conversation_id=conversation.id,
+            db=db,
+            user_id=user.id,
             confidence=confidence,
             message_override=message,
             reservations=reservations,
@@ -728,6 +763,8 @@ def room_assistant_chat(
                 response = _intent_only_response(
                     payload, normalization, detection,
                     conversation_id=conversation.id,
+                    db=db,
+                    user_id=user.id,
                     confidence=confidence,
                     message_override=message,
                     rooms=room_data,
@@ -752,6 +789,8 @@ def room_assistant_chat(
         response = _intent_only_response(
             payload, normalization, detection,
             conversation_id=conversation.id,
+            db=db,
+            user_id=user.id,
             confidence=confidence,
             message_override=clarify,
         )
@@ -762,6 +801,8 @@ def room_assistant_chat(
         response = _intent_only_response(
             payload, normalization, detection,
             conversation_id=conversation.id,
+            db=db,
+            user_id=user.id,
             confidence=confidence,
         )
         db.commit()
@@ -821,6 +862,8 @@ def room_assistant_chat(
             payload, normalization, detection,
             missing_fields=["date", "start_time", "end_time"],
             conversation_id=conversation.id,
+            db=db,
+            user_id=user.id,
             confidence=confidence,
             confidence_basis="AI_FALLBACK" if ai_fallback_used else "RULE_HEURISTIC",
             engine="HYBRID" if ai_fallback_used else "RULE_BASED",
@@ -830,7 +873,7 @@ def room_assistant_chat(
             requires_clarification=True,
             privacy_message=(
                 "Pesan saat ini yang telah disamarkan dikirim ke penyedia AI hanya untuk interpretasi intent. "
-                "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+                "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
             ) if ai_fallback_used else None,
             ai_fallback_used=ai_fallback_used,
             slots_override=pending_slots,
@@ -968,6 +1011,8 @@ def room_assistant_chat(
             alternative_slots=alternatives,
             follow_up_questions=follow_up,
             availability_checked=has_complete_availability_window,
+            db=db,
+            user_id=user.id,
         )
     structured_response = AssistantChatResponseData(
         message=response_message,
@@ -996,11 +1041,11 @@ def room_assistant_chat(
         reservation_action="NOT_CREATED",
         privacy=(
             "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
-            "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim."
+            "Riwayat percakapan, identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
         ) if ai_response_used else (
             "Pesan saat ini dikirim ke penyedia AI hanya untuk interpretasi intent. Riwayat percakapan, "
-            "identitas akun, dan data reservasi pribadi tidak dikirim."
-        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit.",
+            "identitas akun, dan data reservasi pribadi tidak dikirim. Umpan balik manual hanya menyimpan penilaian dan kode alasan."
+        ) if ai_fallback_used else "Pesan asli tidak disimpan. Slot pencarian terstruktur disimpan sementara selama maksimal 30 menit. Umpan balik manual hanya menyimpan penilaian dan kode alasan.",
     )
     save_conversation_state(db, conversation, intent=detection.intent, slots=filters)
     record_assistant_outcome(
