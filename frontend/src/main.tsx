@@ -6,6 +6,12 @@ import { App } from "./App";
 import "./styles/tokens.css";
 import "./styles.css";
 
+// Auth pages live outside AppShell, so initialize the saved theme before any route renders.
+if (typeof window !== "undefined") {
+  document.documentElement.dataset.theme =
+    window.localStorage.getItem("rk-theme") === "dark" ? "dark" : "light";
+}
+
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   const baseUrl = import.meta.env.BASE_URL;
   window.addEventListener("load", () => {
