@@ -95,7 +95,7 @@ export function ForgotPasswordPage() {
     event.preventDefault(); setBusy(true); setError(""); setSuccess("");
     try {
       if (token) {
-        if (password.length < 10) throw new Error("Password baru minimal 10 karakter.");
+        if (password.length < 8) throw new Error("Password baru minimal 8 karakter.");
         if (password !== confirm) throw new Error("Konfirmasi password belum sama.");
         await authApi.resetPassword(token, password);
         setSuccess("Password berhasil diperbarui. Silakan masuk kembali.");
@@ -118,8 +118,8 @@ export function ForgotPasswordPage() {
       <p className="muted">{token ? "Gunakan password baru yang kuat dan mudah Anda ingat." : "Masukkan email akun Anda untuk meminta instruksi reset password."}</p>
       <form className="stack-form" onSubmit={submit}>
         {token ? <>
-          <Field label="Password baru"><input type="password" minLength={10} value={password} onChange={(event) => setPassword(event.target.value)} required /></Field>
-          <Field label="Konfirmasi password"><input type="password" minLength={10} value={confirm} onChange={(event) => setConfirm(event.target.value)} required /></Field>
+          <Field label="Password baru"><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></Field>
+          <Field label="Konfirmasi password"><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required /></Field>
         </> : <Field label="Email kampus"><input type="email" autoComplete="email" placeholder="nama@kampus.ac.id" value={email} onChange={(event) => setEmail(event.target.value)} required /></Field>}
         {error ? <Notice tone="error">{error}</Notice> : null}
         {success ? <Notice tone="success">{success}</Notice> : null}
