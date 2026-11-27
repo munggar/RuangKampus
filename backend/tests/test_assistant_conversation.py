@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from ruangkampus.models import AssistantConversation
 from ruangkampus.services.assistant_conversation import (
+    is_new_room_search_request,
     load_or_create_conversation,
     merge_room_slots,
     save_conversation_state,
@@ -122,3 +123,41 @@ def test_expired_conversation_rotates_identifier(db_session, student):
     )
     assert fresh.id != old_id
     assert fresh.state == {"version": 1, "slots": {}}
+
+
+
+def test_new_search_phrase_is_distinguished_from_incremental_filter_reply():
+    assert is_new_room_search_request("aku mau mencari ruang buat rapat organisasi minggu depan")
+    assert not is_new_room_search_request("pesertanya sekitar 18 sampai 25 orang")
+    assert not is_new_room_search_request("kalau bisa hari Rabu setelah kelas")
+
+
+def test_changed_date_does_not_inherit_previous_days_time_window():
+    previous = {
+        "slots": {
+            "date": "2026-11-30",
+            "start_time": "10:00:00",
+            "end_time": "12:00:00",
+            "min_capacity": 20,
+            "participant_count": 20,
+        }
+    }
+    current = {
+        "faculty": None,
+        "building": None,
+        "min_capacity": None,
+        "facilities": [],
+        "date": date(2026, 12, 2),
+        "start_time": None,
+        "end_time": None,
+        "participant_count": 1,
+        "search_terms": [],
+    }
+
+    merged = merge_room_slots(current, previous, message="hari Rabu setelah kelas")
+
+    assert merged["date"] == date(2026, 12, 2)
+    assert merged["start_time"] is None
+    assert merged["end_time"] is None
+    assert merged["min_capacity"] == 20
+    assert merged["participant_count"] == 20
