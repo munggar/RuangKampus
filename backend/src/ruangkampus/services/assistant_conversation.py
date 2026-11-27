@@ -119,7 +119,7 @@ def merge_room_slots(
         return merged
     explicit = explicitly_supplied or set()
     question_suffix = bool(re.search(r"\b(?:ga|gak|nggak|enggak|tidak)\s*[?!.,]*$", text))
-    yes_no_question = bool(re.search(r"\b(?:ada|apakah|punya)\b", text))
+    yes_no_question = bool(re.search(r"\b(?:ada|apakah|punya|bisa|boleh|mau|dapat)\b", text))
     has_negation = bool(re.search(r"\b(tidak|bukan|jangan|tanpa|kecuali)\b", text)) and not (
         question_suffix and yes_no_question
     )
