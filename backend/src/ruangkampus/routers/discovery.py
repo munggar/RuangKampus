@@ -433,29 +433,18 @@ def _parse_message_filters(
 
     start_time, end_time = payload.start_time, payload.end_time
     if start_time is None and end_time is None:
-        time_match = re.search(
-            r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*(?:-|–|—|s/d|sd|sampai|hingga|to)\s*([01]?\d|2[0-3])[:.]([0-5]\d)\b",
-            message,
-        )
-        if time_match:
-            start_time = time(int(time_match.group(1)), int(time_match.group(2)))
-            end_time = time(int(time_match.group(3)), int(time_match.group(4)))
+        time_range = _parse_time_range_follow_up(message)
+        if time_range is not None:
+            start_time, end_time = time_range
         else:
             single_time = re.search(
                 r"\b(?:jam|pukul)\s*(\d{1,2})(?:[:.]([0-5]\d))?\s*(pagi|siang|sore|malam)?\b",
                 message,
             )
             if single_time:
-                hour = int(single_time.group(1))
-                minute = int(single_time.group(2) or 0)
-                period = single_time.group(3)
-                if period in {"pagi", "malam"} and hour == 12:
-                    hour = 0
-                elif period in {"siang", "sore", "malam"} and hour < 12:
-                    hour += 12
-                if 0 <= hour <= 23:
-                    start_time = time(hour, minute)
-
+                parsed = _clock_time(single_time.group(1), single_time.group(2), single_time.group(3))
+                if parsed is not None:
+                    start_time = parsed
     # An activity's purpose is not always a room-name/description filter.
     # Keep explicit types ("ruang rapat") searchable but ignore "buat rapat".
     search_message = re.sub(
