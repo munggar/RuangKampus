@@ -2099,3 +2099,17 @@ button, a, input, select, textarea { touch-action: manipulation; }
   text-overflow: ellipsis;
 }
 .input-with-action .field-action { z-index: 2; }
+
+
+/* Brand backgrounds follow their actual surface; never keep the old light logo panel. */
+.brand-link,
+.brand-link:hover,
+.brand-link:focus-visible {
+  background: transparent !important;
+}
+.brand-link .brand-lockup__words b { color: var(--text-primary); }
+.brand-link .brand-lockup__words small { color: var(--brand-primary); }
+
+/* The public auth hero intentionally remains a light brand surface in dark mode. */
+.auth-brand .brand-lockup__words b { color: var(--text-brand-identity); }
+.auth-brand .brand-lockup__words small { color: var(--text-brand-identity-secondary); }
