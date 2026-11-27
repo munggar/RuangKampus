@@ -595,7 +595,6 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 .assistant-room-card__window { color: var(--text-secondary); font-size: 9px; }
 .assistant-room-card__cta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 5px; color: var(--brand-primary); font-size: 10px; font-weight: 750; }
 .assistant-room-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 11px; border: 1px solid var(--border-default); border-radius: 10px; color: var(--text-primary); background: var(--surface-card); text-decoration: none; }
-.assistant-room-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 11px; border: 1px solid var(--border-default); border-radius: 10px; color: var(--text-primary); background: var(--surface-card); text-decoration: none; }
 .assistant-room-link span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .assistant-room-link b { font-size: 12px; }
 .assistant-room-link small { overflow: hidden; color: var(--text-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
