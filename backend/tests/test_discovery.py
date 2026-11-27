@@ -1026,3 +1026,213 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
     assert hours_data["slots"]["min_capacity"] == 25
     assert hours_data["slots"]["participant_count"] == 25
     assert room["id"] in {item["id"] for item in hours_data["rooms"]}
+
+
+
+def test_rukka_adds_follow_up_facilities_and_understands_reservation_time_request(
+    client, auth_headers, student, admin, room_payload, db_session
+):
+    from sqlalchemy import func, select
+    from ruangkampus.models import Reservation
+
+    payload = {
+        **room_payload,
+        "room_name": "Studio Zeta 10+",
+        "room_code": "RK-STUDIO-ZETA",
+        "capacity": 12,
+        "facilities": ["air conditioner", "wifi", "projector"],
+    }
+    created = client.post(
+        "/api/v1/rooms",
+        json=payload,
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created.status_code == 201, created.text
+    room = created.json()["data"]
+    headers = auth_headers()
+
+    first = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan untuk 10 orang dengan AC dan Wi-Fi"},
+        headers=headers,
+    )
+    assert first.status_code == 200, first.text
+    first_data = first.json()["data"]
+    conversation_id = first_data["conversation_id"]
+    assert room["id"] in {item["id"] for item in first_data["rooms"]}
+    assert first_data["slots"]["min_capacity"] == 10
+    assert first_data["slots"]["facilities"] == ["air conditioner", "wifi"]
+
+    projector = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "ada proyektor nya ga?",
+            "conversation_id": conversation_id,
+        },
+        headers=headers,
+    )
+    assert projector.status_code == 200, projector.text
+    projector_data = projector.json()["data"]
+    assert projector_data["slots"]["min_capacity"] == 10
+    assert set(projector_data["slots"]["facilities"]) == {
+        "air conditioner", "wifi", "projector",
+    }
+    assert room["id"] in {item["id"] for item in projector_data["rooms"]}
+
+    air_conditioner = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "ada AC nya ga?",
+            "conversation_id": conversation_id,
+        },
+        headers=headers,
+    )
+    assert air_conditioner.status_code == 200, air_conditioner.text
+    ac_data = air_conditioner.json()["data"]
+    assert set(ac_data["slots"]["facilities"]) == {
+        "air conditioner", "wifi", "projector",
+    }
+    assert room["id"] in {item["id"] for item in ac_data["rooms"]}
+
+    requested_slot = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "coba Senin jam 10 sampe jam 12 bisa bantu reservasiin sekalian ga",
+            "conversation_id": conversation_id,
+        },
+        headers=headers,
+    )
+    assert requested_slot.status_code == 200, requested_slot.text
+    slot_data = requested_slot.json()["data"]
+    selected_date = date.fromisoformat(slot_data["slots"]["date"])
+    assert selected_date.weekday() == 0
+    assert selected_date > date.today()
+    assert slot_data["intent"] == "ROOM_AVAILABILITY"
+    assert slot_data["slots"]["start_time"] == "10:00:00"
+    assert slot_data["slots"]["end_time"] == "12:00:00"
+    assert slot_data["slots"]["participant_count"] == 10
+    assert set(slot_data["slots"]["facilities"]) == {
+        "air conditioner", "wifi", "projector",
+    }
+    assert room["id"] in {item["id"] for item in slot_data["rooms"]}
+    assert slot_data["reservation_action"] == "NOT_CREATED"
+    assert slot_data["result_type"] == "ROOMS_FOUND"
+    assert db_session.scalar(select(func.count()).select_from(Reservation)) == 0
+    assert "belum dikirim otomatis" in slot_data["message"].lower()
+
+
+def test_rukka_ranks_smallest_room_that_fits_requested_capacity_first(
+    client, auth_headers, student, admin, room_payload
+):
+    headers = auth_headers("admin.uhamka")
+    large = client.post(
+        "/api/v1/rooms",
+        json={
+            **room_payload,
+            "room_name": "Aula Alpha Besar",
+            "room_code": "RK-AULA-ALPHA",
+            "capacity": 40,
+            "facilities": ["air conditioner", "wifi"],
+        },
+        headers=headers,
+    )
+    small = client.post(
+        "/api/v1/rooms",
+        json={
+            **room_payload,
+            "room_name": "Studio Zeta Kecil",
+            "room_code": "RK-STUDIO-ZETA-KECIL",
+            "capacity": 12,
+            "facilities": ["air conditioner", "wifi"],
+        },
+        headers=headers,
+    )
+    assert large.status_code == 201, large.text
+    assert small.status_code == 201, small.text
+
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan untuk 10 orang dengan AC dan Wi-Fi"},
+        headers=auth_headers(),
+    )
+    assert response.status_code == 200, response.text
+    rooms = response.json()["data"]["rooms"]
+    assert rooms[0]["id"] == small.json()["data"]["id"]
+    assert rooms[0]["capacity"] == 12
+
+
+def test_rukka_explains_when_matching_rooms_have_no_operating_hours(
+    client, auth_headers, student, admin, room_payload, db_session
+):
+    from uuid import UUID
+    from sqlalchemy import select
+    from ruangkampus.models import Room
+
+    created = client.post(
+        "/api/v1/rooms",
+        json={
+            **room_payload,
+            "room_name": "Room Without Operating Hours",
+            "room_code": "RK-NO-OPERATING-HOURS",
+            "capacity": 30,
+            "facilities": ["air conditioner", "wifi"],
+        },
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created.status_code == 201, created.text
+    room_id = UUID(created.json()["data"]["id"])
+    room = db_session.scalar(select(Room).where(Room.id == room_id))
+    room.operating_hours = {}
+    db_session.commit()
+
+    requested_date = future_weekday(0)
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": (
+                f"Carikan ruang untuk 10 orang tanggal {requested_date.isoformat()} "
+                "jam 10 sampe jam 12 dengan AC dan Wi-Fi"
+            )
+        },
+        headers=auth_headers(),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["result_type"] == "NO_RESULTS"
+    assert data["rooms"] == []
+    assert "jam operasional ruangannya belum diatur" in data["message"].lower()
+    assert "belum bisa memastikan" in data["message"].lower()
+
+
+def test_rukka_does_not_let_generated_prose_replace_room_search_facts(
+    client, auth_headers, student, admin, room_payload, monkeypatch
+):
+    from ruangkampus.routers import discovery
+
+    def fail_provider(*args, **kwargs):
+        raise AssertionError("room-search facts must not be rewritten by the text-generation provider")
+
+    monkeypatch.setattr(discovery, "generate_grounded_assistant_message", fail_provider)
+    created = client.post(
+        "/api/v1/rooms",
+        json={
+            **room_payload,
+            "room_name": "Grounded RUKKA Room",
+            "room_code": "RK-GROUNDED-RUKKA",
+            "capacity": 20,
+            "facilities": ["air conditioner", "wifi"],
+        },
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created.status_code == 201, created.text
+
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Carikan ruangan untuk 10 orang dengan AC dan Wi-Fi"},
+        headers=auth_headers(),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["engine"] == "RULE_BASED"
+    assert created.json()["data"]["id"] in {item["id"] for item in data["rooms"]}
+    assert "nemu 1 ruang" in data["message"].lower()
