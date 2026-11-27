@@ -264,13 +264,24 @@ def cancel_reservation(reservation_id: UUID, payload: ReservationCancelIn | None
         raise HTTPException(status_code=409, detail="Only pending or approved reservations can be cancelled")
     campus_now = utcnow().astimezone(ZoneInfo(get_settings().campus_timezone))
     start_at = campus_now.combine(reservation.reservation_date, reservation.start_time, tzinfo=ZoneInfo(get_settings().campus_timezone))
-    if start_at <= campus_now:
+    cancellation_reason = payload.reason.strip() if payload and payload.reason else None
+
+    # Staff Sekretariat can override the start-time cutoff for every room.
+    # A reason is mandatory so the exceptional cancellation is traceable.
+    if user.role == "TU_ADMIN":
+        if not cancellation_reason:
+            raise HTTPException(
+                status_code=422,
+                detail="Staff Sekretariat wajib mengisi alasan pembatalan.",
+            )
+    elif start_at <= campus_now:
         raise HTTPException(status_code=409, detail="A reservation cannot be cancelled after its start time")
+
     previous_status = reservation.status
     reservation.status = "CANCELLED"
     reservation.cancelled_at = utcnow()
     reservation.updated_at = utcnow()
-    reservation.cancellation_reason = payload.reason.strip() if payload and payload.reason else None
+    reservation.cancellation_reason = cancellation_reason
     reservation.cancelled_by_id = user.id
     if user.role == "TU_ADMIN":
         reservation.admin_id = user.id
