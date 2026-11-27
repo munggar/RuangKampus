@@ -1111,6 +1111,7 @@ def test_rukka_adds_follow_up_facilities_and_understands_reservation_time_reques
     assert slot_data["slots"]["start_time"] == "10:00:00"
     assert slot_data["slots"]["end_time"] == "12:00:00"
     assert slot_data["slots"]["participant_count"] == 10
+    assert slot_data["slots"]["search_terms"] == []
     assert set(slot_data["slots"]["facilities"]) == {
         "air conditioner", "wifi", "projector",
     }
