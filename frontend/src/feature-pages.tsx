@@ -420,7 +420,11 @@ export function RoomAssistantPage() {
             <p>{turn.message}</p>
             {turn.sender === "assistant" && turn.engine ? (
               <small className={"assistant-message__engine assistant-message__engine--" + turn.engine.toLowerCase()}>
-                {turn.engine === "HYBRID" ? "AI aktif" : "Mode standar"}
+                {turn.engine === "HYBRID"
+                  ? "AI aktif"
+                  : ["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"].includes(turn.intent || "")
+                    ? "Data kampus terverifikasi"
+                    : "Mode standar"}
               </small>
             ) : null}
             {turn.sender === "assistant" && turn.intent ? (
