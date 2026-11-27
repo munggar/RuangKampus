@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { IconArrowRight as ArrowRight, IconEye as Eye, IconEyeOff as EyeOff, IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ApiError, authApi, isApiConfigured } from "./api";
 import { useAuth } from "./auth";
@@ -8,7 +8,9 @@ import { Button, Field, Notice } from "./ui";
 
 function BrandHero() {
   return <aside className="auth-hero">
-    <div className="auth-brand"><img className="brand-logo brand-logo--auth" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." /></div>
+    <div className="auth-brand">
+      <img className="brand-logo brand-logo--auth" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
+    </div>
     <div className="auth-hero__text">
       <p className="eyebrow">CAMPUS FACILITY RESERVATIONS</p>
       <h1>Make room for great ideas.</h1>

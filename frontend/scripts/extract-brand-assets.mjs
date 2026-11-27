@@ -17,6 +17,21 @@ const requiredHashes = new Map([
   ["public/brand/favicon/site.webmanifest", "89aea36bfa6672353cd32d5b443399357512852c4027e6c1f6361c6952d76ea5"],
 ]);
 
+let existingAssetsVerified = true;
+for (const [assetPath, expectedHash] of requiredHashes) {
+  try {
+    const bytes = await readFile(path.resolve(assetPath));
+    const actualHash = createHash("sha256").update(bytes).digest("hex");
+    if (actualHash !== expectedHash) existingAssetsVerified = false;
+  } catch {
+    existingAssetsVerified = false;
+  }
+}
+if (existingAssetsVerified) {
+  console.log("Verified existing official brand assets; no download was needed.");
+  process.exit(0);
+}
+
 function crc32(buffer) {
   let crc = 0xffffffff;
   for (const byte of buffer) {

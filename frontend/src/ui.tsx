@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Check, Info, LoaderCircle, X } from "lucide-react";
+import { IconAlertCircle as AlertCircle, IconCheck as Check, IconInfoCircle as Info, IconLoader2 as LoaderCircle, IconX as X } from "@tabler/icons-react";
 import { statusLabel } from "./api";
 import type { ReservationStatus } from "./types";
 

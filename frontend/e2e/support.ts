@@ -354,6 +354,8 @@ export async function installMockApi(page: Page, initialRole: NullableRole): Pro
       let filtered = [...reservations];
       const status = url.searchParams.get("status");
       if (status) filtered = filtered.filter((item) => item.status === status);
+      const dateFrom = url.searchParams.get("dateFrom");
+      if (dateFrom) filtered = filtered.filter((item) => item.reservation_date >= dateFrom);
       const dateTo = url.searchParams.get("dateTo");
       if (dateTo) filtered = filtered.filter((item) => item.reservation_date <= dateTo);
       return paged(route, filtered);
@@ -557,7 +559,9 @@ export const test = base.extend({
         const expected =
           (status === 401 && path === "/api/v1/auth/refresh") ||
           (status === 401 && path === "/api/v1/auth/login" && /invalid login/i.test(testInfo.title)) ||
-          (status === 503 && path === "/api/v1/rooms" && /API error/i.test(testInfo.title));
+          (status === 503 && path === "/api/v1/rooms" && /API error/i.test(testInfo.title)) ||
+          (status === 503 && path === "/api/v1/dashboard/summary" && /dashboard summary API failure/i.test(testInfo.title)) ||
+          (status === 503 && path === "/api/v1/assistant/chat" && /RUKKA error retry/i.test(testInfo.title));
         if (expected) expectedHttpStatuses.add(status);
         diagnostics.push({
           type: "http-response-error", expected: expected ? "true" : "false",

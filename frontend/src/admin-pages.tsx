@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  ArrowRight, Building2, CalendarClock, CalendarDays, CheckCircle2, Clock3, ClipboardList,
-  Edit3, FileSpreadsheet, Plus, Search, Trash2, Users,
-} from "lucide-react";
+  IconArrowRight as ArrowRight, IconBuilding as Building2, IconCalendarClock as CalendarClock,
+  IconCalendar as CalendarDays, IconCircleCheck as CheckCircle2, IconClock as Clock3,
+  IconClipboardList as ClipboardList, IconEdit as Edit3, IconFileSpreadsheet as FileSpreadsheet,
+  IconPlus as Plus, IconSearch as Search, IconTrash as Trash2, IconUsers as Users,
+} from "@tabler/icons-react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   adminApi, apiAssetUrl, dashboardApi, formatDate, formatTime, localToday, reservationApi, roomApi,
   scheduleApi, statusLabel,
 } from "./api";
-import type { Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from "./types";
+import type { DashboardSummary, Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from "./types";
 import { PageTitle } from "./layout";
 import { Button, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
 
@@ -61,26 +63,45 @@ function reservationTiming(item: Reservation, now: number) {
 }
 
 export function AdminDashboardPage() {
-  const [summary, setSummary] = useState<Record<string, number | string> | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [recent, setRecent] = useState<Reservation[]>([]);
   const [stats, setStats] = useState<Array<{ room_id: string; room_name: string; building: string; reservation_count: number }>>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [summaryError, setSummaryError] = useState("");
+  const [recentError, setRecentError] = useState("");
+  const [statsError, setStatsError] = useState("");
+  const [pending, setPending] = useState<Reservation[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
+  const [pendingError, setPendingError] = useState("");
   const [todayReservations, setTodayReservations] = useState<Reservation[]>([]);
   const [monitorNow, setMonitorNow] = useState(() => Date.now());
   const [monitorError, setMonitorError] = useState("");
   const [finishTarget, setFinishTarget] = useState<Reservation | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<Reservation | null>(null);
+  const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
+  const [reviewReason, setReviewReason] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   useEffect(() => {
     let active = true;
-    Promise.all([dashboardApi.summary(), dashboardApi.recent(6), adminApi.roomStatistics()])
+    Promise.allSettled([dashboardApi.summary(), dashboardApi.recent(6), adminApi.roomStatistics()])
       .then(([overview, latest, usage]) => {
         if (!active) return;
-        setSummary(overview); setRecent(latest.items); setStats(usage);
+        if (overview.status === "fulfilled") { setSummary(overview.value); setSummaryError(""); }
+        else setSummaryError(overview.reason instanceof Error ? overview.reason.message : "Ringkasan dashboard belum dapat dimuat.");
+        if (latest.status === "fulfilled") { setRecent(latest.value.items); setRecentError(""); }
+        else setRecentError(latest.reason instanceof Error ? latest.reason.message : "Permohonan terbaru belum dapat dimuat.");
+        if (usage.status === "fulfilled") { setStats(usage.value); setStatsError(""); }
+        else setStatsError(usage.reason instanceof Error ? usage.reason.message : "Statistik penggunaan ruang belum dapat dimuat.");
       })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Dashboard belum dapat dimuat."); })
       .finally(() => { if (active) setLoading(false); });
+    const pendingParams = new URLSearchParams({ page: "1", limit: "5", status: "PENDING" });
+    reservationApi.list(pendingParams)
+      .then((result) => { if (active) setPending(result.items); })
+      .catch((cause) => { if (active) setPendingError(cause instanceof Error ? cause.message : "Antrian permohonan belum dapat dimuat."); })
+      .finally(() => { if (active) setPendingLoading(false); });
     return () => { active = false; };
   }, []);
 
@@ -88,7 +109,7 @@ export function AdminDashboardPage() {
     let active = true;
     const refreshToday = () => {
       const today = localToday();
-      const params = new URLSearchParams({ page: "1", limit: "100", status: "APPROVED", dateTo: today });
+      const params = new URLSearchParams({ page: "1", limit: "100", status: "APPROVED", dateFrom: today, dateTo: today });
       reservationApi.list(params)
         .then((result) => {
           if (active) setTodayReservations(result.items.sort((a, b) => a.reservation_date.localeCompare(b.reservation_date) || a.start_time.localeCompare(b.start_time)));
@@ -124,16 +145,133 @@ export function AdminDashboardPage() {
     }
   }
 
+  function openReview(item: Reservation, nextAction: "approve" | "reject") {
+    setReviewTarget(item);
+    setReviewAction(nextAction);
+    setReviewReason("");
+    setReviewError("");
+  }
+
+  async function submitReview() {
+    if (!reviewTarget || !reviewAction || reviewBusy) return;
+    if (reviewAction === "reject" && reviewReason.trim().length < 3) {
+      setReviewError("Alasan penolakan minimal 3 karakter.");
+      return;
+    }
+    setReviewBusy(true);
+    setReviewError("");
+    try {
+      if (reviewAction === "approve") await reservationApi.approve(reviewTarget.id);
+      else await reservationApi.reject(reviewTarget.id, reviewReason.trim());
+      setPending((current) => current.filter((item) => item.id !== reviewTarget.id));
+      setReviewTarget(null);
+      setReviewAction(null);
+      setReviewReason("");
+      const [overview, latest, usage] = await Promise.allSettled([
+        dashboardApi.summary(), dashboardApi.recent(6), adminApi.roomStatistics(),
+      ]);
+      if (overview.status === "fulfilled") { setSummary(overview.value); setSummaryError(""); }
+      else setSummaryError(overview.reason instanceof Error ? overview.reason.message : "Ringkasan dashboard belum dapat dimuat.");
+      if (latest.status === "fulfilled") { setRecent(latest.value.items); setRecentError(""); }
+      else setRecentError(latest.reason instanceof Error ? latest.reason.message : "Permohonan terbaru belum dapat dimuat.");
+      if (usage.status === "fulfilled") { setStats(usage.value); setStatsError(""); }
+      else setStatsError(usage.reason instanceof Error ? usage.reason.message : "Statistik penggunaan ruang belum dapat dimuat.");
+    } catch (cause) {
+      setReviewError(cause instanceof Error ? cause.message : "Keputusan belum berhasil disimpan.");
+      if (reviewAction === "approve") { setReviewTarget(null); setReviewAction(null); }
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  const statusRows = [
+    { key: "pending", label: "Menunggu", tone: "pending" },
+    { key: "approved", label: "Disetujui", tone: "approved" },
+    { key: "rejected", label: "Ditolak", tone: "rejected" },
+    { key: "cancelled", label: "Dibatalkan", tone: "cancelled" },
+    { key: "completed", label: "Selesai", tone: "completed" },
+  ] as const;
+  const statusTotal = statusRows.reduce((sum, item) => sum + (summary?.[item.key] || 0), 0);
+  const topRoomCount = Math.max(0, ...stats.map((item) => item.reservation_count));
+
   return <div className="page-stack">
-    <PageTitle eyebrow="STAFF SEKRETARIAT DASHBOARD" title="Selamat datang, Administrator" description="Pantau pengajuan reservasi dan pengelolaan fasilitas kampus." action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruang</Link>} />
-    {error ? <Notice tone="error">{error}</Notice> : null}
+    <PageTitle eyebrow="PUSAT OPERASI KAMPUS" title="Ringkasan operasional" description="Pantau permohonan, penggunaan ruang, dan pekerjaan administrasi dari satu tempat." action={<Link className="button button--primary" to="/admin/reservations?status=PENDING"><ClipboardList size={17} />Tinjau permohonan</Link>} />
     {loading ? <Loading label="Memuat ringkasan administrasi…" /> : <>
-      <div className="stat-grid stat-grid--four">
-        <article className="stat-card"><div className="stat-card__top"><span>Total reservasi</span><CalendarDays size={18} /></div><strong>{Number(summary?.total_reservations || 0)}</strong><small>Seluruh status</small></article>
-        <article className="stat-card"><div className="stat-card__top"><span>Permohonan menunggu</span><Clock3 size={18} /></div><strong>{Number(summary?.pending || 0)}</strong><small>Menunggu peninjauan</small></article>
-        <article className="stat-card"><div className="stat-card__top"><span>Disetujui</span><CheckCircle2 size={18} /></div><strong>{Number(summary?.approved || 0)}</strong><small>Reservasi terkonfirmasi</small></article>
-        <article className="stat-card"><div className="stat-card__top"><span>Total ruangan</span><Building2 size={18} /></div><strong>{Number(summary?.total_rooms || 0)}</strong><small>{Number(summary?.active_rooms || 0)} ruangan aktif</small></article>
+      {summaryError ? <Notice tone="error">{summaryError} Ringkasan status dan inventaris tidak ditampilkan sampai data berhasil dimuat.</Notice> : <div className="admin-stat-grid">
+        <Link className="admin-stat-card admin-stat-card--action" to="/admin/reservations?status=PENDING">
+          <span className="admin-stat-card__icon admin-stat-card__icon--pending"><Clock3 size={18} /></span>
+          <span className="admin-stat-card__label">Menunggu peninjauan</span>
+          <strong>{summary?.pending ?? 0}</strong>
+          <small>Permohonan berstatus pending</small><ArrowRight className="admin-stat-card__arrow" size={16} />
+        </Link>
+        <article className="admin-stat-card">
+          <span className="admin-stat-card__icon admin-stat-card__icon--approved"><CheckCircle2 size={18} /></span>
+          <span className="admin-stat-card__label">Reservasi disetujui</span>
+          <strong>{summary?.approved ?? 0}</strong>
+          <small>Total sepanjang waktu</small>
+        </article>
+        <Link className="admin-stat-card admin-stat-card--action" to="/admin/rooms">
+          <span className="admin-stat-card__icon admin-stat-card__icon--rooms"><Building2 size={18} /></span>
+          <span className="admin-stat-card__label">Inventaris ruangan</span>
+          <strong>{summary?.total_rooms ?? 0}</strong>
+          <small>{summary?.active_rooms ?? 0} aktif · sisanya nonaktif/pemeliharaan</small><ArrowRight className="admin-stat-card__arrow" size={16} />
+        </Link>
+        <article className="admin-stat-card">
+          <span className="admin-stat-card__icon admin-stat-card__icon--total"><CalendarDays size={18} /></span>
+          <span className="admin-stat-card__label">Total reservasi</span>
+          <strong>{summary?.total_reservations ?? 0}</strong>
+          <small>Gabungan seluruh status</small>
+        </article>
+      </div>}
+      <div className="admin-analytics-grid">
+        <PageSection title="Distribusi status" action={<span className="admin-chart-caption">Total {statusTotal} reservasi</span>}>
+          <div className="admin-chart-panel">
+            {summaryError ? <Notice tone="error">Distribusi status tidak dapat ditampilkan karena ringkasan belum tersedia.</Notice> : statusTotal ? <div className="admin-status-chart">
+              {statusRows.map((item) => {
+                const value = summary?.[item.key] || 0;
+                const percent = Math.round(value / statusTotal * 100);
+                return <label className="admin-status-row" key={item.key}>
+                  <span className={"admin-status-dot admin-status-dot--" + item.tone} aria-hidden="true" />
+                  <span className="admin-status-row__label">{item.label}</span>
+                  <progress className={"admin-progress admin-progress--" + item.tone} max={statusTotal} value={value} aria-label={item.label + ": " + value + " reservasi"} />
+                  <strong>{value}</strong><small>{percent}%</small>
+                </label>;
+              })}
+            </div> : <EmptyState title="Belum ada data reservasi" description="Distribusi status akan muncul setelah data reservasi tersedia." icon={<ClipboardList size={21} />} />}
+          </div>
+        </PageSection>
+        <PageSection title="Ruang dengan reservasi terbanyak" action={<span className="admin-chart-caption">Disetujui & selesai · sepanjang waktu</span>}>
+          <div className="admin-chart-panel">
+            {statsError ? <Notice tone="error">{statsError}</Notice> : stats.length && topRoomCount > 0 ? <div className="admin-room-chart">
+              {stats.slice(0, 5).map((item, index) => <div className="admin-room-chart__row" key={item.room_id}>
+                <span className="admin-room-chart__rank">{String(index + 1).padStart(2, "0")}</span>
+                <span className="admin-room-chart__name"><b>{item.room_name}</b><small>{item.building}</small></span>
+                <progress className="admin-progress admin-progress--room" max={topRoomCount} value={item.reservation_count} aria-label={item.room_name + ": " + item.reservation_count + " reservasi disetujui atau selesai"} />
+                <strong>{item.reservation_count}</strong>
+              </div>)}
+            </div> : <EmptyState title="Belum ada penggunaan tercatat" description="Peringkat ini menghitung reservasi yang disetujui atau selesai dari data backend." icon={<Building2 size={21} />} />}
+          </div>
+        </PageSection>
       </div>
+      <PageSection title="Perlu ditinjau" action={<Link className="text-link" to="/admin/reservations?status=PENDING">Buka antrian <ArrowRight size={15} /></Link>}>
+        {pendingError ? <Notice tone="error">{pendingError}</Notice> : null}
+        {reviewError && reviewAction !== "reject" ? <Notice tone="error">{reviewError}</Notice> : null}
+        {pendingLoading ? <Loading label="Memuat antrian permohonan…" /> : pending.length ? <div className="admin-pending-list">
+          {pending.map((item) => <article className="admin-pending-row" key={item.id}>
+            <div className="admin-pending-row__main">
+              <div className="admin-pending-row__title"><b>{item.applicant?.name || "Mahasiswa"}</b><StatusBadge status={item.status} /></div>
+              <p>{item.room?.room_name || "Ruangan"} · {item.room?.building || "Lokasi kampus"}</p>
+              <small>{formatDate(item.reservation_date)} · {formatTime(item.start_time)}–{formatTime(item.end_time)} WIB · {item.participant_count} peserta</small>
+              <span className="admin-pending-row__purpose">{item.purpose}</span>
+            </div>
+            <div className="admin-pending-row__actions">
+              <Link className="button button--secondary" to={"/admin/reservations/" + item.id}>Detail</Link>
+              <Button disabled={reviewBusy} onClick={() => openReview(item, "approve")}>Setujui</Button>
+              <Button variant="danger" disabled={reviewBusy} onClick={() => openReview(item, "reject")}>Tolak</Button>
+            </div>
+          </article>)}
+        </div> : <EmptyState title="Tidak ada permohonan menunggu" description="Antrian ini hanya menampilkan permohonan berstatus pending." action={<Link className="button button--secondary" to="/admin/reservations">Lihat seluruh permohonan</Link>} icon={<CheckCircle2 size={21} />} />}
+      </PageSection>
       <PageSection title="Pemantauan reservasi & keterlambatan" action={<div className="reservation-monitor-toolbar">
           <div className="campus-clock" aria-label={`Waktu kampus ${formatCampusClock(monitorNow)} WIB`}>
             <Clock3 size={16} aria-hidden="true" />
@@ -173,21 +311,19 @@ export function AdminDashboardPage() {
         </div> : <EmptyState title="Tidak ada reservasi untuk dipantau" description="Reservasi hari ini dan sesi terdahulu yang belum dikonfirmasi selesai akan muncul di sini." icon={<Clock3 size={22} />} />}
       </PageSection>
       <PageSection title="Permohonan terbaru" action={<Link className="text-link" to="/admin/reservations">Lihat semua <ArrowRight size={15} /></Link>}>
-        {recent.length ? <div className="table-wrap"><table className="data-table">
-          <thead><tr><th>Pemohon</th><th>Ruangan</th><th>Tanggal & waktu</th><th>Status</th><th /></tr></thead>
+        {recentError ? <Notice tone="error">{recentError}</Notice> : recent.length ? <div className="table-wrap"><table className="data-table">
+          <thead><tr><th>Pemohon</th><th>Ruangan</th><th>Jadwal</th><th>Keperluan</th><th>Status</th><th /></tr></thead>
           <tbody>{recent.map((item) => <tr key={item.id}>
             <td><b>{item.applicant?.name || "Mahasiswa"}</b><small>{item.applicant?.email || ""}</small></td>
             <td>{item.room?.room_name || "Ruangan"}</td>
             <td>{formatDate(item.reservation_date)}<small>{formatTime(item.start_time)}–{formatTime(item.end_time)} WIB</small></td>
+            <td className="admin-recent-purpose">{item.purpose}</td>
             <td><StatusBadge status={item.status} /></td>
             <td><Link className="icon-link" to={"/admin/reservations/" + item.id} aria-label="Lihat detail"><ArrowRight size={17} /></Link></td>
           </tr>)}</tbody>
         </table></div> : <EmptyState title="Belum ada permohonan" description="Permohonan mahasiswa akan muncul setelah dikirim melalui aplikasi." icon={<ClipboardList size={22} />} />}
       </PageSection>
       <div className="dashboard-two-column">
-        <PageSection title="Ringkasan penggunaan ruang">
-          {stats.length ? <div className="usage-list">{stats.slice(0, 5).map((item) => <div key={item.room_id} className="usage-row"><span>{item.room_name}<small>{item.building}</small></span><b>{item.reservation_count}</b></div>)}</div> : <EmptyState title="Belum ada statistik ruang" description="Statistik akan muncul berdasarkan reservasi yang disetujui atau selesai." />}
-        </PageSection>
         <PageSection title="Akses cepat">
           <div className="quick-links">
             <Link to="/admin/reservations"><ClipboardList size={19} /><span>Tinjau permohonan<small>Approval dan rejection</small></span><ArrowRight size={16} /></Link>
@@ -206,12 +342,34 @@ export function AdminDashboardPage() {
       onClose={() => { if (!finishing) setFinishTarget(null); }}
       onConfirm={() => void confirmRoomVacant()}
     />
+    <ConfirmModal
+      open={reviewAction === "approve" && !!reviewTarget}
+      title="Setujui permohonan?"
+      description={reviewTarget ? `Permohonan ${reviewTarget.applicant?.name || "mahasiswa"} untuk ${reviewTarget.room?.room_name || "ruangan"} akan dikirim ke backend untuk pemeriksaan ulang kapasitas, jam operasional, jadwal, dan benturan reservasi.` : ""}
+      confirmText="Setujui permohonan"
+      loading={reviewBusy}
+      onClose={() => { if (!reviewBusy) { setReviewAction(null); setReviewTarget(null); setReviewError(""); } }}
+      onConfirm={() => void submitReview()}
+    />
+    <Modal
+      open={reviewAction === "reject" && !!reviewTarget}
+      title="Tolak permohonan"
+      description="Alasan penolakan wajib dicatat dan akan terlihat oleh pemohon."
+      closeDisabled={reviewBusy}
+      onClose={() => { if (!reviewBusy) { setReviewAction(null); setReviewTarget(null); setReviewReason(""); setReviewError(""); } }}
+    >
+      <Field label="Alasan penolakan"><textarea rows={4} minLength={3} maxLength={2000} value={reviewReason} onChange={(event) => setReviewReason(event.target.value)} placeholder="Jelaskan alasan penolakan dengan jelas…" /></Field>
+      {reviewError ? <Notice tone="error">{reviewError}</Notice> : null}
+      <div className="modal-actions"><Button variant="secondary" disabled={reviewBusy} onClick={() => { setReviewAction(null); setReviewTarget(null); setReviewReason(""); setReviewError(""); }}>Kembali</Button><Button variant="danger" disabled={reviewBusy || reviewReason.trim().length < 3} onClick={() => void submitReview()}>{reviewBusy ? "Memproses…" : "Kirim penolakan"}</Button></div>
+    </Modal>
   </div>;
 }
 
 export function AdminRequestsPage() {
   const [status, setStatus] = useState("PENDING");
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [items, setItems] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -219,15 +377,26 @@ export function AdminRequestsPage() {
   const [action, setAction] = useState<"approve" | "reject" | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const listRequestId = useRef(0);
   const reload = () => {
+    const requestId = ++listRequestId.current;
     setLoading(true); setError("");
     const params = new URLSearchParams({ page: "1", limit: "100" });
     if (status) params.set("status", status);
-    reservationApi.list(params).then((result) => setItems(result.items))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Permohonan belum dapat dimuat."))
-      .finally(() => setLoading(false));
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    reservationApi.list(params).then((result) => {
+      if (requestId === listRequestId.current) setItems(result.items);
+    })
+      .catch((cause) => {
+        if (requestId === listRequestId.current) setError(cause instanceof Error ? cause.message : "Permohonan belum dapat dimuat.");
+      })
+      .finally(() => { if (requestId === listRequestId.current) setLoading(false); });
   };
-  useEffect(() => { reload(); }, [status]);
+  useEffect(() => {
+    reload();
+    return () => { listRequestId.current += 1; };
+  }, [status, dateFrom, dateTo]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return items;
@@ -256,6 +425,9 @@ export function AdminRequestsPage() {
     <div className="panel request-filter-panel">
       <div className="segmented-tabs">{tabs.map((tab) => <button key={tab.key || "all"} type="button" className={status === tab.key ? "is-active" : ""} onClick={() => setStatus(tab.key)}>{tab.text}</button>)}</div>
       <Field label="Cari nama, ruang, atau ID"><span className="input-with-icon"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama mahasiswa atau ruangan" /></span></Field>
+      <Field label="Dari tanggal"><input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} /></Field>
+      <Field label="Sampai tanggal"><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} /></Field>
+      {status !== "PENDING" || search || dateFrom || dateTo ? <div className="request-filter-reset"><Button variant="secondary" onClick={() => { setStatus("PENDING"); setSearch(""); setDateFrom(""); setDateTo(""); }}>Reset filter</Button></div> : null}
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat permohonan…" /> : filtered.length ? <div className="request-list">
@@ -696,6 +868,7 @@ export function AdminSchedulesPage() {
     <PageTitle eyebrow="ROOM SCHEDULES" title="Jadwal & pemeliharaan" description="Catat jadwal akademik dan periode ruangan tidak tersedia agar backend dapat memeriksa benturan reservasi." />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {success ? <Notice tone="success">{success}</Notice> : null}
+    <div className="admin-schedule-forms">
     <form className="panel stack-form" onSubmit={create}>
       <h2>Tambah jadwal akademik</h2>
       <Field label="Ruangan"><select value={roomId} onChange={(e) => setRoomId(e.target.value)} required><option value="">Pilih ruangan</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.room_name} · {room.building}</option>)}</select></Field>
@@ -721,6 +894,7 @@ export function AdminSchedulesPage() {
       <Field label="Alasan"><input value={blockReason} onChange={(e) => setBlockReason(e.target.value)} minLength={3} maxLength={240} required placeholder="Contoh: Pemeliharaan fasilitas" /></Field>
       <Button type="submit" variant="secondary" disabled={saving}>{saving ? "Menyimpan…" : "Simpan periode"}</Button>
     </form>
+    </div>
     <PageSection title="Jadwal akademik tercatat">
       {loading ? <Loading label="Memuat jadwal…" /> : items.length ? <div className="table-wrap"><table className="data-table">
         <thead><tr><th>Ruangan</th><th>Kegiatan</th><th>Waktu</th><th>Sumber</th><th /></tr></thead>

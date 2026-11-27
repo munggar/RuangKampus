@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Bell, Building2, CalendarDays, CalendarCheck, Clock3, ChevronDown, ClipboardList, FileSpreadsheet, LayoutDashboard,
-  LogOut, Moon, Sparkles, Sun, UserRound,
-} from "lucide-react";
+  IconBell as Bell, IconBuilding as Building2, IconCalendar as CalendarDays,
+  IconCalendarCheck as CalendarCheck, IconClock as Clock3, IconChevronDown as ChevronDown,
+  IconClipboardList as ClipboardList, IconFileSpreadsheet as FileSpreadsheet,
+  IconLayoutDashboard as LayoutDashboard, IconLogout as LogOut, IconMoon as Moon,
+  IconSparkles as Sparkles, IconSun as Sun, IconUserCircle as UserRound,
+} from "@tabler/icons-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth";
 import { notificationApi } from "./api";
@@ -28,7 +31,10 @@ function navigationFor(role: AppRole): NavigationItem[] {
   ];
 }
 function Brand() {
-  return <img className="brand-logo brand-logo--navigation" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />;
+  return <>
+    <img className="brand-logo brand-logo--navigation brand-wordmark" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
+    <img className="brand-logo brand-mark" src="/brand/favicon/favicon-128x128.png" alt="RuangKampus" />
+  </>;
 }
 function useTheme() {
   const [theme, setThemeState] = useState<"light" | "dark">(() => {
@@ -188,30 +194,8 @@ export function AppShell({ role }: { role: AppRole }) {
     try { await logout(); } finally { navigate("/login", { replace: true }); }
   }
 
-  return <div className="app-shell">\n    <a className="skip-link" href="#main-content">Lewati ke konten utama</a>
-    <svg className="brand-filter-defs" width="0" height="0" aria-hidden="true" focusable="false">
-      <defs>
-        <filter id="rk-dark-wordmark-filter" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
-          <feColorMatrix in="SourceGraphic" type="matrix" values="
-            0 1 0 0 0
-            0 1 0 0 0
-            0 1 0 0 0
-            0 1 0 0 0
-          " result="green-channel" />
-          <feComponentTransfer in="green-channel" result="dark-wordmark-mask">
-            <feFuncA type="linear" slope="-10" intercept="2.8" />
-          </feComponentTransfer>
-          <feComposite in="dark-wordmark-mask" in2="SourceAlpha" operator="in" result="wordmark-mask" />
-          <feFlood floodColor="#E7F0FF" result="bright-wordmark" />
-          <feComposite in="bright-wordmark" in2="wordmark-mask" operator="in" result="bright-text" />
-          <feComposite in="SourceGraphic" in2="wordmark-mask" operator="out" result="original-blue-mark" />
-          <feMerge>
-            <feMergeNode in="original-blue-mark" />
-            <feMergeNode in="bright-text" />
-          </feMerge>
-        </filter>
-      </defs>
-    </svg>
+  return <div className={"app-shell" + (role === "Staff Sekretariat" ? " app-shell--admin" : " app-shell--student")}>
+    <a className="skip-link" href="#main-content">Lewati ke konten utama</a>
     <aside className="desktop-sidebar">
       <Link className="brand-link" to={root + "/dashboard"}><Brand /></Link>
       <p className="sidebar-caption">{role === "Student" ? "STUDENT WORKSPACE" : "STAFF SEKRETARIAT WORKSPACE"}</p>
@@ -242,7 +226,9 @@ export function AppShell({ role }: { role: AppRole }) {
           </div>
         </div>
       </header>
-      <main id="main-content" className="main-content" tabIndex={-1}><Outlet /></main>
+      <main id="main-content" className="main-content" tabIndex={-1}>
+        {role === "Student" ? <div key={location.key} className="student-route-transition"><Outlet /></div> : <Outlet />}
+      </main>
       <footer className="desktop-footer">© {new Date().getFullYear()} RuangKampus · Campus facilities</footer>
     </div>
     <div className="mobile-nav-shell"><Navigation items={items} mobile /></div>

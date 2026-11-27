@@ -1,8 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  ArrowRight, Bot, Building2, CalendarDays, CheckCircle2, Clock3,
-  MessageCircle, Search, Send, Sparkles, ThumbsDown, ThumbsUp, Users, WandSparkles,
-} from "lucide-react";
+  IconArrowRight as ArrowRight, IconRobot as Bot, IconBuilding as Building2,
+  IconCalendar as CalendarDays, IconCircleCheck as CheckCircle2, IconClock as Clock3,
+  IconMessageCircle as MessageCircle, IconSearch as Search, IconSend as Send,
+  IconSparkles as Sparkles, IconThumbDown as ThumbsDown, IconThumbUp as ThumbsUp,
+  IconUsers as Users, IconWand as WandSparkles,
+} from "@tabler/icons-react";
 import { Link, useSearchParams } from "react-router";
 import {
   apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
@@ -330,6 +333,9 @@ const assistantPrompts = [
 
 export function RoomAssistantPage() {
   const [message, setMessage] = useState("");
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const chatListRef = useRef<HTMLDivElement>(null);
+  const shouldFollowConversation = useRef(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [turns, setTurns] = useState<AssistantTurn[]>([{
     id: 1, sender: "assistant", assistantName: "RUKKA AI",
@@ -341,6 +347,16 @@ export function RoomAssistantPage() {
   const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});
   const [feedbackBusyFor, setFeedbackBusyFor] = useState<number | null>(null);
   const [feedbackError, setFeedbackError] = useState("");
+
+  useEffect(() => {
+    if (!shouldFollowConversation.current || !chatListRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const list = chatListRef.current;
+      if (list) list.scrollTop = list.scrollHeight;
+    });
+    if (!loading) shouldFollowConversation.current = false;
+    return () => window.cancelAnimationFrame(frame);
+  }, [turns, loading]);
 
   async function submitFeedback(turn: AssistantTurn, rating: "HELPFUL" | "NOT_HELPFUL", reason_code?: AssistantFeedbackReason) {
     if (!turn.intent || feedbackSent[turn.id] || feedbackBusyFor === turn.id) return;
@@ -361,7 +377,9 @@ export function RoomAssistantPage() {
     event.preventDefault();
     const text = message.trim();
     if (text.length < 3 || loading) return;
-    setMessage(""); setError("");
+    setError("");
+    const chatList = chatListRef.current;
+    shouldFollowConversation.current = !chatList || chatList.scrollHeight - chatList.scrollTop - chatList.clientHeight < 120;
     setTurns((current) => [...current, { id: Date.now(), sender: "user", message: text }]);
     setLoading(true);
     try {
@@ -398,6 +416,7 @@ export function RoomAssistantPage() {
         engine: response.engine,
         intent: response.intent,
       }]);
+      setMessage("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
     } finally { setLoading(false); }
@@ -411,8 +430,8 @@ export function RoomAssistantPage() {
       <div><h2>Ngobrol aja seperti biasa</h2><p className="muted">Tanya, diskusi, minta ide, atau ceritakan kebutuhan ruang. Untuk informasi kampus, RUKKA tetap mengacu pada data RuangKampus.</p></div>
     </section>
     <section className="panel assistant-chat-panel">
-      <div className="assistant-engine-label"><span className="online-dot" />RUKKA AI <span aria-hidden="true">·</span> Asisten kampusmu</div>
-      <div className="assistant-chat-list" aria-live="polite">
+      <div className="assistant-engine-label"><span className="assistant-engine-label__icon"><Sparkles size={15} aria-hidden="true" /></span>RUKKA AI <span aria-hidden="true">·</span> Asisten kampusmu</div>
+      <div className="assistant-chat-list" ref={chatListRef} role="log" aria-label="Percakapan dengan RUKKA AI" aria-relevant="additions text" aria-busy={loading}>
         {turns.map((turn) => <article key={turn.id} className={"assistant-message assistant-message--" + turn.sender}>
           <span className="assistant-message__avatar">{turn.sender === "assistant" ? <Sparkles size={16} /> : <Users size={16} />}</span>
           <div className="assistant-message__body">
@@ -474,19 +493,20 @@ export function RoomAssistantPage() {
             ).map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>)}
           </div>
         </article>)}
-        {loading ? <Loading label="RUKKA lagi mikir sebentar..." /> : null}
+        {loading ? <div className="assistant-processing" role="status" aria-live="polite"><span aria-hidden="true"><i /><i /><i /></span><b>RUKKA sedang memproses pertanyaan</b></div> : null}
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {feedbackError ? <Notice tone="error">{feedbackError}</Notice> : null}
       <div className="assistant-suggestions">
         <span className="muted small">Contoh pertanyaan</span>
-        {assistantPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => setMessage(prompt)}>{prompt}</button>)}
+        {assistantPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => { setMessage(prompt); composerRef.current?.focus(); }}>{prompt}</button>)}
       </div>
       <form className="assistant-compose" onSubmit={sendMessage}>
         <label className="sr-only" htmlFor="assistant-message">Tulis pertanyaan</label>
-        <textarea id="assistant-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={2}
-          maxLength={1000} minLength={3} placeholder="Tulis pesan ke RUKKA AI..." required />
-        <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
+        <textarea id="assistant-message" ref={composerRef} value={message} onChange={(e) => setMessage(e.target.value)} rows={2}
+          maxLength={1000} minLength={3} placeholder="Tulis pesan ke RUKKA AI…" required disabled={loading} aria-describedby="assistant-compose-hint" />
+        <small id="assistant-compose-hint" className="assistant-compose__hint">{message.length}/1000 · Pertanyaan minimal 3 karakter</small>
+        <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan" aria-busy={loading}><Send size={17} />{loading ? "Memproses…" : "Kirim"}</Button>
       </form>
     </section>
     <Notice tone="info">RUKKA dapat membantu diskusi umum sekaligus urusan ruangan. Jadwal dan fakta kampus tetap harus bersumber dari data terverifikasi, sedangkan pengajuan reservasi dilakukan lewat fitur Reservasi. Saat AI aktif, maksimal sepuluh pesan terakhir dari tab ini dapat dikirim ke penyedia AI sebagai konteks; backend tidak menyimpan isi chat mentah, hanya filter pencarian dan ID kandidat terverifikasi sementara maksimal 30 menit. Mode AI mengikuti konfigurasi backend dan tidak bisa diaktifkan lewat chat. Feedback hanya menyimpan penilaian dan kategori alasan.</Notice>

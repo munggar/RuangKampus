@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
-  ArrowLeft, ArrowRight, Bell, Building2, CalendarDays, CalendarCheck, Check, Clock3, MapPin,
-  Search, Users, XCircle,
-} from "lucide-react";
+  IconArrowLeft as ArrowLeft, IconArrowRight as ArrowRight, IconBell as Bell,
+  IconBuilding as Building2, IconCalendar as CalendarDays, IconCalendarCheck as CalendarCheck,
+  IconCheck as Check, IconClock as Clock3, IconMapPin as MapPin, IconSearch as Search,
+  IconUsers as Users, IconCircleX as XCircle, IconCompass as Compass,
+  IconSparkles as Sparkles, IconCalendarPlus as CalendarPlus, IconX as X,
+} from "@tabler/icons-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   ApiError, apiAssetUrl, availabilityReasonLabel, canCancelReservation, dashboardApi, formatDate, formatDateTime, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
 } from "./api";
 import { useAuth } from "./auth";
-import type { AppNotification, AppRole, AuthUser, AvailabilityResult, Reservation, Room } from "./types";
+import type { AppNotification, AppRole, AuthUser, AvailabilityResult, DashboardSummary, Reservation, Room } from "./types";
 import { PageTitle } from "./layout";
 import { Button, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
 
@@ -121,7 +124,7 @@ function RoomPhoto({ photoUrl, roomName, detail = false, className }: {
 
 export function StudentDashboardPage() {
   const { user } = useAuth();
-  const [summary, setSummary] = useState<Record<string, number | string> | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [recent, setRecent] = useState<Reservation[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -153,10 +156,38 @@ export function StudentDashboardPage() {
       action={<Link className="button button--primary" to="/student/availability"><CalendarCheck size={17} />Cek ketersediaan</Link>} />
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat ringkasan reservasi…" /> : <>
-      <div className="stat-grid stat-grid--two">
-        <article className="stat-card"><div className="stat-card__top"><span>Reservasi aktif</span><CalendarCheck size={18} /></div><strong>{pending + approved}</strong><small>Menunggu atau sudah disetujui</small></article>
-        <article className="stat-card"><div className="stat-card__top"><span>Menunggu persetujuan</span><Clock3 size={18} /></div><strong>{pending}</strong><small>Dalam peninjauan TU/Admin</small></article>
-      </div>
+      <section className="student-reservation-overview" aria-label="Ringkasan reservasi Anda">
+        {[
+          { key: "active", label: "Reservasi aktif", value: pending + approved, icon: CalendarCheck, tone: "primary", hint: "Menunggu atau disetujui" },
+          { key: "pending", label: "Menunggu", value: pending, icon: Clock3, tone: "pending", hint: "Dalam peninjauan" },
+          { key: "approved", label: "Disetujui", value: approved, icon: Check, tone: "approved", hint: "Siap digunakan" },
+          { key: "rejected", label: "Ditolak", value: Number(summary?.rejected || 0), icon: XCircle, tone: "rejected", hint: "Lihat alasan di detail" },
+          { key: "cancelled", label: "Dibatalkan", value: Number(summary?.cancelled || 0), icon: XCircle, tone: "cancelled", hint: "Tidak aktif" },
+          { key: "completed", label: "Selesai", value: Number(summary?.completed || 0), icon: Check, tone: "completed", hint: "Riwayat kegiatan" },
+        ].map((item) => {
+          const Icon = item.icon;
+          return <article className={"student-overview-card student-overview-card--" + item.tone} key={item.key}>
+            <span className="student-overview-card__icon"><Icon size={18} aria-hidden="true" /></span>
+            <div><span>{item.label}</span><strong>{item.value}</strong><small>{item.hint}</small></div>
+          </article>;
+        })}
+      </section>
+      <PageSection title="Mulai dari sini" action={<Link className="text-link" to="/student/assistant"><Sparkles size={15} />Tanya RUKKA AI</Link>}>
+        <div className="student-quick-actions">
+          <Link className="student-quick-action student-quick-action--primary" to="/student/rooms">
+            <span><Compass size={19} /></span><b>Jelajahi ruang</b><small>Temukan ruang sesuai kebutuhan</small><ArrowRight size={16} />
+          </Link>
+          <Link className="student-quick-action" to="/student/availability">
+            <span><CalendarPlus size={19} /></span><b>Cek ketersediaan</b><small>Periksa tanggal dan waktu</small><ArrowRight size={16} />
+          </Link>
+          <Link className="student-quick-action" to="/student/reservations">
+            <span><CalendarCheck size={19} /></span><b>Reservasi saya</b><small>Pantau status pengajuan</small><ArrowRight size={16} />
+          </Link>
+          <Link className="student-quick-action student-quick-action--ai" to="/student/assistant">
+            <span><Sparkles size={19} /></span><b>Ngobrol dengan RUKKA</b><small>Cari ruang lewat percakapan</small><ArrowRight size={16} />
+          </Link>
+        </div>
+      </PageSection>
       <PageSection title="Sesi kampus berikutnya" action={<Link className="text-link" to="/student/reservations">Lihat semua</Link>}>
         {upcoming ? (
           <article className="next-session-card">
@@ -171,7 +202,7 @@ export function StudentDashboardPage() {
           </article>
         ) : <EmptyState title="Belum ada sesi yang disetujui" description="Reservasi mendatang akan muncul di sini setelah disetujui oleh TU/Admin." action={<Link to="/student/rooms" className="button button--secondary">Cari ruang</Link>} icon={<CalendarDays size={23} />} />}
       </PageSection>
-      <PageSection title="Permohonan terbaru" action={<Link className="text-link" to="/student/reservations">Lihat riwayat</Link>}>
+      <PageSection title="Aktivitas reservasi terbaru" action={<Link className="text-link" to="/student/reservations">Lihat semua <ArrowRight size={15} /></Link>}>
         {recent.length ? <div className="card-list">{recent.slice(0, 3).map((item) => <ReservationCard key={item.id} item={item} />)}</div>
           : <EmptyState title="Belum ada permohonan" description="Mulai dengan memilih ruangan yang sesuai untuk kegiatan Anda." action={<Link className="button button--primary" to="/student/rooms">Cari ruangan</Link>} icon={<CalendarCheck size={22} />} />}
       </PageSection>
@@ -221,6 +252,16 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     setApplied({ search: "", faculty: "", building: "", location: "", capacity: "", facility: "" });
   }
 
+  function removeAppliedFilter(key: string) {
+    setApplied((current) => ({ ...current, [key]: "" }));
+    if (key === "search") setSearch("");
+    if (key === "faculty") setFaculty("");
+    if (key === "building") setBuilding("");
+    if (key === "location") setLocation("");
+    if (key === "capacity") setCapacity("");
+    if (key === "facility") setFacility("");
+  }
+
   return <div className="page-stack">
     <PageTitle eyebrow="CAMPUS ROOM DIRECTORY" title="Direktori ruangan"
       description="Temukan ruang berdasarkan fakultas, gedung, lokasi, kapasitas, dan fasilitas yang dibutuhkan."
@@ -239,7 +280,14 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
         <Button type="button" variant="secondary" onClick={resetFilters}>Reset</Button>
       </div>
     </form>
-    <div className="list-summary"><strong>{meta?.total ?? rooms.length} ruangan</strong><span>Informasi lokasi dan fasilitas dari inventaris kampus</span></div>
+    {Object.entries(applied).some(([, value]) => value) ? <div className="student-active-filters" aria-label="Filter aktif">
+      <span>Filter aktif</span>
+      {Object.entries(applied).filter(([, value]) => value).map(([key, value]) => <button type="button" key={key} onClick={() => removeAppliedFilter(key)}>
+        <span>{({ search: "Pencarian", faculty: "Fakultas", building: "Gedung", location: "Lokasi", capacity: "Kapasitas min.", facility: "Fasilitas" } as Record<string, string>)[key]}: {value}</span><X size={14} aria-hidden="true" /><span className="sr-only">Hapus filter</span>
+      </button>)}
+      <button type="button" className="student-active-filters__clear" onClick={resetFilters}>Hapus semua</button>
+    </div> : null}
+    <div className="list-summary" role="status" aria-live="polite" aria-atomic="true"><strong>{meta?.total ?? rooms.length} ruangan</strong><span>Informasi lokasi dan fasilitas dari inventaris kampus</span></div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {loading ? <Loading label="Memuat direktori ruangan…" /> : rooms.length ? (
       <div className="room-grid">
@@ -256,7 +304,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
           </div>
         </article>)}
       </div>
-    ) : <EmptyState title="Tidak ada ruangan yang cocok" description="Coba ubah kata kunci, fakultas, gedung, kapasitas, atau fasilitas pencarian." icon={<Search size={22} />} />}
+    ) : <EmptyState title="Tidak ada ruangan yang cocok" description="Coba ubah kata kunci, fakultas, gedung, kapasitas, atau fasilitas pencarian." action={Object.values(applied).some(Boolean) ? <Button variant="secondary" onClick={resetFilters}>Hapus semua filter</Button> : undefined} icon={<Search size={22} />} />}
   </div>;
 }
 
@@ -380,13 +428,20 @@ export function BookingPage() {
         </div>
         <Field label="Tujuan kegiatan"><input value={purpose} onChange={(e) => setPurpose(e.target.value)} maxLength={240} placeholder="Contoh: Diskusi proyek kelompok" required minLength={3} /></Field>
         <Field label="Catatan tambahan (opsional)"><textarea rows={3} maxLength={5000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Informasi tambahan untuk administrator" /></Field>
-        <Button type="button" variant="secondary" onClick={() => void checkAvailability()} disabled={checking || !date || !start || !end}>
+        <Button type="button" variant="secondary" onClick={() => void checkAvailability()} disabled={checking || !date || !start || !end} aria-busy={checking}>
           {checking ? "Memeriksa…" : "Periksa ketersediaan"}
         </Button>
         {availability ? <Notice tone={availability.available ? "success" : "warning"}>
           {availability.available ? "Waktu yang dipilih tercatat tersedia saat pemeriksaan. Backend tetap melakukan validasi ulang saat pengajuan." :
             <><b>Waktu belum tersedia.</b><ul>{availability.reasons.map((reason) => <li key={reason}>{availabilityReasonLabel(reason)}</li>)}</ul></>}
         </Notice> : null}
+        {availability && !availability.available ? <Link className="text-link booking-alternative-link" to={"/student/alternatives?" + new URLSearchParams({
+          date,
+          durationMinutes: String(Math.round((new Date("1970-01-01T" + end).getTime() - new Date("1970-01-01T" + start).getTime()) / 60000)),
+          participantCount: participants,
+          faculty: room.faculty || "",
+          building: room.building,
+        }).toString()}><CalendarDays size={16} />Cari waktu atau ruang alternatif</Link> : null}
         {error ? <Notice tone="error">{error}</Notice> : null}
         <Button type="submit" disabled={!availability?.available || !purpose.trim() || submitting} className="button--wide">Tinjau dan kirim permohonan <ArrowRight size={17} /></Button>
       </form>
@@ -428,7 +483,7 @@ export function StudentReservationsPage() {
       || item.id.toLowerCase().includes(term) || item.purpose.toLowerCase().includes(term));
   }, [items, search]);
 
-  const tabs = [{ id: "", label: "Semua" }, { id: "PENDING", label: "Menunggu" }, { id: "APPROVED", label: "Disetujui" }, { id: "REJECTED", label: "Ditolak" }];
+  const tabs = [{ id: "", label: "Semua" }, { id: "PENDING", label: "Menunggu" }, { id: "APPROVED", label: "Disetujui" }, { id: "REJECTED", label: "Ditolak" }, { id: "CANCELLED", label: "Dibatalkan" }, { id: "COMPLETED", label: "Selesai" }];
   return <div className="page-stack">
     <PageTitle eyebrow="YOUR CAMPUS PLANS, IN ONE PLACE" title="Reservasi saya" description="Pantau permohonan, keputusan, dan persiapan sesi kampus Anda." action={<Link className="button button--primary" to="/student/rooms">+ Pesan ruangan</Link>} />
     <div className="panel reservation-filters">

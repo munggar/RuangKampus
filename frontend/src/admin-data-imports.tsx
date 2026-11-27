@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { AlertCircle, BookOpen, Building2, CalendarDays, CheckCircle2, FileSpreadsheet, GraduationCap, Info, UploadCloud } from "lucide-react";
+import { IconAlertCircle as AlertCircle, IconBook2 as BookOpen, IconBuilding as Building2, IconCalendar as CalendarDays, IconCircleCheck as CheckCircle2, IconFileSpreadsheet as FileSpreadsheet, IconSchool as GraduationCap, IconInfoCircle as Info, IconUpload as UploadCloud } from "@tabler/icons-react";
 import { Link } from "react-router";
 import { PageTitle } from "./layout";
 import { ApiError, formatDateTime, roomImportApi, type RoomImportBatch } from "./api";

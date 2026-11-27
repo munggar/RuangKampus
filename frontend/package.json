@@ -12,10 +12,12 @@
     "preview": "vite preview",
     "start": "node server.mjs",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "build:e2e": "node scripts/build-e2e.mjs",
+    "test:e2e": "npm run build:e2e && playwright test"
   },
   "dependencies": {
-    "lucide-react": "^1.79.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
+    "@tabler/icons-react": "^3.53.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.18.6"

@@ -1,98 +1,132 @@
 :root {
   color-scheme: light;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-family-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", Inter, "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-family-sans);
+
+  /* RuangKampus — Modern Academic Operations */
   --brand-primary: #005a9c;
   --brand-primary-hover: #004a82;
   --brand-primary-solid: #005a9c;
   --brand-primary-solid-hover: #004a82;
-  --brand-primary-soft: #eaf4fa;
+  --brand-primary-soft: #e6f0f6;
   --brand-red: #8e1523;
-  --surface-background: #f5f8fc;
+
+  --surface-background: #f3f4f1;
   --surface-card: #ffffff;
-  --surface-navigation: #ffffff;
+  --surface-navigation: #fbfcfa;
   --surface-elevated: #ffffff;
   --surface-input: #ffffff;
-  --surface-muted: #f4f7fa;
+  --surface-muted: #f3f5f4;
+  --surface-brand-identity: #eaf1f6;
+  --text-brand-identity: #17314a;
+  --text-brand-identity-secondary: #536a80;
+  --border-brand-identity: #d6e1e9;
+
   --text-primary: #172b3f;
   --text-secondary: #536a80;
-  --text-muted: #5b6c7d;
-  --border-default: #d7e2ea;
-  --border-strong: #c7d6e2;
-  --status-success: #167a57;
-  --status-success-surface: #e8f5ef;
-  --status-warning: #8a5700;
-  --status-warning-surface: #fff4de;
-  --status-error: #b42332;
-  --status-error-surface: #fce9ec;
+  --text-muted: #536a80;
+  --text-tertiary: #64778a;
+  --border-default: #dce2e5;
+  --border-strong: #c4d0d7;
+
+  --accent-teal: #2f7f78;
+  --status-success: #176b4b;
+  --status-success-surface: #e8f4ed;
+  --status-warning: #805000;
+  --status-warning-surface: #fff3d9;
+  --status-error: #a51f32;
+  --status-error-surface: #fbeaec;
   --status-error-button-text: #ffffff;
   --status-error-button-hover-text: #ffffff;
   --status-info: #005a9c;
-  --status-info-surface: #eaf4fa;
-  --glass-background: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.78);
-  --glass-highlight: rgba(255, 255, 255, 0.92);
-  --glass-shadow: 0 16px 44px rgba(12, 36, 58, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.85);
-  --focus-ring: 0 0 0 3px rgba(0, 90, 156, 0.18);
-  --radius-card: 14px;
+  --status-info-surface: #e6f0f6;
+
+  /* Kept as compatibility tokens for the existing mobile navigation. */
+  --glass-background: rgba(255, 255, 255, 0.96);
+  --glass-border: rgba(220, 226, 229, 0.96);
+  --glass-highlight: rgba(255, 255, 255, 0.82);
+  --glass-shadow: 0 8px 28px rgba(20, 37, 54, 0.1);
+
+  --focus-ring: 0 0 0 3px rgba(0, 90, 156, 0.22);
+  --radius-card: 12px;
   --radius-field: 8px;
-  --radius-button: 8px;
-  --radius-panel: 18px;
+  --radius-button: 7px;
+  --radius-panel: 14px;
   --radius-pill: 999px;
-  --page-gutter: 20px;
-  --page-max: 1440px;
+
+  --page-gutter: 24px;
+  --page-max: 1500px;
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
   --space-lg: 16px;
   --space-xl: 24px;
   --space-2xl: 32px;
+
   --input-height: 46px;
   --button-height: 44px;
-  --shadow-card: 0 2px 10px rgba(23, 43, 63, 0.035);
-  --shadow-popover: 0 18px 45px rgba(18, 42, 64, 0.15);
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 24px;
+  --shadow-card: 0 1px 2px rgba(23, 43, 63, 0.035);
+  --shadow-popover: 0 16px 40px rgba(18, 42, 64, 0.16);
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+
   --font-xs: 11px;
   --font-sm: 12px;
   --font-base: 14px;
   --font-md: 16px;
   --font-lg: 20px;
   --font-xl: 28px;
-  --line-body: 1.5;
+  --line-body: 1.55;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand-primary: #86b8ff;
-  --brand-primary-hover: #a5cbff;
-  --brand-primary-solid: #1b62d1;
-  --brand-primary-solid-hover: #1758bd;
-  --brand-primary-soft: #1d2430;
-  --brand-red: #8e1523;
-  --surface-background: #111a20;
-  --surface-card: #151922;
-  --surface-navigation: #0d1017;
-  --surface-elevated: #1d2430;
-  --surface-input: #151922;
-  --surface-muted: #111620;
-  --text-primary: #ffffff;
-  --text-secondary: #a5adba;
-  --text-muted: #a5adba;
-  --border-default: #293242;
-  --border-strong: #39465a;
-  --status-success: #62c69c;
-  --status-success-surface: #17372b;
-  --status-warning: #ffc36d;
-  --status-warning-surface: #3d301b;
-  --status-error: #ff8795;
-  --status-error-surface: #43202a;
+  --brand-primary: #77b8e5;
+  --brand-primary-hover: #a0d0f0;
+  --brand-primary-solid: #145c8d;
+  --brand-primary-solid-hover: #1c6da3;
+  --brand-primary-soft: #1b3040;
+  --brand-red: #ff8795;
+
+  --surface-background: #0d1219;
+  --surface-card: #161f2a;
+  --surface-navigation: #101923;
+  --surface-elevated: #202b38;
+  --surface-input: #161f2a;
+  --surface-muted: #1b2632;
+  /* The supplied wordmark has dark lettering; keep its integrated brand panel light in both themes. */
+  --surface-brand-identity: #eaf1f6;
+  --text-brand-identity: #17314a;
+  --text-brand-identity-secondary: #536a80;
+  --border-brand-identity: #d6e1e9;
+
+  --text-primary: #f2f5f8;
+  --text-secondary: #b8c4cf;
+  --text-muted: #b8c4cf;
+  --text-tertiary: #a8b4c1;
+  --border-default: #2b3948;
+  --border-strong: #405366;
+
+  --accent-teal: #68b8a8;
+  --status-success: #75c9a2;
+  --status-success-surface: #1a382d;
+  --status-warning: #ffd17a;
+  --status-warning-surface: #3b301c;
+  --status-error: #ff929e;
+  --status-error-surface: #40242c;
   --status-error-button-text: #351019;
   --status-error-button-hover-text: #ffffff;
-  --status-info: #60b7ef;
-  --status-info-surface: #172c3c;
-  --glass-background: rgba(18, 23, 34, 0.74);
-  --glass-border: rgba(148, 163, 184, 0.22);
-  --glass-highlight: rgba(255, 255, 255, 0.12);
-  --glass-shadow: 0 18px 48px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --focus-ring: 0 0 0 3px rgba(40, 120, 240, 0.22);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.16);
-  --shadow-popover: 0 18px 45px rgba(0, 0, 0, 0.42);
+  --status-info: #87c7ee;
+  --status-info-surface: #1b3040;
+
+  --glass-background: rgba(16, 25, 35, 0.97);
+  --glass-border: rgba(43, 57, 72, 0.96);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+  --focus-ring: 0 0 0 3px rgba(119, 184, 229, 0.3);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-popover: 0 18px 45px rgba(0, 0, 0, 0.46);
 }

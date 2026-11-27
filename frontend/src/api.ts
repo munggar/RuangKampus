@@ -1,4 +1,4 @@
-import type { AppNotification, AssistantChatRequest, AssistantChatResult, AssistantFeedbackRequest, AuthUser, AvailabilityResult, AlternativeSlotSearch, AlternativeSlotsResult, PageMeta, PageResult, Reservation, Room, RoomStatus, RoomUnavailability, Schedule, TokenResponse } from "./types";
+import type { AppNotification, AssistantChatRequest, AssistantChatResult, AssistantFeedbackRequest, AuthUser, AvailabilityResult, AlternativeSlotSearch, AlternativeSlotsResult, DashboardSummary, PageMeta, PageResult, Reservation, Room, RoomStatus, RoomUnavailability, Schedule, TokenResponse } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -205,7 +205,7 @@ export const notificationApi = {
 };
 
 export const dashboardApi = {
-  summary: () => apiRequest<Record<string, number | string>>("/dashboard/summary"),
+  summary: () => apiRequest<DashboardSummary>("/dashboard/summary"),
   recent: (limit = 8) => apiPage<Reservation>("/dashboard/recent-reservations?limit=" + limit),
   roomStatistics: (params = new URLSearchParams()) =>
     apiRequest<Array<{ room_id: string; room_name: string; building: string; reservation_count: number }>>("/dashboard/room-statistics?" + params.toString()),

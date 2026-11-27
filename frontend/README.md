@@ -1,57 +1,61 @@
 # RuangKampus Frontend
 
-React 19 + TypeScript + Vite 8 frontend for the RuangKampus monorepo.
+React 19 + TypeScript + Vite frontend. This directory contains the Railway production web source and is deployed from `deploy/frontend-audit-remediation`.
 
-## Requirements and local setup
+## Production source
 
-- Node.js 22.12.0 or newer.
+- Railway service: `ruangkampus-web`
+- Source branch: `deploy/frontend-audit-remediation`
+- Production URL: https://ruangkampus-web-production.up.railway.app/
+
+Railway builds this directory with `npm install --no-audit --no-fund && npm run build`, then starts `npm run start`. The Node server in `server.mjs` serves `dist/` and provides SPA fallback for application routes.
+
+## Requirements
+
+- Node.js 22.12 or newer.
 - npm 10 or newer.
-- A running RuangKampus FastAPI service.
+- A running RuangKampus backend API.
 
-From this directory:
+## Local development
 
-```bash
+```powershell
+cd frontend
+Copy-Item .env.example .env
 npm install
+npm run dev
 ```
 
-Create a private `.env` file in this directory (do not commit it) and set `VITE_API_BASE_URL=http://localhost:8000/api/v1`. Run `npm run dev` to start Vite on port 5173. Use `npm run test` and `npm run build` before merging.
+The Vite dev server runs at http://localhost:5173. Set `VITE_API_BASE_URL` in `frontend/.env` to the backend API base including `/api/v1`, for example `http://localhost:8000/api/v1`.
 
-Never place credentials, signing keys, database URLs, SMTP credentials, or service-role secrets in variables prefixed with `VITE_`; they are exposed to browser code.
+## Tests and build
 
-## Architecture
+```powershell
+npm run test
+npm run build
+```
 
-- `src/api.ts`: versioned REST client, response envelope handling, bearer access token, HttpOnly refresh-cookie flow.
-- `src/auth.tsx`: in-memory authentication context and session restoration.
-- `src/App.tsx`: public, Student, and TU/Admin routes.
-- `src/layout.tsx`: shared responsive shells, mobile navigation, theme selector.
-- `src/pages.tsx`: Student and TU/Admin workflows.
-- `src/styles/`: light/dark tokens and responsive UI.
-- `server.mjs`: production static-file server with SPA route fallback.
+Browser E2E tests use Playwright:
 
-The browser stores the access token in memory only. On reload, the app calls `POST /auth/refresh` to rotate the HttpOnly refresh cookie and restore the session. The backend remains authoritative for every role and reservation rule.
+```powershell
+npx playwright install chromium
+npm run test:e2e
+```
 
-## API integration
+## Features and architecture
 
-- API base path: `/api/v1`.
-- Auth success payloads are direct objects. Business endpoints use `{ success, message, data, meta }`.
-- Dates and times use `Asia/Jakarta` by default.
-- Availability checks on the client are advisory; the backend revalidates reservation creation and approval.
-- Room operating hours must be configured before the backend treats a room as reservable.
-- The Student room assistant uses the backend's stateless, database-grounded `RULE_BASED` search endpoint. It is not a generative LLM. The TU/Admin page provides operational shortcuts because that endpoint is Student-only.
-- Alternative-slot responses are suggestions only; they do not create reservations.
-- Room image upload is not supported by the backend; the interface only renders API-provided photo URLs.
-- Desktop/tablet layouts adapt the mobile-first design and still require viewport QA.
+- `src/api.ts`: versioned REST client and response handling.
+- `src/auth.tsx`: authentication/session context.
+- `src/App.tsx`: public, Student, and Staff Sekretariat routes.
+- `src/layout.tsx`: responsive shells, navigation, profile, and theme controls.
+- `src/student-pages.tsx`: student room discovery, assistant, bookings, profile, and notification workflows.
+- `src/admin-pages.tsx`: Staff Sekretariat workflows.
+- `src/admin-data-imports.tsx`: room and campus data import UI.
+- `src/styles.css` and `src/styles/tokens.css`: application styling and responsive tokens.
 
-## Production deployment
+RUKKA AI is the Student-facing assistant. It uses backend-verified room and availability results. An optional backend-side OpenRouter/Gemma layer can shape conversational responses when configured; its key must never be placed in browser code. Staff Sekretariat uses separate management pages and does not receive the Student assistant route.
 
-The Railway frontend service uses the repository root directory `/frontend`, runs `npm run build`, then `npm run start`. The included Node server serves `dist/` and falls back to `index.html` for React Router deep links.
+## Production configuration and security
 
-Set `VITE_API_BASE_URL` on the Railway frontend service to the public backend URL including `/api/v1`. Because Vite embeds this value at build time, changing it triggers a frontend rebuild.
+Set `VITE_API_BASE_URL` before building. Vite embeds this public API URL into generated JavaScript, so changing it requires a rebuild. It is not a secret. Never place JWT keys, database credentials, SMTP passwords, or OpenRouter/Brevo API keys in any `VITE_*` variable.
 
-The frontend is served from the domain root (`/`) by default. The optional GitHub Pages workflow sets `GITHUB_PAGES=true` to use its project path `/RuangKampus/`.
-
-Backend configuration must allow the exact frontend origin in `CORS_ORIGINS`; use secure refresh cookies (`COOKIE_SECURE=true`). With the Railway-provided frontend and API domains, both use HTTPS. Keep `VITE_API_BASE_URL` free of secrets.
-
-## GitHub Pages preview
-
-GitHub Pages hosts only the static frontend, not FastAPI, PostgreSQL, migrations, or SMTP. The Pages workflow is separate from the Railway deployment and requires the repository Pages source to be set to GitHub Actions and `ENABLE_GITHUB_PAGES=true`.
+The backend must allow the exact frontend origin in `CORS_ORIGINS`. Production uses HTTPS and secure refresh cookies. For the complete local stack, use the repository-root [Docker Compose instructions](../README.md).

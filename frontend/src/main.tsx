@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "@fontsource-variable/plus-jakarta-sans";
 import { BrowserRouter } from "react-router";
 import { AuthProvider } from "./auth";
 import { App } from "./App";
