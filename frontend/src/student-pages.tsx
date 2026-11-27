@@ -460,16 +460,26 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
     return () => { active = false; };
   }, [reservationId]);
 
+  const isAdmin = role === "Staff Sekretariat";
+
   async function cancel() {
+    const reason = cancelReason.trim();
+    if (isAdmin && !reason) {
+      setError("Alasan wajib diisi untuk pembatalan oleh Staff Sekretariat.");
+      return;
+    }
     setBusy(true); setError("");
-    try { const updated = await reservationApi.cancel(reservationId, cancelReason.trim() || undefined); setItem(updated); setCancelOpen(false); }
+    try { const updated = await reservationApi.cancel(reservationId, reason || undefined); setItem(updated); setCancelOpen(false); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Pembatalan belum berhasil."); }
     finally { setBusy(false); }
   }
 
   if (loading) return <Loading label="Memuat detail reservasi…" />;
   if (!item) return <Notice tone="error">{error || "Reservasi tidak ditemukan."}</Notice>;
-  const canCancel = canCancelReservation(item.status, item.reservation_date);
+  const canCancelStatus = item.status === "PENDING" || item.status === "APPROVED";
+  const canCancel = isAdmin
+    ? canCancelStatus
+    : canCancelReservation(item.status, item.reservation_date);
   const root = role === "Student" ? "/student" : "/admin";
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>
@@ -502,9 +512,31 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
         {canCancel ? <Button variant="danger" onClick={() => setCancelOpen(true)} className="button--wide">Batalkan reservasi</Button> : null}
       </aside>
     </div>
-    <Modal open={cancelOpen} title="Batalkan reservasi?" description="Pembatalan akan diproses oleh layanan RuangKampus." onClose={() => setCancelOpen(false)} closeDisabled={busy}>
-      <Field label="Alasan pembatalan (opsional)"><textarea rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={2000} /></Field>
-      <div className="modal-actions"><Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button><Button variant="danger" onClick={() => void cancel()} disabled={busy}>{busy ? "Memproses…" : "Ya, batalkan"}</Button></div>
+    <Modal
+      open={cancelOpen}
+      title={isAdmin ? "Batalkan reservasi (Admin Override)?" : "Batalkan reservasi?"}
+      description={isAdmin
+        ? "Staff Sekretariat dapat membatalkan reservasi yang sudah dimulai di semua ruangan. Alasan wajib diisi dan akan dicatat dalam riwayat tindakan admin."
+        : "Pembatalan akan diproses oleh layanan RuangKampus."}
+      onClose={() => setCancelOpen(false)}
+      closeDisabled={busy}
+    >
+      <Field label={isAdmin ? "Alasan pembatalan (wajib)" : "Alasan pembatalan (opsional)"}>
+        <textarea
+          rows={3}
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          maxLength={2000}
+          required={isAdmin}
+          aria-required={isAdmin}
+        />
+      </Field>
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Kembali</Button>
+        <Button variant="danger" onClick={() => void cancel()} disabled={busy || (isAdmin && !cancelReason.trim())}>
+          {busy ? "Memproses…" : "Ya, batalkan"}
+        </Button>
+      </div>
     </Modal>
   </div>;
 }
