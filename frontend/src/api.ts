@@ -161,6 +161,9 @@ export const roomApi = {
   update: (id: string, payload: Partial<Room>) =>
     apiRequest<Room>("/rooms/" + encodeURIComponent(id), { method: "PATCH", body: payload }),
   remove: (id: string) => apiRequest<unknown>("/rooms/" + encodeURIComponent(id), { method: "DELETE" }),
+  bulkDelete: (roomIds: string[]) => apiRequest<{ deleted_count: number; room_ids: string[] }>("/rooms/bulk", {
+    method: "DELETE", body: { room_ids: roomIds },
+  }),
   bulkUpdateOperatingHours: (
     roomIds: string[],
     operatingHours: Record<string, Array<{ start: string; end: string }>>,
@@ -237,11 +240,15 @@ export function localToday(): string {
 export function canCancelReservation(status: string, reservationDate: string, today = localToday()): boolean {
   return (status === "PENDING" || status === "APPROVED") && reservationDate >= today;
 }
+function appDateLocale(): string {
+  return typeof document !== "undefined" && document.documentElement.lang === "en" ? "en-US" : "id-ID";
+}
+
 export function formatDate(value: string | null | undefined, options?: Intl.DateTimeFormatOptions): string {
   if (!value) return "—";
   const date = new Date(value.length === 10 ? value + "T00:00:00+07:00" : value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta", ...options }).format(date);
+  return new Intl.DateTimeFormat(appDateLocale(), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta", ...options }).format(date);
 }
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return "—";

@@ -14,7 +14,7 @@ import {
 import { useAuth } from "./auth";
 import type { AppNotification, AppRole, AuthUser, AvailabilityResult, DashboardSummary, Reservation, Room } from "./types";
 import { PageTitle } from "./layout";
-import { Button, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
+import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
 
 function usePageError() {
   const [error, setError] = useState("");
@@ -58,7 +58,7 @@ function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reserv
         </div>
         {currentItem.room?.photo_url ? <RoomPhoto photoUrl={currentItem.room.photo_url} roomName={currentItem.room.room_name} className="reservation-card__image" /> : null}
         <strong>{currentItem.room?.room_name || "Ruangan"}</strong>
-        <span className="muted">{currentItem.room?.building || "Lokasi kampus belum tersedia"}</span>
+        <span className="muted">{cleanLocationLabel(currentItem.room?.building) || ""}</span>
         <div className="reservation-card__meta">
           <span><CalendarDays size={15} />{formatDate(currentItem.reservation_date)}</span>
           <span><Clock3 size={15} />{formatTime(currentItem.start_time)}–{formatTime(currentItem.end_time)}</span>
@@ -145,12 +145,12 @@ export function StudentDashboardPage() {
   const upcoming = recent.filter((item) => item.status === "APPROVED" && item.reservation_date >= localToday()).slice(0, 1)[0];
   const pending = Number(summary?.pending || 0);
   const approved = Number(summary?.approved || 0);
-  const greeting = new Intl.DateTimeFormat("id-ID", { hour: "numeric", timeZone: "Asia/Jakarta" }).format(new Date());
+  const greeting = new Intl.DateTimeFormat(typeof document !== "undefined" && document.documentElement.lang === "en" ? "en-US" : "id-ID", { hour: "numeric", timeZone: "Asia/Jakarta" }).format(new Date());
   const hour = Number(greeting.split(".")[0]);
   const welcome = hour < 11 ? "Selamat pagi" : hour < 15 ? "Selamat siang" : hour < 18 ? "Selamat sore" : "Selamat malam";
 
   return <div className="page-stack">
-    <PageTitle eyebrow={new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date()).toUpperCase()}
+    <PageTitle eyebrow={new Intl.DateTimeFormat(typeof document !== "undefined" && document.documentElement.lang === "en" ? "en-US" : "id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date()).toUpperCase()}
       title={welcome + ", " + (user?.name?.split(" ")[0] || "Mahasiswa")}
       description="Sedikit ruang untuk mewujudkan ide besar Anda."
       action={<Link className="button button--primary" to="/student/availability"><CalendarCheck size={17} />Cek ketersediaan</Link>} />
@@ -194,7 +194,7 @@ export function StudentDashboardPage() {
             <div className="next-session-card__top"><span>SESI ANDA</span><StatusBadge status={upcoming.status} /></div>
             {upcoming.room?.photo_url ? <RoomPhoto photoUrl={upcoming.room.photo_url} roomName={upcoming.room.room_name} className="next-session-card__image" /> : null}
             <h2>{upcoming.room?.room_name || "Ruangan"}</h2>
-            <p>{upcoming.room?.building || "Lokasi kampus"}</p>
+            <p>{cleanLocationLabel(upcoming.room?.building) || ""}</p>
             <div className="next-session-card__details">
               <span>{formatDate(upcoming.reservation_date)}<b>{formatTime(upcoming.start_time)}–{formatTime(upcoming.end_time)}</b></span>
               <span>{upcoming.purpose}<b>{upcoming.participant_count} peserta</b></span>
@@ -298,7 +298,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
           <div className="room-card__body">
             <div className="room-card__top"><StatusBadge status={room.room_status} /><span><Users size={14} />{room.capacity} orang{room.capacity_estimate ? " · estimasi " + room.capacity_estimate : ""}</span></div>
             <Link className="room-card__title" to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>{room.room_name}</Link>
-            <p>{[room.faculty, room.building, room.floor ? "Lantai " + room.floor : null, room.location_description].filter(Boolean).join(" · ")}</p>
+            <p>{[cleanLocationLabel(room.faculty), cleanLocationLabel(room.building), room.floor ? "Lantai " + room.floor : null, cleanLocationLabel(room.location_description)].filter(Boolean).join(" · ")}</p>
             <div className="chip-list">{room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
             {role === "Student" ? <Link className="button button--secondary button--wide" to={"/student/rooms/" + room.id}>Lihat detail</Link> : <Link className="button button--secondary button--wide" to={"/admin/rooms/" + room.id + "/edit"}>Edit ruangan</Link>}
           </div>
@@ -326,11 +326,14 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
   if (error) return <Notice tone="error">{error}</Notice>;
   if (!room) return <EmptyState title="Ruangan tidak ditemukan" description="Ruangan mungkin sudah tidak aktif atau tidak tersedia." />;
   const base = role === "Student" ? "/student/rooms" : "/admin/rooms";
+  const buildingLabel = cleanLocationLabel(room.building);
+  const locationHeading = [cleanLocationLabel(room.faculty), buildingLabel, room.floor ? "LANTAI " + room.floor : null].filter(Boolean).join(" · ");
+  const locationDetail = [buildingLabel, room.floor ? "Lantai " + room.floor : null, cleanLocationLabel(room.location_description)].filter(Boolean).join(" · ");
   return <div className="page-stack">
     <Link className="back-link" to={base}><ArrowLeft size={16} />Kembali ke direktori</Link>
     <div className="room-detail">
       <div className="room-detail__main">
-        <p className="eyebrow">{[room.faculty, room.building, room.floor ? "LANTAI " + room.floor : null].filter(Boolean).join(" · ").toUpperCase()}</p>
+        {locationHeading ? <p className="eyebrow">{locationHeading.toUpperCase()}</p> : null}
         <h1>{room.room_name}</h1>
         <p className="page-description">{room.description || "Informasi ruangan dikelola oleh administrator kampus."}</p>
         <StatusBadge status={room.room_status} />
@@ -345,7 +348,7 @@ export function RoomDetailPage({ role }: { role: AppRole }) {
       <aside className="room-detail__side">
         <div className="room-fact"><Users size={19} /><span>Kapasitas<b>{room.capacity} orang{room.capacity_estimate ? " (estimasi " + room.capacity_estimate + ")" : ""}</b></span></div>
         <div className="room-fact"><Clock3 size={19} /><span>Jam operasional<b>{Object.keys(room.operating_hours || {}).length ? "Mengikuti jadwal terdaftar" : "Belum diatur"}</b></span></div>
-        <div className="room-fact"><MapPin size={19} /><span>Lokasi<b>{[room.building, room.floor ? "Lantai " + room.floor : null, room.location_description].filter(Boolean).join(" · ")}</b></span></div>
+        {locationDetail ? <div className="room-fact"><MapPin size={20} /><span>Lokasi<b>{locationDetail}</b></span></div> : null}
         {room.faculty ? <div className="room-fact"><Building2 size={19} /><span>Fakultas<b>{room.faculty}</b></span></div> : null}
         {role === "Student" ? <Link className="button button--primary button--wide" to={"/student/rooms/" + room.id + "/book" + (searchParams.toString() ? "?" + searchParams.toString() : "")}>Ajukan reservasi</Link> : <Link className="button button--primary button--wide" to={"/admin/rooms/" + room.id + "/edit"}>Edit ruangan</Link>}
         <p className="muted small">Ketersediaan waktu akan diperiksa kembali sebelum permohonan dikirim.</p>
@@ -419,7 +422,7 @@ export function BookingPage() {
     <div className="booking-layout">
       <form className="panel stack-form" onSubmit={(event) => { event.preventDefault(); if (availability?.available) setConfirmOpen(true); else void checkAvailability(); }}>
         <h2>Detail kegiatan</h2>
-        <div className="selected-room"><span className="eyebrow">RUANGAN PILIHAN</span><strong>{room.room_name}</strong><span>{room.building}{room.floor ? " · Lantai " + room.floor : ""} · Kapasitas {room.capacity} orang{room.capacity_estimate ? " (estimasi " + room.capacity_estimate + ")" : ""}</span></div>
+        <div className="selected-room"><span className="eyebrow">RUANGAN PILIHAN</span><strong>{room.room_name}</strong><span>{[cleanLocationLabel(room.building), room.floor ? "Lantai " + room.floor : null, "Kapasitas " + room.capacity + " orang" + (room.capacity_estimate ? " (estimasi " + room.capacity_estimate + ")" : "")].filter(Boolean).join(" · ")}</span></div>
         <div className="form-grid">
           <Field label="Tanggal"><input type="date" min={localToday()} value={date} onChange={(e) => { setDate(e.target.value); setAvailability(null); }} required /></Field>
           <Field label="Jumlah peserta"><input type="number" min="1" max={room.capacity} value={participants} onChange={(e) => { setParticipants(e.target.value); setAvailability(null); }} required /></Field>
@@ -448,7 +451,7 @@ export function BookingPage() {
       <aside className="panel booking-summary">
         <h2>Ringkasan pilihan</h2>
         <strong>{room.room_name}</strong>
-        <span>{room.building}</span>
+        <span>{cleanLocationLabel(room.building) || cleanLocationLabel(room.location_description) || (room.floor ? "Lantai " + room.floor : "")}</span>
         <div className="summary-line"><span>Tanggal</span><b>{date ? formatDate(date) : "—"}</b></div>
         <div className="summary-line"><span>Waktu</span><b>{start && end ? start + "–" + end + " WIB" : "—"}</b></div>
         <div className="summary-line"><span>Peserta</span><b>{participants || "—"} orang</b></div>

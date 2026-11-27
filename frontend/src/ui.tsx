@@ -4,6 +4,22 @@ import { IconAlertCircle as AlertCircle, IconCheck as Check, IconInfoCircle as I
 import { statusLabel } from "./api";
 import type { ReservationStatus } from "./types";
 
+export function cleanLocationLabel(value?: string | null): string | null {
+  const normalized = value?.trim();
+  if (!normalized) return null;
+  if (/^(belum ditentukan|belum tersedia|belum diatur|not set|not available|unknown|n\/?a|-)$/i.test(normalized)) return null;
+  return normalized;
+}
+
+export function BrandLogo({ variant = "navigation" }: { variant?: "navigation" | "auth" | "loading" }) {
+  return (
+    <span className={"brand-lockup brand-lockup--" + variant} aria-label="RuangKampus — Find the Room. Book the Space.">
+      <img className="brand-lockup__mark" src="/brand/favicon/favicon-128x128.png" alt="" aria-hidden="true" />
+      <span className="brand-lockup__words"><b>RuangKampus</b><small>Find the Room. Book the Space.</small></span>
+    </span>
+  );
+}
+
 export function Button({ children, onClick, type = "button", variant = "primary", disabled = false, className = "", title }: {
   children: ReactNode; onClick?: () => void; type?: "button" | "submit" | "reset";
   variant?: "primary" | "secondary" | "danger" | "ghost"; disabled?: boolean; className?: string; title?: string;
