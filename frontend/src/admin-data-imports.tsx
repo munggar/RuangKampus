@@ -100,14 +100,14 @@ export function AdminDataImportsPage() {
         <Notice tone="info"><b>Belum diaktifkan.</b> Modul ini menunggu file Excel resmi dari unit akademik. Kolom dan validasinya akan dibuat berdasarkan file asli, bukan template perkiraan.</Notice>
       </div> : <div className="data-import-layout">
         <div className="data-import-main">
-          <div className="data-import-heading"><span className="data-import-heading__icon"><Building2 size={22} /></span><div><p className="eyebrow">ROOM MASTER DATA</p><h2>Impor data ruangan</h2><p>Format mengikuti workbook RUANG KELAS.xlsx: nama ruangan, kapasitas estimasi, fasilitas, dan foto yang tertanam di Excel.</p></div></div>
+          <div className="data-import-heading"><span className="data-import-heading__icon"><Building2 size={22} /></span><div><p className="eyebrow">ROOM MASTER DATA</p><h2>Impor data ruangan</h2><p>Format mendukung workbook inventaris ruang: nama, kapasitas, fasilitas, fakultas, alamat lokasi, dan foto yang tertanam di baris Excel.</p></div></div>
 
           <div className="data-import-step-title"><span>01</span><div><b>Pilih workbook Excel</b><small>Format .xlsx, ukuran maksimal 5 MB</small></div></div>
           <label className="data-import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
             <input ref={inputRef} className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onInput} />
             <span className="data-import-dropzone__icon"><UploadCloud size={25} /></span>
             <b>{file ? "File siap diproses" : "Pilih file Excel atau tarik ke area ini"}</b>
-            <span>{file ? file.name + " · " + fileSize(file.size) : "Workbook dengan kolom nomor ruangan, Kapasitas (estimasi), dan Fasilitas"}</span>
+            <span>{file ? file.name + " · " + fileSize(file.size) : "Header dikenali otomatis: Nomor Ruangan, Kapasitas, Fasilitas, Dokumentasi, Lokasi Gedung, dan Fakultas. Urutan kolom bebas."}</span>
             <span className="button button--secondary data-import-dropzone__button">{file ? "Ganti file" : "Pilih file"}</span>
           </label>
           {file && <div className="data-import-file"><FileSpreadsheet size={20} /><div><b>{file.name}</b><small>{fileSize(file.size)} · File akan dikirim ke API setelah tombol pratinjau ditekan</small></div><button type="button" onClick={() => { setFile(null); setBatch(null); if (inputRef.current) inputRef.current.value = ""; }} aria-label="Hapus file terpilih">×</button></div>}
@@ -123,17 +123,24 @@ export function AdminDataImportsPage() {
               <article className="data-import-overview__card"><div><b>{batch.valid_count}</b><small>Valid</small></div></article>
               <article className="data-import-overview__card"><div><b>{batch.invalid_count}</b><small>Perlu diperbaiki</small></div></article>
             </div>
-            <div className="table-wrap"><table className="data-table"><thead><tr><th>Baris</th><th>Nama ruangan</th><th>Lantai</th><th>Kapasitas estimasi</th><th>Foto</th><th>Status / catatan</th></tr></thead><tbody>
-              {batch.row_results.map((row) => <tr key={row.row_number}><td>{row.row_number}</td><td>{row.room_name}</td><td>{row.floor ? "Lantai " + row.floor : "Belum diketahui"}</td><td>{row.capacity_estimate || "—"}</td><td>{row.has_photo ? "Tersedia" : "Tidak ada"}</td><td>{row.status === "VALID" ? <span className="status-pill status-pill--success"><CheckCircle2 size={13} />Valid</span> : <span className="status-pill status-pill--danger">{row.errors.join(", ")}</span>}</td></tr>)}
+            <div className="table-wrap"><table className="data-table"><thead><tr><th>Baris</th><th>Nama ruangan</th><th>Lantai</th><th>Kapasitas estimasi</th><th>Fasilitas terdeteksi</th><th>Fakultas</th><th>Alamat/lokasi</th><th>Foto</th><th>Status / catatan</th></tr></thead><tbody>
+              {batch.row_results.map((row) => <tr key={row.row_number}><td>{row.row_number}</td><td>{row.room_name}</td><td>{row.floor ? "Lantai " + row.floor : "Belum diketahui"}</td><td>{row.capacity_estimate || "—"}</td><td>{row.facilities?.length ? row.facilities.join(", ") : "Tidak terdeteksi"}</td><td>{row.faculty || "—"}</td><td>{row.location_description || "—"}</td><td>{row.has_photo ? "Tersedia" : "Tidak ada"}</td><td>{row.status === "VALID" ? <span className="status-pill status-pill--success"><CheckCircle2 size={13} />Valid</span> : <span className="status-pill status-pill--danger">{row.errors.join(", ")}</span>}</td></tr>)}
             </tbody></table></div>
-            <Notice tone="warning">Kapasitas operasional akan menggunakan batas bawah dari rentang (misalnya 20–25 menjadi 20). Rentang aslinya tetap disimpan sebagai estimasi. Semua lab/laboratorium otomatis ditetapkan di lantai 2. Untuk ruangan lain, angka pertama pada nama ruangan menjadi nomor lantai. Gedung dan fakultas tetap perlu dilengkapi Admin; ruangan tetap nonaktif sampai lokasi lengkap.</Notice>
+            <Notice tone="warning">Kapasitas operasional menggunakan batas bawah rentang (misalnya 20–25 menjadi 20), sedangkan rentang asli tetap disimpan. Fakultas dan alamat pada kolom Lokasi Gedung akan dipetakan otomatis. Kolom tersebut berisi alamat, bukan nama gedung, sehingga label gedung tetap “Belum ditentukan”. Jam operasional juga belum ada di workbook; ruangan tetap nonaktif sampai Admin melengkapi nama gedung dan jam operasional.</Notice>
           </div>}
         </div>
 
-        <aside className="data-import-guide"><div className="data-import-guide__header"><div><p className="eyebrow">PEMETAAN KOLOM</p><h3>Struktur workbook</h3></div><span>3 kolom</span></div>
-          <div className="data-import-columns"><div className="data-import-column"><div><b>nomor ruangan</b><small>Nama ruang sesuai file</small></div><span className="data-import-required">Wajib</span></div><div className="data-import-column"><div><b>Kapasitas (estimasi)</b><small>Angka atau rentang, mis. 40–45</small></div><span className="data-import-required">Wajib</span></div><div className="data-import-column"><div><b>Fasilitas</b><small>Deskripsi fasilitas lengkap</small></div><span className="data-import-required">Wajib</span></div><div className="data-import-column"><div><b>Dokumentasi</b><small>Foto yang tertanam pada baris Excel</small></div><span className="data-import-optional">Opsional</span></div></div>
-          <div className="data-import-example"><span>Aturan impor</span><b>Kapasitas konservatif</b><small>Nilai minimum menjadi kapasitas yang dipakai pada validasi pemesanan. Rentang perkiraan disimpan terpisah.</small></div>
-          <Notice tone="info"><Info size={15} />Kode internal dibuat otomatis dari nama. Lantai ditentukan dari nama: semua lab di lantai 2, sedangkan ruangan lain memakai angka pertama pada nama. Gedung dan fakultas tetap perlu dilengkapi Admin.</Notice>
+        <aside className="data-import-guide"><div className="data-import-guide__header"><div><p className="eyebrow">PEMETAAN KOLOM</p><h3>Struktur workbook</h3></div><span>6 kolom</span></div>
+          <div className="data-import-columns">
+            <div className="data-import-column"><div><b>Nomor Ruangan</b><small>Nama ruang sesuai file</small></div><span className="data-import-required">Wajib</span></div>
+            <div className="data-import-column"><div><b>Kapasitas / Kapasitas (estimasi)</b><small>Angka atau rentang, mis. 40–45 mahasiswa</small></div><span className="data-import-required">Wajib</span></div>
+            <div className="data-import-column"><div><b>Fasilitas</b><small>Deskripsi lengkap disimpan; label fasilitas dikenali otomatis</small></div><span className="data-import-required">Wajib</span></div>
+            <div className="data-import-column"><div><b>Dokumentasi</b><small>Foto yang tertanam di baris terkait</small></div><span className="data-import-optional">Opsional</span></div>
+            <div className="data-import-column"><div><b>Lokasi Gedung</b><small>Disimpan sebagai alamat/lokasi ruangan</small></div><span className="data-import-optional">Opsional</span></div>
+            <div className="data-import-column"><div><b>Fakultas</b><small>Disimpan ke data fakultas ruangan</small></div><span className="data-import-optional">Opsional</span></div>
+          </div>
+          <div className="data-import-example"><span>Aturan impor</span><b>Kapasitas konservatif</b><small>Nilai minimum menjadi kapasitas operasional; rentang perkiraan asli tetap disimpan untuk ditampilkan.</small></div>
+          <Notice tone="info"><Info size={15} />Header dikenali berdasarkan nama, jadi urutan kolom bebas. Kode internal dibuat otomatis. Lantai lab ditetapkan ke lantai 2; ruangan bernomor memakai angka pertama pada nama. Alamat tidak dianggap sebagai nama gedung. Nama gedung dan jam operasional tetap perlu dilengkapi Admin sebelum ruangan diaktifkan.</Notice>
         </aside>
       </div>}
     </section>
