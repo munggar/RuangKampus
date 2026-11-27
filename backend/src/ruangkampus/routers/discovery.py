@@ -711,7 +711,23 @@ def _maybe_generate_ai_message(
     # Room facts and availability have already been checked by deterministic
     # database logic. Do not let a generative response replace or contradict them.
     # RUKKA still uses the configured AI provider for general conversation.
-    if intent in {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"}:
+    has_verified_room_facts = bool(
+        rooms
+        or alternative_slots
+        or availability_checked
+        or filters.get("faculty")
+        or filters.get("building")
+        or filters.get("min_capacity")
+        or filters.get("facilities")
+        or filters.get("date")
+        or filters.get("start_time")
+        or filters.get("end_time")
+        or filters.get("search_terms")
+    )
+    if (
+        intent in {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"}
+        and has_verified_room_facts
+    ):
         return deterministic_message, False
 
     settings = get_settings()
