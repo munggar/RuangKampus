@@ -36,7 +36,7 @@ ROOM_IMPORT_REQUIRED = ("room_name", "capacity", "facilities")
 
 
 def _normalise_header(value) -> str:
-    return re.sub(r"\\s+", " ", str(value or "").replace("\\xa0", " ").strip()).casefold()
+    return re.sub(r"\s+", " ", str(value or "").replace("\xa0", " ").strip()).casefold()
 
 
 def _header_columns(sheet) -> dict[str, int]:
@@ -74,27 +74,23 @@ def _header_columns(sheet) -> dict[str, int]:
 
 
 def _facility_tags(value: str) -> list[str]:
-    """Extract only facilities explicitly named in the source description.
-
-    The full original text remains in Room.description; this list contains short,
-    searchable labels for the room directory and RUKKA facility filters.
-    """
+    """Extract explicitly named facilities while preserving the full source description."""
     text = value.casefold()
     patterns = (
-        ("air conditioner", r"\\b(?:ac|air conditioner|pendingin)\\b"),
-        ("wifi", r"\\bwi[\\s-]?fi\\b|\\binternet\\b"),
-        ("projector", r"\\b(?:projector|proyektor|perangkat proyeksi)\\b"),
-        ("whiteboard", r"\\b(?:whiteboard|papan tulis)\\b"),
-        ("computer", r"\\b(?:komputer|computer|workstation|desktop|pc)\\b"),
-        ("monitor", r"\\bmonitor\\b"),
-        ("display", r"\\b(?:layar|display)\\b"),
-        ("meja komputer", r"\\bmeja komputer\\b"),
-        ("meja praktikum", r"\\bmeja praktikum\\b"),
-        ("meja gambar", r"\\bmeja gambar\\b"),
-        ("meja rapat", r"\\bmeja rapat\\b"),
-        ("instrumen elektronika", r"\\b(?:instrumen|perangkat) elektronika\\b"),
-        ("kabel", r"\\bkabel\\b"),
-        ("kursi", r"\\bkursi\\b"),
+        ("air conditioner", r"\b(?:ac|air conditioner|pendingin)\b"),
+        ("wifi", r"\bwi[\s-]?fi\b|\binternet\b"),
+        ("projector", r"\b(?:projector|proyektor|perangkat proyeksi)\b"),
+        ("whiteboard", r"\b(?:whiteboard|papan tulis)\b"),
+        ("computer", r"\b(?:komputer|computer|workstation|desktop|pc)\b"),
+        ("monitor", r"\bmonitor\b"),
+        ("display", r"\b(?:layar|display)\b"),
+        ("meja komputer", r"\bmeja komputer\b"),
+        ("meja praktikum", r"\bmeja praktikum\b"),
+        ("meja gambar", r"\bmeja gambar\b"),
+        ("meja rapat", r"\bmeja rapat\b"),
+        ("instrumen elektronika", r"\b(?:instrumen|perangkat) elektronika\b"),
+        ("kabel", r"\bkabel\b"),
+        ("kursi", r"\bkursi\b"),
     )
     return [label for label, pattern in patterns if re.search(pattern, text)]
 
@@ -155,7 +151,7 @@ def _batch_payload(batch: RoomImportBatch) -> dict:
 def _parse_workbook(content: bytes, batch_id: UUID) -> tuple[list[dict], dict[int, tuple[str, bytes]]]:
     if not content or len(content) > MAX_BYTES:
         raise HTTPException(status_code=413 if content else 422, detail="File kosong atau melebihi batas 5 MB")
-    if not content.startswith(b"PK\\x03\\x04"):
+    if not content.startswith(b"PK\x03\x04"):
         raise HTTPException(status_code=415, detail="File harus berupa workbook .xlsx yang valid")
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
