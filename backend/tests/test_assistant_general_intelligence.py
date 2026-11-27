@@ -515,7 +515,7 @@ def test_general_reply_prompt_requires_compact_reasoning_structure(
 
     response = client.post(
         "/api/v1/assistant/chat",
-        json={"message": "Menurutmu gimana sistem pinjam ruang yang adil?"},
+        json={"message": "Menurutmu, bagaimana sistem peminjaman ruang kampus yang adil?"},
         headers=auth_headers(),
     )
 
