@@ -4,57 +4,51 @@ from typing import Any
 
 
 def compose_intent_response(intent: str, response_variant: str | None = None) -> str:
-    """Create short conversational text; all factual outputs must come from backend data."""
+    """Create concise, casual text; all factual outputs must come from backend data."""
     if intent == "RESERVATION_HELP":
         return (
-            "Untuk mengajukan reservasi, pilih ruangan, tentukan tanggal dan jam "
-            "mulai/selesai, isi jumlah peserta serta tujuan kegiatan, lalu kirim "
-            "permohonan melalui fitur Reservasi. Permohonan yang dikirim berstatus "
-            "menunggu persetujuan Staff Sekretariat. Aku belum membuat reservasi dari chat ini."
+            "Buat ngajuin reservasi, pilih ruang, tentuin tanggal dan jam mulai/selesai, "
+            "isi jumlah peserta serta tujuan kegiatan, terus kirim lewat fitur Reservasi. "
+            "Permohonan bakal menunggu persetujuan Staff Sekretariat. Gue belum bikin reservasi dari chat ini."
         )
     if intent == "MY_RESERVATIONS":
-        return "Aku akan menampilkan reservasi yang tercatat pada akunmu."
+        return "Gue tampilkan reservasi yang tercatat di akun lu."
     if intent == "RESERVATION_STATUS":
-        return "Aku akan memeriksa status reservasi yang tercatat pada akunmu."
+        return "Gue cek status reservasi yang tercatat di akun lu."
     if intent == "RESERVATION_CREATE_PREVIEW":
         return (
-            "Aku bisa membantu mencari ruangan terlebih dahulu. Pengajuan reservasi "
-            "belum dibuat melalui chat ini. Setelah memilih ruangan dan jadwal, "
-            "lanjutkan pengajuan melalui fitur Reservasi di aplikasi."
+            "Gue bantu cari ruangannya dulu. Pengajuan reservasi belum dibuat lewat chat ini. "
+            "Setelah lu pilih ruang dan jadwal, lanjut ajukan lewat fitur Reservasi."
         )
     if intent == "RESERVATION_CANCEL_PREVIEW":
         return (
-            "Aku belum membatalkan reservasi apa pun. Pembatalan harus dilakukan "
-            "melalui detail reservasi di aplikasi dan dikonfirmasi oleh pemilik "
-            "reservasi sesuai aturan sistem."
+            "Gue belum membatalkan reservasi apa pun. Pembatalan tetap harus dilakukan lewat "
+            "detail reservasi di aplikasi dan dikonfirmasi pemilik reservasi sesuai aturan sistem."
         )
     if intent == "ROOM_DETAIL":
-        return "Sebutkan nama atau kode ruangan agar aku bisa menampilkan detail yang tepat."
+        return "Sebut nama atau kode ruangnya biar gue bisa tampilin detail yang tepat."
     if intent == "FAQ":
         return (
-            "Aku bisa membantu diskusi umum, mencari ruangan, memeriksa ketersediaan, "
-            "menemukan alternatif slot, melihat detail ruang, dan menjelaskan alur reservasi. "
-            "Mode AI generatif mengikuti konfigurasi layanan dan tidak bisa diaktifkan hanya lewat chat."
+            "Gue bisa diajak diskusi, bantu cari ruang, cek ketersediaan, nyari slot alternatif, "
+            "lihat detail ruang, dan jelasin alur reservasi. Mode AI ngikutin konfigurasi layanan, "
+            "jadi nggak bisa diaktifin cuma lewat chat."
         )
     if intent == "SMALLTALK":
         if response_variant == "THANKS":
-            return "Sama-sama! Semoga kegiatan kampusmu lancar. Ada yang bisa kubantu lagi?"
+            return "Santai! Semoga kegiatan kampus lu lancar. Ada lagi yang mau gue bantu?"
         if response_variant == "GREETING":
-            return "Halo! Mau mencari ruangan, mengecek ketersediaan, atau bertanya tentang fasilitas?"
-        return "Wkwk, aku asisten virtual RuangKampus. Aku siap membantu urusan ruangan kampus."
-    return (
-        "Aku fokus membantu urusan ruangan kampus: pencarian, ketersediaan, "
-        "fasilitas, alternatif waktu, dan informasi reservasi."
-    )
+            return "Yo! Mau cari ruang, cek jadwal kosong, atau nanya soal fasilitas?"
+        return "Wkwk, gue RUKKA, asisten virtual RuangKampus. Gas, mau cari ruang apa?"
+    return "Gue bantu urusan ruang kampus: cari ruang, cek jadwal, fasilitas, dan info reservasi."
 
 
 def compose_room_detail(room: dict[str, Any]) -> str:
-    facilities = ", ".join(room.get("facilities") or []) or "Belum ada fasilitas yang tercatat"
+    facilities = ", ".join(room.get("facilities") or []) or "Fasilitasnya belum tercatat"
     faculty = f", {room['faculty']}" if room.get("faculty") else ""
     location = f", lantai {room['floor']}" if room.get("floor") else ""
     return (
-        f"{room['room_name']} berada di {room['building']}{faculty}{location}. "
-        f"Kapasitasnya {room['capacity']} orang. Fasilitas: {facilities}."
+        f"{room['room_name']} ada di {room['building']}{faculty}{location}. "
+        f"Kapasitas {room['capacity']} orang. Fasilitas: {facilities}."
     )
 
 
@@ -68,34 +62,33 @@ def compose_search_result(
 ) -> str:
     if not has_effective_search_criteria:
         return (
-            "Aku bisa bantu mencari ruangan. Beri tahu fakultas atau gedung, "
-            "fasilitas, kapasitas, atau kata kunci ruangan yang kamu butuhkan. "
-            "Untuk mengecek ketersediaan, sertakan tanggal serta jam mulai dan selesai."
+            "Gue bisa bantu cariin ruang. Kasih tahu fakultas atau gedung, fasilitas, "
+            "kapasitas, atau kebutuhan ruang yang lu cari. Buat cek kosongnya, sebutin tanggal plus jam mulai–selesai."
         )
     if intent == "ALTERNATIVE_SLOTS":
         return (
-            f"Aku menemukan {alternative_count} pilihan slot alternatif."
+            f"Gue nemu {alternative_count} pilihan slot alternatif."
             if alternative_count else
-            "Belum menemukan slot alternatif yang cocok. Coba ubah fakultas, gedung, "
-            "fasilitas, tanggal, atau durasi penggunaan."
+            "Belum nemu slot alternatif yang cocok. Coba ubah fakultas, gedung, fasilitas, "
+            "tanggal, atau durasi pemakaian."
         )
     if room_count:
-        result = f"Aku menemukan {room_count} ruangan yang sesuai dengan kriteria pencarian."
+        result = f"Gue nemu {room_count} ruang yang cocok sama kriteria lu."
         if has_complete_availability_window:
-            result += " Slot tersebut lolos pemeriksaan ketersediaan saat ini."
+            result += " Slotnya tersedia saat terakhir dicek."
         return result
     if alternative_count:
-        return "Tidak ada ruangan yang tersedia pada slot persis tersebut. Berikut beberapa alternatif tanggal, waktu, atau ruangan."
-    return "Belum ada ruangan yang cocok. Coba ubah fakultas, gedung, kapasitas, fasilitas, atau waktu."
+        return "Belum ada ruang yang kosong di jam itu. Gue cariin alternatif tanggal, jam, atau ruang yang masih cocok."
+    return "Belum ada ruang yang cocok. Coba ubah fakultas, gedung, kapasitas, fasilitas, atau waktunya."
 
 
 def compose_reservation_result(reservations: list[dict], *, status_only: bool) -> str:
     if not reservations:
-        return "Belum ada reservasi yang tercatat pada akunmu."
+        return "Belum ada reservasi yang tercatat di akun lu."
     if status_only:
         latest = reservations[0]
         return (
-            f"Status reservasi terbarumu adalah {latest['status']} "
-            f"untuk {latest['room_name']} pada {latest['date']}."
+            f"Status reservasi terbaru lu {latest['status']} "
+            f"buat {latest['room_name']} tanggal {latest['date']}."
         )
-    return f"Ini {len(reservations)} reservasi terbaru yang tercatat di akunmu."
+    return f"Ini {len(reservations)} reservasi terbaru yang tercatat di akun lu."
