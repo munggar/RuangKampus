@@ -938,6 +938,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
     client, auth_headers, student, admin, room_payload
 ):
     room = create_located_room(client, auth_headers, room_payload, faculty="FTII")
+    headers = auth_headers()
 
     # A completed earlier lookup must not leak its date or time into a fresh search.
     old_date = future_weekday(0)
@@ -946,7 +947,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
         json={
             "message": f"Carikan ruangan kosong pada {old_date.isoformat()} jam 10 - 12"
         },
-        headers=auth_headers(),
+        headers=headers,
     )
     assert first.status_code == 200, first.text
     previous_data = first.json()["data"]
@@ -961,7 +962,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
             "message": "Gue mau nyari ruang buat rapat organisasi minggu depan.",
             "conversation_id": conversation_id,
         },
-        headers=auth_headers(),
+        headers=headers,
     )
     assert new_search.status_code == 200, new_search.text
     new_data = new_search.json()["data"]
@@ -978,7 +979,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
             "message": "Pesertanya sekitar 18 sampai 25 orang",
             "conversation_id": conversation_id,
         },
-        headers=auth_headers(),
+        headers=headers,
     )
     assert participants.status_code == 200, participants.text
     participants_data = participants.json()["data"]
@@ -994,7 +995,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
             "message": "Kalau bisa hari Rabu setelah kelas",
             "conversation_id": conversation_id,
         },
-        headers=auth_headers(),
+        headers=headers,
     )
     assert weekday.status_code == 200, weekday.text
     weekday_data = weekday.json()["data"]
@@ -1014,7 +1015,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
             "message": "jam 10 - 12",
             "conversation_id": conversation_id,
         },
-        headers=auth_headers(),
+        headers=headers,
     )
     assert hours.status_code == 200, hours.text
     hours_data = hours.json()["data"]
