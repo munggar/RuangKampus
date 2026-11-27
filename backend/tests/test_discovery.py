@@ -970,6 +970,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
     assert new_data["slots"]["start_time"] is None
     assert new_data["slots"]["end_time"] is None
     assert new_data["slots"]["search_terms"] == []
+    assert "berapa orang" in new_data["follow_up_questions"][0].lower()
 
     participants = client.post(
         "/api/v1/assistant/chat",
