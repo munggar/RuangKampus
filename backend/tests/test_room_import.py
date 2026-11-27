@@ -25,6 +25,7 @@ def make_room_workbook(with_photo: bool = True) -> bytes:
 def make_six_column_inventory_workbook() -> bytes:
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image as XLImage
+    from PIL import Image
 
     workbook = Workbook()
     sheet = workbook.active
