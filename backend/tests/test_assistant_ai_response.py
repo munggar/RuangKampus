@@ -212,7 +212,7 @@ def test_openrouter_key_activates_default_model_and_authenticates_real_request_s
     assert captured["headers"]["X-OpenRouter-Title"] == "RuangKampus - RUKKA AI"
     assert captured["headers"]["HTTP-Referer"] == settings.public_app_url
     assert captured["body"]["model"] == "google/gemma-4-26b-a4b-it:free"
-    assert captured["body"]["max_tokens"] == 2048
+    assert captured["body"]["max_tokens"] == 768
     assert captured["body"]["reasoning_effort"] == "low"
     assert "response_format" not in captured["body"]
 
@@ -365,7 +365,7 @@ def test_general_reasoning_uses_larger_budget_and_low_reasoning_effort(monkeypat
     )
 
     assert answer is not None
-    assert captured["body"]["max_tokens"] == 2048
+    assert captured["body"]["max_tokens"] == 768
     assert captured["body"]["reasoning_effort"] == "low"
     assert "response_format" not in captured["body"]
 
@@ -463,7 +463,7 @@ def test_rukka_uses_casual_student_friendly_dynamic_response_style(monkeypatch):
     assert "maksimal 80 kata" in system_prompt
     assert "maksimal 3 bullet" in system_prompt
     assert "1-2 kalimat pendek" in system_prompt
-    assert "jangan membuat esai" in system_prompt
+    assert "Jangan membuat esai" in system_prompt
     assert "bullet '•'" in system_prompt
     assert "Emoji maksimal satu" in system_prompt
     assert "dataset slang Bahasa Indonesia RuangKampus" in system_prompt
