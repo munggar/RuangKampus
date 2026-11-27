@@ -1,0 +1,11 @@
+.env
+.local_mailbox/
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/

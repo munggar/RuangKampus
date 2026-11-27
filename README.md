@@ -1,65 +1,153 @@
 # RuangKampus
 
-RuangKampus is a campus room discovery and reservation platform. It helps students find rooms that fit their needs and submit reservation requests, while authorized TU/Admin staff manage rooms, schedules, and reservation decisions.
+**Find the Room. Book the Space.**
 
-> **Project status:** repository bootstrap only. This repository initially had no source code. Application endpoints, frontend screens, database migrations, and production integrations are not implemented by this bootstrap.
+RuangKampus adalah aplikasi web untuk pencarian, pemeriksaan ketersediaan, dan pengajuan reservasi ruangan kampus. Paket ini berisi source code backend dan frontend yang digunakan oleh service produksi Railway pada **27 November 2026**, beserta dokumentasi, konfigurasi contoh, migration database, serta test.
 
-## Planned technology
+## Snapshot source produksi
 
-- **Frontend:** React + TypeScript.
-- **Backend:** Python + FastAPI.
+Rilis source ini menyatukan dua service produksi yang memang dibangun dari direktori berbeda di repository yang sama:
+
+| Komponen | Service Railway | Branch deploy | Commit produksi |
+|---|---|---|---|
+| Backend API | `ruangkampus-api` | `develop` | `b9443b173d7898b4647219d239c52dbf8c2a7c76` |
+| Frontend web | `ruangkampus-web` | `deploy/frontend-audit-remediation` | `0b6dfb0f5a0351dd542b231af83d83a1753d751c` |
+| Database | PostgreSQL Railway | — | Data produksi tidak disertakan |
+
+Folder `backend/` dan `frontend/` pada paket ini diambil dari commit service masing-masing. GitHub `main` menjadi snapshot gabungan untuk distribusi ZIP; Railway tetap menggunakan branch deployment yang sudah dikonfigurasi.
+
+**URL produksi**
+- Web: https://ruangkampus-web-production.up.railway.app/
+- API: https://ruangkampus-api-production.up.railway.app/
+- Swagger: https://ruangkampus-api-production.up.railway.app/api/v1/docs
+- Readiness: https://ruangkampus-api-production.up.railway.app/ready
+
+## Fitur utama
+
+### Mahasiswa
+- Login, registrasi mahasiswa, profil, dan pemulihan akun.
+- Direktori ruangan, foto, fasilitas, kapasitas, serta informasi lokasi.
+- Pemeriksaan ketersediaan dan pengajuan reservasi.
+- Riwayat/status reservasi dan pusat notifikasi.
+- RUKKA AI untuk percakapan dan bantuan pencarian ruangan. Pemeriksaan fakta ruangan dan ketersediaan tetap memakai data terverifikasi dari backend. Lapisan bahasa AI bersifat opsional dan menggunakan konfigurasi server-side OpenRouter.
+
+### Staff Sekretariat
+- Dashboard operasional dan pengelolaan data ruangan.
+- Impor inventaris ruangan Excel (.xlsx), termasuk kapasitas, fasilitas, fakultas, lokasi, dan foto tertanam.
+- Pengelolaan jadwal kuliah serta pemeliharaan ruangan.
+- Pemeriksaan, persetujuan, penolakan, dan pembatalan reservasi sesuai aturan akses.
+- Notifikasi dan aktivitas administrasi.
+
+## Teknologi
+
+- **Frontend:** React 19, TypeScript, Vite 8, React Router.
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Alembic.
 - **Database:** PostgreSQL.
-- **API style:** versioned REST API, initially under `/api/v1`.
-- **Database migrations:** Alembic is proposed if SQLAlchemy is adopted.
+- **Deployment produksi:** Railway (frontend dan backend sebagai service terpisah).
 
-The stack follows the Master Project Brief and supports a typed web client, validated API contracts, relational integrity, and transactional reservation approval. The database provider and deployment topology remain open until a RuangKampus-specific resource is confirmed.
+## Cara tercepat menjalankan paket lengkap (Docker)
 
-## Repository layout
+Prasyarat: Docker Desktop dengan Docker Compose aktif.
 
-```text
-frontend/   React + TypeScript application owned by Account B
-backend/    FastAPI application and backend services owned by Account A
-docs/       Product brief, ownership, architecture, API and database planning
-tests/      Automated test suites
+1. Ekstrak ZIP ke folder kerja.
+2. Salin konfigurasi contoh:
+   - Windows PowerShell: `Copy-Item .env.example .env`
+   - macOS/Linux: `cp .env.example .env`
+3. Buka `.env`, ganti `JWT_SECRET_KEY` dengan nilai acak lokal minimal 32 byte. Untuk penggunaan lokal, biarkan email di `console`; jangan masukkan secret produksi.
+4. Jalankan dari root repository:
+
+```bash
+docker compose up --build
 ```
 
-See [Project Architecture](docs/PROJECT_ARCHITECTURE.md), [Feature Ownership](docs/FEATURE_OWNERSHIP.md), [API Contract](docs/API_CONTRACT.md), and [Database Schema](docs/DATABASE_SCHEMA.md).
+Compose akan menjalankan PostgreSQL lokal, menjalankan migration Alembic pada database lokal tersebut, menyalakan API, membangun frontend, lalu menjalankan web server frontend.
 
-## Local development
+Buka:
+- Web: http://localhost:5173
+- API docs: http://localhost:8000/api/v1/docs
+- API health: http://localhost:8000/health
+- API readiness: http://localhost:8000/ready
 
-The bootstrap intentionally does not install dependencies or generate application code. After the application owners add their scaffolds:
+Folder foto lokal disimpan pada `.room-media/`. Database lokal disimpan pada Docker volume `ruangkampus-postgres`.
 
-1. Copy `.env.example` to a local `.env` and fill it with locally provisioned values.
-2. Install dependencies using instructions maintained by each application owner.
-3. Start the backend and frontend using their respective development commands.
-4. Use only a dedicated development/test database for automated tests.
+Hentikan service dengan:
 
-Never commit `.env`, API keys, passwords, connection strings, private certificates, or other credentials. Use hosting-provider secret/environment-variable facilities for deployed environments.
+```bash
+docker compose down
+```
 
-## Git workflow
+Untuk menghapus database lokal beserta seluruh data uji, gunakan `docker compose down -v`. Perintah ini destruktif untuk data lokal.
 
-- `main`: stable, reviewed project baseline.
-- `develop`: integration branch for accepted work.
-- Feature branches start from `develop`:
-  - `backend/<feature>` for Account A work.
-  - `frontend/<feature>` for Account B work.
-  - `docs/<topic>` for coordinated documentation changes.
+## Menjalankan tanpa Docker
 
-Do not commit directly to `main`. Open a pull request to `develop`, provide test evidence, and coordinate cross-owner changes before merging.
+Lihat:
+- [Backend setup](backend/README.md)
+- [Frontend setup](frontend/README.md)
 
-## Project rules
+Ringkasnya, jalankan PostgreSQL development, salin `backend/.env.example` ke `backend/.env`, jalankan migration, lalu hidupkan FastAPI. Setelah itu salin `frontend/.env.example` ke `frontend/.env`, install npm dependencies, dan jalankan Vite.
 
-- Do not replace existing architecture without technical evidence and agreement.
-- Do not use production data or production databases for tests.
-- Do not treat sample values, mockups, or unverified campus information as official data.
-- Re-check room availability when TU/Admin approves a reservation.
-- Approval must be transactional and protected against concurrent conflicting approvals.
-- AI recommendations may only use facts returned by the backend and may never approve reservations.
+## Pengujian
 
-## Ownership and status
+Backend:
 
-Account A (Munggar Fajar Muharram) owns backend implementation, database schema/migrations, API, authorization, reservation logic, notifications, and backend tests.
+```powershell
+cd backend
+python -m pip install -r requirements.txt
+python -m pip install pytest ruff
+$env:PYTHONPATH = "src"
+pytest -q
+ruff check src tests alembic
+```
 
-Account B (Adil Muslim Saputra) owns frontend implementation and UI/UX. The frontend folder is reserved for Account B; backend work must not overwrite frontend files.
+Frontend:
 
-See [Development Status](docs/DEVELOPMENT_STATUS.md) for verified progress and open dependencies.
+```powershell
+cd frontend
+npm install
+npm run test
+npm run build
+```
+
+Browser end-to-end:
+
+```powershell
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
+
+PostgreSQL integration/migration tests membutuhkan PostgreSQL test database terpisah. Jangan arahkan test, migration development, atau Docker Compose ke database produksi.
+
+## Konfigurasi dan keamanan
+
+- `.env.example`, `backend/.env.example`, dan `frontend/.env.example` adalah template. Salin menjadi `.env` lokal dan isi sendiri.
+- Jangan memasukkan API key, JWT secret produksi, SMTP password, database URL produksi, token, atau file private key ke repository/ZIP.
+- RUKKA AI menggunakan `OPENROUTER_API_KEY` pada backend saja. Jangan pernah memasukkan key ke variabel `VITE_*`.
+- `VITE_API_BASE_URL` adalah alamat API publik, bukan secret; nilainya di-embed ke bundle frontend pada waktu build.
+- Gunakan database development terpisah. Paket source tidak menyertakan akun, data mahasiswa, reservasi, atau isi database produksi.
+- Untuk foto ruangan di deployment, siapkan persistent volume dan atur `ROOM_MEDIA_DIR` ke direktori mount tersebut.
+
+## Struktur repository
+
+```text
+backend/       FastAPI API, model, router, migration, dan backend tests
+frontend/      React app, styles, dan browser/unit tests
+docs/          Architecture, API contract, schema, setup dan QA notes
+.github/       GitHub Actions CI
+docker-compose.yml
+.env.example
+RELEASE_SOURCE.md
+```
+
+## Dokumentasi
+
+- [Catatan source release dan verifikasi Railway](RELEASE_SOURCE.md)
+- [Backend README](backend/README.md)
+- [Frontend README](frontend/README.md)
+- [Project architecture](docs/PROJECT_ARCHITECTURE.md)
+- [API contract](docs/API_CONTRACT.md)
+- [Database schema](docs/DATABASE_SCHEMA.md)
+- [Development status](docs/DEVELOPMENT_STATUS.md)
+- [RUKKA AI API contract](docs/AI_ASSISTANT_API_CONTRACT.md)
+- [RUKKA/OpenRouter setup](docs/RAKA_OPENROUTER_SETUP.md)
+- [Email/Brevo setup](docs/BREVO_EMAIL_SETUP.md)
