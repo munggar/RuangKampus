@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from openpyxl import load_workbook
@@ -260,6 +260,8 @@ async def preview_room_import(
     batch_id = uuid4()
     rows, photos = _parse_workbook(content, batch_id)
     staging = _staging_dir(batch_id)
+    seen_names: dict[str, int] = {}
+    seen_codes: dict[str, int] = {}
     for row in rows:
         row_number = row["row_number"]
         if row_number in photos:
@@ -267,12 +269,38 @@ async def preview_room_import(
             key = f"row-{row_number}.{ext}"
             (staging / key).write_bytes(data)
             row["photo_key"] = key
-        existing = db.scalar(select(Room.id).where(
+
+        name_key = row["room_name"].strip().casefold()
+        code_key = row["room_code"].strip().casefold()
+        previous_name_row = seen_names.get(name_key)
+        previous_code_row = seen_codes.get(code_key)
+        if previous_name_row is not None:
+            row["errors"].append(f"Nama ruangan duplikat dengan baris Excel {previous_name_row}")
+        if previous_code_row is not None and previous_code_row != previous_name_row:
+            row["errors"].append(f"Kode ruangan duplikat dengan baris Excel {previous_code_row}")
+        seen_names.setdefault(name_key, row_number)
+        seen_codes.setdefault(code_key, row_number)
+
+        active_match = db.scalar(select(Room.id).where(
             Room.deleted_at.is_(None),
-            (func.lower(Room.room_name) == row["room_name"].lower()) | (Room.room_code == row["room_code"]),
+            or_(
+                func.lower(Room.room_name) == name_key,
+                Room.room_code == row["room_code"],
+            ),
         ))
-        if existing:
-            row["errors"].append("Ruangan dengan nama atau kode otomatis ini sudah terdaftar")
+        if active_match:
+            row["errors"].append("Ruangan dengan nama atau kode ini masih terdaftar aktif")
+            row["import_action"] = "BLOCKED"
+            continue
+
+        deleted_match = db.scalar(select(Room.id).where(
+            Room.deleted_at.is_not(None),
+            or_(
+                func.lower(Room.room_name) == name_key,
+                Room.room_code == row["room_code"],
+            ),
+        ))
+        row["import_action"] = "RESTORE" if deleted_match else "CREATE"
     results = [{
         "row_number": row["row_number"],
         "room_name": row["room_name"],
@@ -284,6 +312,7 @@ async def preview_room_import(
         "faculty": row["faculty"],
         "location_description": row["location_description"],
         "facilities": row["facilities"],
+        "import_action": row.get("import_action", "CREATE"),
     } for row in rows]
     valid = sum(1 for item in results if item["status"] == "VALID")
     batch = RoomImportBatch(
