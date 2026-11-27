@@ -22,6 +22,45 @@ def make_room_workbook(with_photo: bool = True) -> bytes:
     return output.getvalue()
 
 
+def make_six_column_inventory_workbook() -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.drawing.image import Image as XLImage
+    from PIL import Image
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Table 1"
+    sheet.append([
+        "Nomor Ruangan", "Kapasitas", "Fasilitas", "Dokumentasi",
+        "Lokasi Gedung", "Fakultas",
+    ])
+    sheet.append([
+        "Laboratorium Komputer Dasar", "20–25",
+        "Workstation, monitor, meja komputer, kursi; beberapa foto menampilkan proyektor/layar.",
+        None,
+        "Jl. Tanah Merdeka No.6, Rambutan, Jakarta Timur 13830",
+        "Fakultas Teknologi Industri dan Informatika (FTII)",
+    ])
+    sheet.append([
+        "Ruang 301", "40–45 mahasiswa",
+        "AC dan akses Wi-Fi; meja/kursi mahasiswa; papan tulis serta layar dan perangkat proyeksi.",
+        None,
+        "Jl. Tanah Merdeka No.6, Rambutan, Jakarta Timur 13830",
+        "Fakultas Teknologi Industri dan Informatika (FTII)",
+    ])
+
+    for row in (2, 3):
+        photo = io.BytesIO()
+        Image.new("RGB", (12, 12), "blue").save(photo, format="JPEG")
+        photo.seek(0)
+        sheet.add_image(XLImage(photo), f"D{row}")
+
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
+
+
 def upload(client, headers, content=None):
     return client.post(
         "/api/v1/admin/rooms/imports/preview",
@@ -94,3 +133,59 @@ def test_room_import_rejects_non_xlsx(client, auth_headers, admin):
         files={"file": ("rooms.xls", b"not an xlsx", "application/vnd.ms-excel")},
     )
     assert response.status_code == 415
+
+
+
+def test_room_import_accepts_six_column_inventory_workbook_and_maps_optional_fields(
+    client, auth_headers, admin
+):
+    headers = auth_headers("admin.uhamka")
+    response = upload(client, headers, make_six_column_inventory_workbook())
+    assert response.status_code == 201, response.text
+
+    batch = response.json()["data"]
+    assert batch["row_count"] == 2
+    assert batch["valid_count"] == 2
+    assert batch["invalid_count"] == 0
+
+    lab, classroom = batch["preview_rows"]
+    assert lab["room_name"] == "Laboratorium Komputer Dasar"
+    assert lab["capacity"] == 20
+    assert lab["capacity_estimate"] == "20–25"
+    assert lab["faculty"] == "Fakultas Teknologi Industri dan Informatika (FTII)"
+    assert lab["location_description"].startswith("Jl. Tanah Merdeka")
+    assert {"computer", "monitor", "projector", "display"}.issubset(set(lab["facilities"]))
+    assert lab["floor"] == "2"
+    assert lab["room_status"] == "INACTIVE"
+
+    assert classroom["capacity"] == 40
+    assert classroom["capacity_estimate"] == "40–45"
+    assert {"air conditioner", "wifi", "whiteboard", "projector"}.issubset(
+        set(classroom["facilities"])
+    )
+
+    assert batch["row_results"][0]["faculty"] == lab["faculty"]
+    assert batch["row_results"][0]["location_description"] == lab["location_description"]
+    assert batch["row_results"][0]["has_photo"] is True
+    assert batch["row_results"][1]["has_photo"] is True
+
+    committed = client.post(
+        "/api/v1/admin/rooms/imports/commit",
+        headers=headers,
+        json={"batch_id": batch["batch_id"]},
+    )
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["data"]["inserted"] == 2
+
+    rooms = client.get(
+        "/api/v1/rooms?search=Laboratorium%20Komputer%20Dasar",
+        headers=headers,
+    )
+    assert rooms.status_code == 200, rooms.text
+    room = rooms.json()["data"][0]
+    assert room["faculty"] == lab["faculty"]
+    assert room["location_description"] == lab["location_description"]
+    assert room["building"] == "Belum ditentukan"
+    assert room["capacity"] == 20
+    assert room["room_status"] == "INACTIVE"
+    assert room["photo_url"].startswith("/media/rooms/")
