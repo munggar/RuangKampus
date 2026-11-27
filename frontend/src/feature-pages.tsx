@@ -1,0 +1,494 @@
+import { useEffect, useState, type FormEvent } from "react";
+import {
+  ArrowRight, Bot, Building2, CalendarDays, CheckCircle2, Clock3,
+  MessageCircle, Search, Send, Sparkles, ThumbsDown, ThumbsUp, Users, WandSparkles,
+} from "lucide-react";
+import { Link, useSearchParams } from "react-router";
+import {
+  apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
+} from "./api";
+import type {
+  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult,
+  AssistantFeedbackReason, AvailabilityResult, Room,
+} from "./types";
+import { PageTitle } from "./layout";
+import { Button, EmptyState, Field, Loading, Notice, PageSection } from "./ui";
+
+function makeAvailabilityParams(date: string, start: string, end: string, participants: string) {
+  return new URLSearchParams({
+    date, startTime: start, endTime: end, participantCount: String(Number(participants)),
+  });
+}
+function roomBookingPath(roomId: string, date: string, start: string, end: string, participants = "1") {
+  const params = makeAvailabilityParams(date, start, end, participants);
+  return "/student/rooms/" + encodeURIComponent(roomId) + "/book?" + params.toString();
+}
+function roomDetailPath(roomId: string, date: string, start: string, end: string, participants: string) {
+  const params = makeAvailabilityParams(date, start, end, participants);
+  return "/student/rooms/" + encodeURIComponent(roomId) + "?" + params.toString();
+}
+function AvailabilityRoomPhoto({ room }: { room: Room }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [room.photo_url]);
+  if (!room.photo_url || failed) return <span className="room-card__placeholder"><Building2 size={34} aria-hidden="true" /></span>;
+  return <img src={apiAssetUrl(room.photo_url)} alt={"Foto " + room.room_name} loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+}
+function roomLocation(room: Room) {
+  return [room.faculty, room.building, room.floor ? "Lantai " + room.floor : null, room.location_description]
+    .filter(Boolean).join(" · ");
+}
+function AssistantRoomResultCard({
+  room, slots, availabilityChecked,
+}: {
+  room: Room;
+  slots?: AssistantChatResult["filters"];
+  availabilityChecked: boolean;
+}) {
+  const hasCompleteWindow = Boolean(slots?.date && slots.start_time && slots.end_time);
+  const target = hasCompleteWindow
+    ? availabilityChecked
+      ? roomBookingPath(
+        room.id,
+        slots?.date || "",
+        slots?.start_time || "",
+        slots?.end_time || "",
+        String(slots?.participant_count || 1),
+      )
+      : roomDetailPath(
+        room.id,
+        slots?.date || "",
+        slots?.start_time || "",
+        slots?.end_time || "",
+        String(slots?.participant_count || 1),
+      )
+    : "/student/rooms/" + encodeURIComponent(room.id);
+
+  return <Link className="assistant-room-card" to={target}>
+    <div className="assistant-room-card__media"><AvailabilityRoomPhoto room={room} /></div>
+    <div className="assistant-room-card__content">
+      <div className="assistant-room-card__top">
+        <span className={"assistant-room-card__status" + (availabilityChecked ? " assistant-room-card__status--available" : "")}>
+          {availabilityChecked ? <><CheckCircle2 size={13} />Tersedia saat dicek</> : "Kandidat ruang"}
+        </span>
+        {room.room_code ? <small>{room.room_code}</small> : null}
+      </div>
+      <h3>{room.room_name}</h3>
+      <p>{roomLocation(room) || room.building}</p>
+      <div className="assistant-room-card__facts">
+        <span><Users size={14} />{room.capacity} orang</span>
+        {room.floor ? <span><Building2 size={14} />Lantai {room.floor}</span> : null}
+      </div>
+      {room.facilities.length ? (
+        <div className="chip-list">{room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
+      ) : null}
+      {availabilityChecked && slots?.date && slots.start_time && slots.end_time ? (
+        <small className="assistant-room-card__window">
+          {formatDate(slots.date)} · {formatTime(slots.start_time)}–{formatTime(slots.end_time)} WIB
+        </small>
+      ) : null}
+      <span className="assistant-room-card__cta">
+        {availabilityChecked ? "Lanjut ajukan reservasi" : "Lihat detail ruang"} <ArrowRight size={15} />
+      </span>
+    </div>
+  </Link>;
+}
+function AlternativeCard({ slot }: { slot: AlternativeSlot }) {
+  return <Link className="recommendation-card recommendation-card--link"
+    to={roomBookingPath(slot.room.id, slot.date, slot.start_time, slot.end_time, String(slot.participant_count))}>
+    <div className="recommendation-card__top">
+      <span className="status-badge status-badge--active"><CheckCircle2 size={13} />Tersedia saat dicek</span>
+      <span className="muted small">{slot.duration_minutes} menit</span>
+    </div>
+    <h3>{slot.room.room_name}</h3>
+    <p className="muted">{roomLocation(slot.room) || slot.room.building}</p>
+    <div className="recommendation-card__facts">
+      <span><CalendarDays size={15} />{formatDate(slot.date)}</span>
+      <span><Clock3 size={15} />{formatTime(slot.start_time)}–{formatTime(slot.end_time)} WIB</span>
+      <span><Users size={15} />{slot.participant_count} peserta</span>
+    </div>
+    <div className="chip-list">{slot.room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
+    <div className="chip-list">{slot.match_reasons.map((reason) => <span key={reason}>{reason.replaceAll("_", " ").toLowerCase()}</span>)}</div>
+    <span className="recommendation-card__cta">Pilih slot ini <ArrowRight size={16} /></span>
+  </Link>;
+}
+
+export function StudentRoomAvailabilityPage() {
+  const [searchParams] = useSearchParams();
+  const [date, setDate] = useState(searchParams.get("date") || localToday());
+  const [start, setStart] = useState(searchParams.get("startTime") || "10:00");
+  const [end, setEnd] = useState(searchParams.get("endTime") || "12:00");
+  const [participants, setParticipants] = useState(searchParams.get("participantCount") || "1");
+  const [faculty, setFaculty] = useState(searchParams.get("faculty") || "");
+  const [building, setBuilding] = useState(searchParams.get("building") || "");
+  const [location, setLocation] = useState(searchParams.get("location") || "");
+  const [facility, setFacility] = useState(searchParams.get("facility") || "");
+  const [available, setAvailable] = useState<Room[]>([]);
+  const [blocked, setBlocked] = useState<Array<{ room: Room; result: AvailabilityResult }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [request, setRequest] = useState<{ filters: URLSearchParams; timeParams: URLSearchParams; date: string; start: string; end: string; participants: string } | null>(null);
+
+  async function searchAvailability(event: FormEvent) {
+    event.preventDefault();
+    setError(""); setAvailable([]); setBlocked([]); setSearched(false);
+    if (!date || !start || !end || end <= start || Number(participants) < 1) {
+      setError("Periksa kembali tanggal, jam, dan jumlah peserta. Jam selesai harus setelah jam mulai.");
+      return;
+    }
+    const filters = new URLSearchParams({ limit: "30", sortBy: "room_name", sortOrder: "asc", status: "ACTIVE" });
+    if (faculty.trim()) filters.set("faculty", faculty.trim());
+    if (building.trim()) filters.set("building", building.trim());
+    if (location.trim()) filters.set("location", location.trim());
+    filters.set("min_capacity", String(Number(participants)));
+    if (facility.trim()) filters.append("facilities", facility.trim());
+    const timeParams = new URLSearchParams(filters);
+    makeAvailabilityParams(date, start, end, participants).forEach((value, key) => timeParams.set(key, value));
+    setPage(1);
+    setRequest({ filters, timeParams, date, start, end, participants });
+  }
+
+  useEffect(() => {
+    if (!request) return;
+    let active = true;
+    setLoading(true); setError(""); setAvailable([]); setBlocked([]);
+    const query = new URLSearchParams(request.timeParams);
+    query.set("page", String(page));
+    roomApi.list(query).then(async (result) => {
+      if (!active) return;
+      setAvailable(result.items);
+      setTotalPages(result.meta?.total_pages || 1);
+      if (!result.items.length && page === 1) {
+        const candidateParams = new URLSearchParams(request.filters);
+        candidateParams.set("page", "1");
+        const candidates = await roomApi.list(candidateParams);
+        const checks = await Promise.allSettled(candidates.items.slice(0, 15).map(async (room) => ({
+          room, result: await roomApi.availability(room.id, makeAvailabilityParams(request.date, request.start, request.end, request.participants)),
+        })));
+        if (!active) return;
+        setBlocked(checks.filter((item): item is PromiseFulfilledResult<{ room: Room; result: AvailabilityResult }> => item.status === "fulfilled")
+          .map((item) => item.value).filter((item) => !item.result.available));
+      }
+      if (active) setSearched(true);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Ketersediaan ruangan belum dapat diperiksa.");
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [request, page]);
+
+  const alternativeQuery = "/student/alternatives?date=" + encodeURIComponent(date)
+    + "&durationMinutes=" + Math.max(15, Math.round((new Date("1970-01-01T" + end).getTime() - new Date("1970-01-01T" + start).getTime()) / 60000))
+    + "&participantCount=" + encodeURIComponent(participants)
+    + "&faculty=" + encodeURIComponent(faculty)
+    + "&building=" + encodeURIComponent(building)
+    + "&facility=" + encodeURIComponent(facility)
+    + "&preferredStartTime=" + encodeURIComponent(start);
+
+  return <div className="page-stack">
+    <PageTitle eyebrow="SMART ROOM AVAILABILITY" title="Cek ketersediaan ruangan"
+      description="Pilih tanggal, waktu, dan kebutuhan ruang. Hasil diperiksa berdasarkan jadwal, kapasitas, jam operasional, pemeliharaan, dan reservasi aktif."
+      action={<Link className="button button--secondary" to="/student/rooms"><Search size={16} />Direktori ruangan</Link>} />
+    <form className="panel stack-form" onSubmit={searchAvailability}>
+      <h2>Waktu dan kebutuhan kegiatan</h2>
+      <div className="form-grid">
+        <Field label="Tanggal kegiatan"><input type="date" min={localToday()} value={date} onChange={(e) => setDate(e.target.value)} required /></Field>
+        <Field label="Jumlah peserta"><input type="number" min="1" max="10000" value={participants} onChange={(e) => setParticipants(e.target.value)} required /></Field>
+        <Field label="Jam mulai"><input type="time" value={start} onChange={(e) => setStart(e.target.value)} required /></Field>
+        <Field label="Jam selesai"><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} required /></Field>
+      </div>
+      <div className="form-divider" />
+      <h2>Preferensi ruangan</h2>
+      <div className="form-grid">
+        <Field label="Fakultas"><input value={faculty} onChange={(e) => setFaculty(e.target.value)} placeholder="Semua fakultas" /></Field>
+        <Field label="Gedung"><input value={building} onChange={(e) => setBuilding(e.target.value)} placeholder="Semua gedung" /></Field>
+        <Field label="Lokasi detail"><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Contoh: dekat lift / sayap timur" /></Field>
+        <Field label="Fasilitas wajib"><input value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="Contoh: proyektor, Wi-Fi" /></Field>
+      </div>
+      {error ? <Notice tone="error">{error}</Notice> : null}
+      <Button type="submit" disabled={loading}><Search size={16} />{loading ? "Memeriksa..." : "Cari ruangan tersedia"}</Button>
+    </form>
+    {loading ? <Loading label="Memeriksa jadwal dan ketersediaan ruangan..." /> : null}
+    {searched && available.length ? <PageSection title={available.length + " ruangan tersedia"} action={<span className="muted small">{formatDate(date)} · {start}–{end} WIB</span>}>
+      <div className="room-grid">
+        {available.map((room) => <article className="room-card availability-result-card" key={room.id}>
+          <div className="room-card__media"><AvailabilityRoomPhoto room={room} /></div>
+          <div className="room-card__body">
+            <div className="room-card__top"><span className="status-badge status-badge--active">Tersedia</span><span><Users size={14} />{room.capacity} orang</span></div>
+            <Link className="room-card__title" to={roomDetailPath(room.id, date, start, end, participants)}>{room.room_name}</Link>
+            <p>{roomLocation(room) || room.building}</p>
+            <div className="chip-list">{room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
+            <Link className="button button--primary button--wide" to={roomBookingPath(room.id, date, start, end, participants)}>Pilih ruangan</Link>
+          </div>
+        </article>)}
+      </div>
+      {totalPages > 1 ? <div className="form-actions availability-pagination">
+        <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+        <span className="muted">Halaman {page} dari {totalPages}</span>
+        <Button variant="secondary" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+      </div> : null}
+      <Notice tone="info">Ketersediaan ini merupakan hasil pemeriksaan saat halaman dimuat. Backend akan memvalidasi ulang ketika permohonan diajukan dan saat Staff Sekretariat menyetujui.</Notice>
+    </PageSection> : null}
+    {searched && !available.length ? <section className="panel stack-form">
+      <EmptyState title="Belum ada ruangan yang tersedia" description="Tidak ditemukan ruang yang memenuhi kriteria pada waktu tersebut. Periksa penyebab bentrok atau cari jadwal alternatif." icon={<CalendarDays size={23} />} />
+      {blocked.length ? <div className="conflict-list">
+        <h3>Hasil deteksi konflik</h3>
+        {blocked.map(({ room, result }) => <article className="conflict-row" key={room.id}>
+          <div><strong>{room.room_name}</strong><p className="muted small">{roomLocation(room)}</p></div>
+          <ul>{result.reasons.map((reason) => <li key={reason}>{availabilityReasonLabel(reason)}</li>)}</ul>
+        </article>)}
+      </div> : null}
+      <Link className="button button--primary" to={alternativeQuery}><WandSparkles size={16} />Cari slot alternatif</Link>
+    </section> : null}
+    {searched && available.length === 0 && !blocked.length ? <Notice tone="warning">Tidak ada data ruangan yang cocok dengan filter. Coba kurangi fasilitas atau ubah lokasi.</Notice> : null}
+  </div>;
+}
+
+export function AlternativeSlotsPage() {
+  const [params] = useSearchParams();
+  const [date, setDate] = useState(params.get("date") || localToday());
+  const [duration, setDuration] = useState(params.get("durationMinutes") || "120");
+  const [participants, setParticipants] = useState(params.get("participantCount") || "1");
+  const [faculty, setFaculty] = useState(params.get("faculty") || "");
+  const [building, setBuilding] = useState(params.get("building") || "");
+  const [facility, setFacility] = useState(params.get("facility") || "");
+  const [preferredTime, setPreferredTime] = useState(params.get("preferredStartTime") || "10:00");
+  const [result, setResult] = useState<AlternativeSlotsResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function findAlternatives(event: FormEvent) {
+    event.preventDefault(); setError(""); setResult(null); setLoading(true);
+    try {
+      const data = await discoveryApi.alternatives({
+        date, duration_minutes: Number(duration), participant_count: Number(participants),
+        faculty: faculty.trim() || null, building: building.trim() || null,
+        facilities: facility.trim() ? [facility.trim()] : [],
+        preferred_start_time: preferredTime || null, search_days: 7, slot_step_minutes: 30, limit: 8,
+      });
+      setResult(data);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Rekomendasi slot alternatif belum dapat dimuat.");
+    } finally { setLoading(false); }
+  }
+
+  return <div className="page-stack">
+    <PageTitle eyebrow="ALTERNATIVE SLOT RECOMMENDATION" title="Rekomendasi jadwal alternatif"
+      description="Cari waktu atau ruangan lain saat slot awal tidak tersedia. Setiap rekomendasi diperiksa terhadap jadwal dan data reservasi terkini."
+      action={<Link className="button button--secondary" to="/student/availability"><CalendarDays size={16} />Cek ketersediaan</Link>} />
+    <form className="panel stack-form" onSubmit={findAlternatives}>
+      <div className="form-grid">
+        <Field label="Mulai pencarian dari tanggal"><input type="date" min={localToday()} value={date} onChange={(e) => setDate(e.target.value)} required /></Field>
+        <Field label="Durasi kegiatan (menit)"><input type="number" min="15" max="480" step="15" value={duration} onChange={(e) => setDuration(e.target.value)} required /></Field>
+        <Field label="Jumlah peserta"><input type="number" min="1" max="10000" value={participants} onChange={(e) => setParticipants(e.target.value)} required /></Field>
+        <Field label="Waktu yang diutamakan"><input type="time" value={preferredTime} onChange={(e) => setPreferredTime(e.target.value)} /></Field>
+        <Field label="Fakultas"><input value={faculty} onChange={(e) => setFaculty(e.target.value)} placeholder="Opsional" /></Field>
+        <Field label="Gedung"><input value={building} onChange={(e) => setBuilding(e.target.value)} placeholder="Opsional" /></Field>
+      </div>
+      <Field label="Fasilitas wajib"><input value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="Contoh: proyektor" /></Field>
+      {error ? <Notice tone="error">{error}</Notice> : null}
+      <Button type="submit" disabled={loading}><WandSparkles size={16} />{loading ? "Mencari alternatif..." : "Temukan slot alternatif"}</Button>
+    </form>
+    {loading ? <Loading label="Mencari slot yang cocok di jadwal ruangan..." /> : null}
+    {result ? <PageSection title={result.items.length + " rekomendasi ditemukan"}>
+      <Notice tone="info">{result.availability_note}</Notice>
+      {result.items.length ? <div className="recommendation-list">{result.items.map((slot, index) => <AlternativeCard key={slot.room.id + slot.date + slot.start_time + index} slot={slot} />)}</div>
+        : <EmptyState title="Belum ada slot alternatif" description="Belum ditemukan ruang dan waktu yang sesuai pada rentang pencarian. Ubah tanggal, durasi, atau kebutuhan fasilitas." icon={<CalendarDays size={22} />} />}
+    </PageSection> : null}
+  </div>;
+}
+
+type AssistantTurn = {
+  id: number;
+  sender: "assistant" | "user";
+  assistantName?: string;
+  message: string;
+  rooms?: Room[];
+  slots?: AssistantChatResult["filters"];
+  availabilityChecked?: boolean;
+  alternatives?: AlternativeSlot[];
+  reservations?: import("./types").AssistantReservationSummary[];
+  followUps?: string[];
+  engine?: string;
+  intent?: string;
+};
+const feedbackReasons: Array<{ code: AssistantFeedbackReason; label: string }> = [
+  { code: "TOO_FORMAL", label: "Bahasanya terlalu formal" },
+  { code: "TOO_LONG", label: "Jawabannya terlalu panjang" },
+  { code: "TOO_SHORT", label: "Jawabannya kurang detail" },
+  { code: "WRONG_INTENT", label: "Salah memahami permintaan" },
+  { code: "WRONG_NORMALIZATION", label: "Salah memahami bahasa gaul" },
+  { code: "RESULTS_NOT_RELEVANT", label: "Hasil ruangan kurang sesuai" },
+  { code: "OTHER", label: "Alasan lainnya" },
+];
+const assistantPrompts = [
+  "Cari ruang 20 orang + proyektor",
+  "Cek ruang kosong besok 10.00–12.00",
+  "Ada ruang dengan Wi-Fi?",
+];
+
+export function RoomAssistantPage() {
+  const [message, setMessage] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [turns, setTurns] = useState<AssistantTurn[]>([{
+    id: 1, sender: "assistant", assistantName: "RUKKA AI",
+    message: "Hai! Gue RUKKA AI 👋 Mau cari ruang, cek jadwal, atau nyari slot alternatif? Cerita aja, gue bantu.",
+  }]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [feedbackOpenFor, setFeedbackOpenFor] = useState<number | null>(null);
+  const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});
+  const [feedbackBusyFor, setFeedbackBusyFor] = useState<number | null>(null);
+  const [feedbackError, setFeedbackError] = useState("");
+
+  async function submitFeedback(turn: AssistantTurn, rating: "HELPFUL" | "NOT_HELPFUL", reason_code?: AssistantFeedbackReason) {
+    if (!turn.intent || feedbackSent[turn.id] || feedbackBusyFor === turn.id) return;
+    setFeedbackBusyFor(turn.id);
+    setFeedbackError("");
+    try {
+      await discoveryApi.feedback({ intent: turn.intent, rating, reason_code });
+      setFeedbackSent((current) => ({ ...current, [turn.id]: true }));
+      setFeedbackOpenFor(null);
+    } catch (cause) {
+      setFeedbackError(cause instanceof Error ? cause.message : "Feedback belum dapat dikirim.");
+    } finally {
+      setFeedbackBusyFor(null);
+    }
+  }
+
+  async function sendMessage(event: FormEvent) {
+    event.preventDefault();
+    const text = message.trim();
+    if (text.length < 3 || loading) return;
+    setMessage(""); setError("");
+    setTurns((current) => [...current, { id: Date.now(), sender: "user", message: text }]);
+    setLoading(true);
+    try {
+      const context = turns.slice(-10).map((turn) => ({
+        role: turn.sender,
+        content: [
+          turn.message,
+          ...(turn.rooms?.length ? ["Kandidat ruangan yang ditampilkan: " + turn.rooms.map((room) =>
+            room.room_name + " (kapasitas " + room.capacity + "; fasilitas " + room.facilities.join(", ") + ")"
+          ).join("; ")] : []),
+          ...(turn.alternatives?.length ? ["Slot alternatif yang ditampilkan: " + turn.alternatives.map((slot) =>
+            slot.room.room_name + " pada " + slot.date + " " + slot.start_time + "–" + slot.end_time
+          ).join("; ")] : []),
+        ].filter(Boolean).join("\n").slice(0, 1200),
+      }));
+      const response: AssistantChatResult = await discoveryApi.chat({
+        message: text,
+        conversation_id: conversationId,
+        context,
+      });
+      if (response.conversation_id) setConversationId(response.conversation_id);
+      setTurns((current) => [...current, {
+        id: Date.now() + 1, sender: "assistant", assistantName: response.assistant_name || "RUKKA AI", message: response.message,
+        rooms: response.rooms,
+        slots: response.slots ?? response.filters,
+        availabilityChecked: Boolean(
+          response.result_type === "ROOMS_FOUND" &&
+          ["ROOM_AVAILABILITY", "ROOM_SEARCH"].includes(response.intent) &&
+          response.filters?.date && response.filters?.start_time && response.filters?.end_time
+        ),
+        alternatives: response.alternative_slots,
+        reservations: response.data?.reservations || [],
+        followUps: response.follow_up_questions,
+        engine: response.engine,
+        intent: response.intent,
+      }]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Asisten belum dapat memproses pertanyaan.");
+    } finally { setLoading(false); }
+  }
+
+  return <div className="page-stack">
+    <PageTitle eyebrow="FITUR ANDALAN" title="RUKKA AI"
+      description="Teman ngobrol kampus untuk diskusi, mencari ruangan, mengecek jadwal, dan menemukan alternatif slot." />
+    <section className="panel assistant-intro">
+      <span className="assistant-intro__icon"><Bot size={25} /></span>
+      <div><h2>Ngobrol aja seperti biasa</h2><p className="muted">Tanya, diskusi, minta ide, atau ceritakan kebutuhan ruang. Untuk informasi kampus, RUKKA tetap mengacu pada data RuangKampus.</p></div>
+    </section>
+    <section className="panel assistant-chat-panel">
+      <div className="assistant-engine-label"><span className="online-dot" />RUKKA AI <span aria-hidden="true">·</span> Asisten kampusmu</div>
+      <div className="assistant-chat-list" aria-live="polite">
+        {turns.map((turn) => <article key={turn.id} className={"assistant-message assistant-message--" + turn.sender}>
+          <span className="assistant-message__avatar">{turn.sender === "assistant" ? <Sparkles size={16} /> : <Users size={16} />}</span>
+          <div className="assistant-message__body">
+            {turn.sender === "assistant" ? <small className="assistant-message__name">{turn.assistantName || "RUKKA AI"}</small> : null}
+            <p>{turn.message}</p>
+            {turn.sender === "assistant" && turn.engine ? (
+              <small className={"assistant-message__engine assistant-message__engine--" + turn.engine.toLowerCase()}>
+                {turn.engine === "HYBRID"
+                  ? "AI aktif"
+                  : ["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"].includes(turn.intent || "")
+                    ? "Data kampus terverifikasi"
+                    : "Mode standar"}
+              </small>
+            ) : null}
+            {turn.sender === "assistant" && turn.intent ? (
+              <div className="assistant-feedback">
+                {feedbackSent[turn.id] ? (
+                  <small className="assistant-feedback__thanks">Makasih, feedback lu bantu RUKKA makin paham.</small>
+                ) : (
+                  <>
+                    <div className="assistant-feedback__actions">
+                      <span>Jawaban ini membantu?</span>
+                      <button type="button" aria-label="Jawaban membantu" title="Membantu" disabled={feedbackBusyFor === turn.id}
+                        onClick={() => void submitFeedback(turn, "HELPFUL")}><ThumbsUp size={13} /></button>
+                      <button type="button" aria-label="Jawaban kurang membantu" title="Kurang membantu" disabled={feedbackBusyFor === turn.id}
+                        onClick={() => setFeedbackOpenFor(feedbackOpenFor === turn.id ? null : turn.id)}><ThumbsDown size={13} /></button>
+                    </div>
+                    {feedbackOpenFor === turn.id ? (
+                      <div className="assistant-feedback__reasons">
+                        <small>Apa yang perlu diperbaiki?</small>
+                        {feedbackReasons.map((reason) => (
+                          <button type="button" key={reason.code} disabled={feedbackBusyFor === turn.id}
+                            onClick={() => void submitFeedback(turn, "NOT_HELPFUL", reason.code)}>{reason.label}</button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : null}
+            {turn.rooms?.length ? <div className="assistant-room-grid">
+              {turn.rooms.map((room) => <AssistantRoomResultCard
+                key={room.id}
+                room={room}
+                slots={turn.slots}
+                availabilityChecked={Boolean(turn.availabilityChecked)}
+              />)}
+            </div> : null}
+            {turn.alternatives?.length ? <div className="recommendation-list">{turn.alternatives.map((slot, index) => <AlternativeCard key={slot.room.id + slot.date + slot.start_time + index} slot={slot} />)}</div> : null}
+            {turn.reservations?.length ? <div className="assistant-inline-results">
+              {turn.reservations.map((reservation) => <div className="assistant-room-link" key={reservation.id}>
+                <span><b>{reservation.room_name} · {reservation.status}</b><small>{reservation.building} · {formatDate(reservation.date)} · {formatTime(reservation.start_time)}–{formatTime(reservation.end_time)} WIB · {reservation.participant_count} peserta</small></span>
+              </div>)}
+            </div> : null}
+            {turn.followUps?.filter((question, index, all) =>
+              question.trim() &&
+              question.trim().toLocaleLowerCase() !== turn.message.trim().toLocaleLowerCase() &&
+              all.findIndex((item) => item.trim().toLocaleLowerCase() === question.trim().toLocaleLowerCase()) === index
+            ).map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>)}
+          </div>
+        </article>)}
+        {loading ? <Loading label="RUKKA lagi mikir sebentar..." /> : null}
+      </div>
+      {error ? <Notice tone="error">{error}</Notice> : null}
+      {feedbackError ? <Notice tone="error">{feedbackError}</Notice> : null}
+      <div className="assistant-suggestions">
+        <span className="muted small">Contoh pertanyaan</span>
+        {assistantPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => setMessage(prompt)}>{prompt}</button>)}
+      </div>
+      <form className="assistant-compose" onSubmit={sendMessage}>
+        <label className="sr-only" htmlFor="assistant-message">Tulis pertanyaan</label>
+        <textarea id="assistant-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={2}
+          maxLength={1000} minLength={3} placeholder="Tulis pesan ke RUKKA AI..." required />
+        <Button type="submit" disabled={loading || message.trim().length < 3} title="Kirim pertanyaan"><Send size={17} />Kirim</Button>
+      </form>
+    </section>
+    <Notice tone="info">RUKKA dapat membantu diskusi umum sekaligus urusan ruangan. Jadwal dan fakta kampus tetap harus bersumber dari data terverifikasi, sedangkan pengajuan reservasi dilakukan lewat fitur Reservasi. Saat AI aktif, maksimal sepuluh pesan terakhir dari tab ini dapat dikirim ke penyedia AI sebagai konteks; backend tidak menyimpan isi chat mentah, hanya filter pencarian dan ID kandidat terverifikasi sementara maksimal 30 menit. Mode AI mengikuti konfigurasi backend dan tidak bisa diaktifkan lewat chat. Feedback hanya menyimpan penilaian dan kategori alasan.</Notice>
+  </div>;
+}

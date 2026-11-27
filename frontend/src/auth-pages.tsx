@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Eye, EyeOff, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ApiError, authApi, isApiConfigured } from "./api";
 import { useAuth } from "./auth";
 import type { AppRole } from "./types";
 import { Button, Field, Notice } from "./ui";
 
-function BrandHero({ showAssistant = false }: { showAssistant?: boolean }) {
+function BrandHero() {
   return <aside className="auth-hero">
     <div className="auth-brand"><img className="brand-logo brand-logo--auth" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." /></div>
     <div className="auth-hero__text">
@@ -14,15 +14,6 @@ function BrandHero({ showAssistant = false }: { showAssistant?: boolean }) {
       <h1>Make room for great ideas.</h1>
       <p>Temukan ruang kampus yang sesuai dan ajukan reservasi dalam satu tempat.</p>
     </div>
-    {showAssistant ? <div className="auth-hero__feature">
-      <span className="auth-hero__feature-icon"><Sparkles size={19} /></span>
-      <div className="auth-hero__feature-copy">
-        <span className="auth-hero__feature-kicker">FITUR ANDALAN</span>
-        <strong>Kenalan dengan RUKKA AI</strong>
-        <p>Teman ngobrol kampus yang siap bantu cari ruang, cek jadwal, dan kasih alternatif.</p>
-        <div className="auth-hero__feature-tags"><span>Cari ruangan</span><span>Cek jadwal</span><span>Alternatif slot</span></div>
-      </div>
-    </div> : null}
     <small className="auth-hero__copyright">© {new Date().getFullYear()} RuangKampus</small>
   </aside>;
 }
@@ -48,7 +39,7 @@ export function LoginPage() {
   }
 
   return <main className="auth-layout">
-    <BrandHero showAssistant />
+    <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">
         <p className="eyebrow">WELCOME BACK</p>

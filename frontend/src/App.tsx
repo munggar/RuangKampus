@@ -1,0 +1,88 @@
+import { Navigate, Route, Routes, useLocation } from "react-router";
+import { useEffect, type ReactNode } from "react";
+import { useAuth } from "./auth";
+import { AppShell } from "./layout";
+import {
+  AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
+  ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
+  ReservationDetailPage, RoomDirectoryPage, RoomDetailPage, StudentDashboardPage,
+  StudentReservationsPage, BookingPage, NotFoundPage, StudentRoomAvailabilityPage,
+  AlternativeSlotsPage, RoomAssistantPage, AdminDataImportsPage,
+} from "./pages";
+
+function FullScreenLoading() {
+  return <main className="loading-screen loading-screen--branded" role="status" aria-live="polite">
+    <div className="loading-screen__brand">
+      <img src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
+    </div>
+    <span className="spinner" aria-hidden="true" />
+    <strong>Menyiapkan RuangKampus</strong>
+    <span className="loading-screen__message">Menghubungkan sesi dan memuat aplikasi…</span>
+  </main>;
+}
+
+function RequireRole({ role, children }: { role: "Student" | "Staff Sekretariat"; children: ReactNode }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <FullScreenLoading />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (user.role !== role) return <Navigate to={user.role === "Student" ? "/student/dashboard" : "/admin/dashboard"} replace />;
+  return <>{children}</>;
+}
+
+function HomeRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <FullScreenLoading />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={user.role === "Student" ? "/student/dashboard" : "/admin/dashboard"} replace />;
+}
+
+export function App() {
+  const { loading } = useAuth();
+  useEffect(() => {
+    if (!loading) document.getElementById("boot-splash")?.remove();
+  }, [loading]);
+
+  if (loading) return <FullScreenLoading />;
+
+  return (
+    <Routes>
+      <Route path="/" element={<HomeRedirect />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ForgotPasswordPage />} />
+
+      <Route path="/student" element={<RequireRole role="Student"><AppShell role="Student" /></RequireRole>}>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<StudentDashboardPage />} />
+        <Route path="rooms" element={<RoomDirectoryPage role="Student" />} />
+        <Route path="availability" element={<StudentRoomAvailabilityPage />} />
+        <Route path="alternatives" element={<AlternativeSlotsPage />} />
+        <Route path="rooms/:roomId" element={<RoomDetailPage role="Student" />} />
+        <Route path="rooms/:roomId/book" element={<BookingPage />} />
+        <Route path="reservations" element={<StudentReservationsPage />} />
+        <Route path="reservations/:reservationId" element={<ReservationDetailPage role="Student" />} />
+        <Route path="notifications" element={<NotificationsPage role="Student" />} />
+        <Route path="profile" element={<ProfilePage role="Student" />} />
+        <Route path="assistant" element={<RoomAssistantPage />} />
+      </Route>
+
+      <Route path="/admin" element={<RequireRole role="Staff Sekretariat"><AppShell role="Staff Sekretariat" /></RequireRole>}>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="reservations" element={<AdminRequestsPage />} />
+        <Route path="reservations/:reservationId" element={<ReservationDetailPage role="Staff Sekretariat" />} />
+        <Route path="rooms" element={<AdminRoomsPage />} />
+        <Route path="data-imports" element={<AdminDataImportsPage />} />
+        <Route path="rooms/new" element={<AdminRoomEditorPage />} />
+        <Route path="rooms/:roomId/edit" element={<AdminRoomEditorPage />} />
+        <Route path="schedules" element={<AdminSchedulesPage />} />
+        <Route path="notifications" element={<NotificationsPage role="Staff Sekretariat" />} />
+        <Route path="profile" element={<ProfilePage role="Staff Sekretariat" />} />
+      </Route>
+
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  );
+}
