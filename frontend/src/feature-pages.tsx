@@ -295,7 +295,7 @@ type AssistantTurn = {
   assistantName?: string;
   message: string;
   rooms?: Room[];
-  slots?: AssistantChatSlots;
+  slots?: AssistantChatResult["filters"];
   availabilityChecked?: boolean;
   alternatives?: AlternativeSlot[];
   reservations?: import("./types").AssistantReservationSummary[];
