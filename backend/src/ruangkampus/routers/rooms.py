@@ -11,7 +11,7 @@ from ruangkampus.database import get_db
 from ruangkampus.dependencies import get_optional_user, require_admin
 from ruangkampus.models import LectureSchedule, Reservation, Room, RoomUpdateLog, User, utcnow
 from ruangkampus.responses import success
-from ruangkampus.schemas import AvailabilityOut, RoomBulkOperatingHoursUpdateIn, RoomBulkStatusUpdateIn, RoomCreateIn, RoomUpdateIn, serialize_room
+from ruangkampus.schemas import AvailabilityOut, RoomBulkDeleteIn, RoomBulkOperatingHoursUpdateIn, RoomBulkStatusUpdateIn, RoomCreateIn, RoomUpdateIn, serialize_room
 from ruangkampus.services.availability import campus_today, check_room_availability
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
@@ -369,6 +369,72 @@ def update_room(room_id: UUID, payload: RoomUpdateIn, admin: User = Depends(requ
         raise HTTPException(status_code=409, detail="Room code already exists") from None
     db.refresh(room)
     return success(serialize_room(room), "Room updated")
+
+
+
+
+@router.delete("/bulk")
+def bulk_soft_delete_rooms(
+    payload: RoomBulkDeleteIn,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Soft-delete selected rooms atomically while preserving reservation history."""
+    rooms = db.scalars(
+        select(Room)
+        .where(Room.id.in_(payload.room_ids), Room.deleted_at.is_(None))
+        .order_by(Room.id)
+        .with_for_update()
+    ).all()
+    if len(rooms) != len(payload.room_ids):
+        raise HTTPException(status_code=404, detail="One or more selected rooms were not found")
+
+    blocked_rows = db.execute(
+        select(Room.id, Room.room_name)
+        .join(Reservation, Reservation.room_id == Room.id)
+        .where(
+            Room.id.in_(payload.room_ids),
+            Reservation.status.in_(["PENDING", "APPROVED"]),
+            Reservation.reservation_date >= campus_today(),
+        )
+        .distinct()
+        .order_by(Room.room_name)
+    ).all()
+    if blocked_rows:
+        names = ", ".join(row.room_name for row in blocked_rows)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Tidak ada ruangan yang dihapus. Ruangan berikut masih memiliki reservasi "
+                f"mendatang berstatus menunggu atau disetujui: {names}. "
+                "Selesaikan atau batalkan reservasi terlebih dahulu."
+            ),
+        )
+
+    now = utcnow()
+    deleted_ids: list[str] = []
+    for room in rooms:
+        previous = _room_snapshot(room)
+        room.deleted_at = now
+        room.room_status = "INACTIVE"
+        room.updated_at = now
+        db.add(
+            RoomUpdateLog(
+                admin_id=admin.id,
+                entity_type="ROOM",
+                entity_id=room.id,
+                action="BULK_SOFT_DELETE",
+                previous_value=previous,
+                new_value=_room_snapshot(room),
+            )
+        )
+        deleted_ids.append(str(room.id))
+
+    db.commit()
+    return success(
+        {"deleted_count": len(deleted_ids), "room_ids": deleted_ids},
+        "Selected rooms removed from the directory; reservation history retained",
+    )
 
 
 @router.delete("/{room_id}")

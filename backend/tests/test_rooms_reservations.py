@@ -790,3 +790,99 @@ def test_api_blocks_next_day_booking_until_admin_confirms_overdue_room_vacant(
 
     allowed = client.post("/api/v1/reservations", json=payload, headers=auth_headers())
     assert allowed.status_code == 201, allowed.text
+
+def test_admin_bulk_soft_deletes_selected_rooms_and_records_audit(
+    client, auth_headers, admin, create_room, room_payload, db_session
+):
+    from ruangkampus.models import Room, RoomUpdateLog
+    from uuid import UUID
+
+    first = create_room()
+    second_response = client.post(
+        "/api/v1/rooms",
+        json={**room_payload, "room_name": "Room 202", "room_code": "R-202"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert second_response.status_code == 201, second_response.text
+    second = second_response.json()["data"]
+
+    response = client.request(
+        "DELETE",
+        "/api/v1/rooms/bulk",
+        json={"room_ids": [first["id"], second["id"]]},
+        headers=auth_headers("admin.uhamka"),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["deleted_count"] == 2
+    assert set(data["room_ids"]) == {first["id"], second["id"]}
+
+    remaining = client.get("/api/v1/rooms", headers=auth_headers("admin.uhamka"))
+    assert remaining.status_code == 200
+    assert remaining.json()["meta"]["total"] == 0
+
+    persisted = db_session.query(Room).filter(Room.id.in_([UUID(first["id"]), UUID(second["id"])]))
+    assert all(room.deleted_at is not None and room.room_status == "INACTIVE" for room in persisted.all())
+    audit = db_session.query(RoomUpdateLog).filter(
+        RoomUpdateLog.action == "BULK_SOFT_DELETE",
+        RoomUpdateLog.entity_id.in_([UUID(first["id"]), UUID(second["id"])]),
+    ).all()
+    assert len(audit) == 2
+
+
+def test_bulk_room_delete_is_atomic_when_any_selected_room_has_future_booking(
+    client, auth_headers, student, admin, create_room, room_payload
+):
+    first = create_room()
+    second_response = client.post(
+        "/api/v1/rooms",
+        json={**room_payload, "room_name": "Room 203", "room_code": "R-203"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert second_response.status_code == 201, second_response.text
+    second = second_response.json()["data"]
+
+    reservation = client.post(
+        "/api/v1/reservations",
+        json={
+            "room_id": first["id"],
+            "purpose": "Reservation that protects selected room",
+            "date": next_weekday(1).isoformat(),
+            "start_time": "11:00:00",
+            "end_time": "12:00:00",
+            "participant_count": 2,
+        },
+        headers=auth_headers(),
+    )
+    assert reservation.status_code == 201, reservation.text
+
+    response = client.request(
+        "DELETE",
+        "/api/v1/rooms/bulk",
+        json={"room_ids": [first["id"], second["id"]]},
+        headers=auth_headers("admin.uhamka"),
+    )
+
+    assert response.status_code == 409
+    remaining = client.get("/api/v1/rooms", headers=auth_headers("admin.uhamka"))
+    assert remaining.status_code == 200
+    assert remaining.json()["meta"]["total"] == 2
+
+
+def test_student_cannot_bulk_delete_rooms_and_duplicate_ids_are_rejected(
+    client, auth_headers, student, admin, create_room
+):
+    room = create_room()
+    payload = {"room_ids": [room["id"]]}
+    denied = client.request("DELETE", "/api/v1/rooms/bulk", json=payload, headers=auth_headers())
+    assert denied.status_code == 403
+
+    duplicate = client.request(
+        "DELETE",
+        "/api/v1/rooms/bulk",
+        json={"room_ids": [room["id"], room["id"]]},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert duplicate.status_code == 422
+
