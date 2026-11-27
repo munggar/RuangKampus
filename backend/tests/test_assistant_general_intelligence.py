@@ -594,4 +594,4 @@ def test_day_then_compact_time_range_follow_up_preserves_date_and_finds_rooms(
     assert data["slots"]["end_time"] == "12:00:00"
     assert data["requires_clarification"] is False
     assert room["id"] in {item["id"] for item in data["rooms"]}
-    assert data["engine"] == "HYBRID"
+    assert data["engine"] == "RULE_BASED"

@@ -75,7 +75,10 @@ def compose_search_result(
     if room_count:
         result = f"Gue nemu {room_count} ruang yang cocok sama kriteria lu."
         if has_complete_availability_window:
-            result += " Slotnya tersedia saat terakhir dicek."
+            result += (
+                " Slotnya tersedia saat terakhir dicek. Klik kartu ruang untuk lanjut ke formulir "
+                "pengajuan; reservasi belum dikirim otomatis dan tetap menunggu persetujuan Staff Sekretariat."
+            )
         return result
     if alternative_count:
         return "Belum ada ruang yang kosong di jam itu. Gue cariin alternatif tanggal, jam, atau ruang yang masih cocok."

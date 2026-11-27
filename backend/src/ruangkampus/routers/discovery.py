@@ -150,6 +150,8 @@ STOP_WORDS.update({
     "organisasi", "depan", "setelah", "sebelum", "keperluan",
     "sekitar", "pesertanya", "jumlah", "ikut", "hadir", "anggota",
     "kalau", "habis", "kelas",
+    "nya", "ga", "gak", "nggak", "enggak", "engga", "sampe",
+    "coba", "sekalian", "reservasiin", "reservasikan", "ajukan", "pengajuan",
 })
 
 SEARCH_INTENTS = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
@@ -213,7 +215,7 @@ def _parse_time_range_follow_up(message: str) -> tuple[time, time] | None:
     match = re.search(
         r"(?<!\d)(?:(?:jam|pukul)\s*)?"
         r"([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*(pagi|siang|sore|malam)?\s*"
-        r"(?:-|–|—|s/d|sd|sampai|hingga|to)\s*"
+        r"(?:-|–|—|s/d|sd|sampai|sampe|hingga|to)\s*"
         r"(?:(?:jam|pukul)\s*)?([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*"
         r"(pagi|siang|sore|malam)?(?!\d)",
         message.casefold(),
@@ -328,7 +330,12 @@ def _room_candidates(
             Room.location_description.ilike(pattern),
             Room.description.ilike(pattern),
         ))
-    return db.scalars(stmt.order_by(Room.room_name.asc()).limit(250)).all()
+    ordering = (
+        (Room.capacity.asc(), Room.room_name.asc())
+        if min_capacity is not None
+        else (Room.room_name.asc(),)
+    )
+    return db.scalars(stmt.order_by(*ordering).limit(250)).all()
 
 
 def find_alternative_slots(db: Session, request: AlternativeSlotsIn) -> list[dict]:
@@ -483,7 +490,12 @@ def _parse_message_filters(
             expanded_tokens.append(token)
     tokens = [
         token for token in expanded_tokens
-        if len(token) >= 3 and token not in STOP_WORDS and not token.isdigit()
+        if len(token) >= 3
+        and token not in STOP_WORDS
+        and not token.isdigit()
+        and not re.fullmatch(r"20\d{2}-\d{2}-\d{2}", token)
+        and not re.fullmatch(r"\d{1,2}[:.]\d{2}", token)
+        and not re.fullmatch(r"\d{1,2}-\d{1,2}", token)
     ]
 
     # Remove all catalogue facility and faculty/building labels from free-text terms.
@@ -697,6 +709,28 @@ def _maybe_generate_ai_message(
     user_id: UUID | None = None,
     context_messages: list[dict[str, str]] | None = None,
 ) -> tuple[str, bool]:
+    # Room facts and availability have already been checked by deterministic
+    # database logic. Do not let a generative response replace or contradict them.
+    # RUKKA still uses the configured AI provider for general conversation.
+    has_verified_room_facts = bool(
+        rooms
+        or alternative_slots
+        or availability_checked
+        or filters.get("faculty")
+        or filters.get("building")
+        or filters.get("min_capacity")
+        or filters.get("facilities")
+        or filters.get("date")
+        or filters.get("start_time")
+        or filters.get("end_time")
+        or filters.get("search_terms")
+    )
+    if (
+        intent in {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"}
+        and has_verified_room_facts
+    ):
+        return deterministic_message, False
+
     settings = get_settings()
     adaptive_preferences = (
         get_adaptive_learning_preferences(db, user_id)
@@ -717,6 +751,69 @@ def _maybe_generate_ai_message(
         context_messages=context_messages,
     )
     return (generated, True) if generated else (deterministic_message, False)
+
+
+def _availability_blocked_message(
+    *,
+    candidate_rooms: list[Room],
+    blocker_reasons: list[str],
+    filters: dict,
+) -> str:
+    """Explain why matching rooms failed an exact availability check."""
+    if not candidate_rooms:
+        criteria = []
+        if filters.get("min_capacity"):
+            criteria.append(f"kapasitas minimal {filters['min_capacity']} orang")
+        if filters.get("facilities"):
+            criteria.append("fasilitas " + ", ".join(filters["facilities"]))
+        if filters.get("faculty"):
+            criteria.append("fakultas " + filters["faculty"])
+        if filters.get("building"):
+            criteria.append("gedung " + filters["building"])
+        requested = " dan ".join(criteria) if criteria else "kriteria pencarian lu"
+        return (
+            f"Belum ada ruangan aktif yang memenuhi {requested}. "
+            "Gue tetap mempertahankan semua filter wajib, jadi belum gue longgarkan diam-diam."
+        )
+
+    reasons = set(blocker_reasons)
+    weekday = filters["date"].strftime("%A").lower()
+    missing_hours = [
+        room for room in candidate_rooms
+        if not (room.operating_hours or {}).get(weekday)
+    ]
+    outside_hours = "OUTSIDE_OPERATING_HOURS_OR_NOT_CONFIGURED" in reasons
+    if outside_hours and len(missing_hours) == len(candidate_rooms) and reasons == {
+        "OUTSIDE_OPERATING_HOURS_OR_NOT_CONFIGURED"
+    }:
+        return (
+            f"Gue nemu {len(candidate_rooms)} kandidat yang cocok dengan kapasitas dan fasilitas lu, "
+            "tapi jam operasional ruangannya belum diatur untuk hari itu. "
+            "Jadi gue belum bisa memastikan slot tersebut kosong. Staff Sekretariat perlu melengkapi jam operasional dulu."
+        )
+
+    explanations = []
+    labels = (
+        ("OUTSIDE_OPERATING_HOURS_OR_NOT_CONFIGURED", "jam yang diminta berada di luar jam operasional atau belum diatur"),
+        ("LECTURE_SCHEDULE_CONFLICT", "berbenturan dengan jadwal perkuliahan"),
+        ("ROOM_UNAVAILABLE", "sedang masuk jadwal pemeliharaan atau penutupan"),
+        ("RESERVATION_CONFLICT", "sudah memiliki reservasi lain pada waktu tersebut"),
+        ("ROOM_OCCUPANCY_NOT_CONFIRMED", "masih menunggu konfirmasi bahwa sesi sebelumnya sudah selesai"),
+        ("PAST_OR_CURRENT_START_TIME", "waktu mulai sudah lewat"),
+    )
+    for code, label in labels:
+        if code in reasons:
+            explanations.append(label)
+    if explanations:
+        return (
+            f"Gue nemu {len(candidate_rooms)} kandidat yang memenuhi kapasitas dan fasilitas, "
+            "tapi belum ada yang bisa dipastikan tersedia karena " + "; ".join(explanations) + ". "
+            "Filter ruang tetap gue pertahankan. Lu bisa coba jam lain atau minta Staff Sekretariat mengecek jadwal operasional."
+        )
+    return (
+        f"Gue nemu {len(candidate_rooms)} kandidat yang sesuai, tetapi pemeriksaan ketersediaan "
+        "belum mengonfirmasi satu pun untuk waktu tersebut. Coba waktu lain atau cek lagi setelah jadwal diperbarui."
+    )
 
 
 def _intent_only_response(
@@ -1215,14 +1312,20 @@ def room_assistant_chat(
     else:
         rooms = []
 
+    candidate_rooms = list(rooms)
+    availability_blocker_reasons: list[str] = []
     if detection.intent in {"ROOM_AVAILABILITY", "ROOM_SEARCH"} and has_complete_availability_window:
-        rooms = [
-            room for room in rooms
-            if check_room_availability(
+        available_rooms = []
+        for room in candidate_rooms:
+            availability = check_room_availability(
                 db, room, filters["date"], filters["start_time"], filters["end_time"],
                 filters["participant_count"],
-            ).available
-        ]
+            )
+            if availability.available:
+                available_rooms.append(room)
+            else:
+                availability_blocker_reasons.extend(availability.reasons)
+        rooms = available_rooms
 
     alternatives = []
     should_find_alternatives = (
@@ -1262,6 +1365,17 @@ def room_assistant_chat(
         has_complete_availability_window=has_complete_availability_window,
         has_effective_search_criteria=has_effective_search_criteria,
     )
+    if (
+        detection.intent in {"ROOM_AVAILABILITY", "ROOM_SEARCH"}
+        and has_complete_availability_window
+        and not rooms
+        and not alternatives
+    ):
+        response_message = _availability_blocked_message(
+            candidate_rooms=candidate_rooms,
+            blocker_reasons=availability_blocker_reasons,
+            filters=filters,
+        )
 
     follow_up = []
     if not has_effective_search_criteria:
