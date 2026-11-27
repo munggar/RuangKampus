@@ -983,7 +983,7 @@ def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_sch
     assert participants.status_code == 200, participants.text
     participants_data = participants.json()["data"]
     assert participants_data["intent"] == "ROOM_SEARCH"
-    assert participants_data["slots"]["min_capacity"] == 25
+    assert participants_data["slots"]["min_capacity"] == 25, participants_data
     assert participants_data["slots"]["participant_count"] == 25
     assert participants_data["slots"]["search_terms"] == []
     assert room["id"] in {item["id"] for item in participants_data["rooms"]}
