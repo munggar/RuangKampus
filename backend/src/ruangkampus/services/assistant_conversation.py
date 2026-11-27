@@ -140,8 +140,8 @@ def merge_room_slots(
     current_facilities = merged.get("facilities") or []
     previous_facilities = prior.get("facilities") or []
     asks_to_replace_facilities = bool(
-        re.search(r"\\b(?:ganti|ubah|cukup|hanya)\\b", text)
-        or re.search(r"\\b(?:saja|aja)\\b", text)
+        re.search(r"\b(?:ganti|ubah|cukup|hanya)\b", text)
+        or re.search(r"\b(?:saja|aja)\b", text)
     )
     if current_facilities and previous_facilities and not has_negation and not asks_to_replace_facilities:
         combined: list[str] = []
