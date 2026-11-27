@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import date, timedelta
 
 import httpx
 import pytest
@@ -268,7 +268,7 @@ def test_single_start_time_is_parsed_and_only_end_time_is_requested(
     assert data["slots"]["start_time"] == "10:00:00"
     assert data["slots"]["end_time"] is None
     assert data["missing_fields"] == ["end_time"]
-    assert "Jam mulai sudah aku catat. Jam selesai berapa?" in data["message"]
+    assert "Jam mulai udah gue catat. Selesainya jam berapa?" in data["message"]
 
 
 def test_context_is_bounded_and_rejects_untrusted_roles(client, auth_headers, student):
@@ -529,3 +529,69 @@ def test_general_reply_prompt_requires_compact_reasoning_structure(
     assert "Jangan membuat esai" in prompt
     assert captured["body"]["max_tokens"] == 768
     assert captured["body"]["reasoning_effort"] == "low"
+
+
+def test_day_then_compact_time_range_follow_up_preserves_date_and_finds_rooms(
+    monkeypatch, client, auth_headers, student, admin, room_payload
+):
+    monkeypatch.setattr("ruangkampus.routers.discovery.campus_today", lambda: date(2026, 11, 27))
+
+    room_request = {
+        **room_payload,
+        "room_name": "Ruang Senin Klik",
+        "room_code": "RK-MON-CLICK",
+        "capacity": 40,
+        "facilities": ["Projector", "Air Conditioner"],
+    }
+    created = client.post(
+        "/api/v1/rooms",
+        json=room_request,
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert created.status_code == 201, created.text
+    room = created.json()["data"]
+
+    def fake_post(url, **kwargs):
+        return FakeResponse({
+            "choices": [{
+                "message": {
+                    "content": json.dumps({
+                        "message": "Sip, gue nemu ruang yang cocok. Cek card-nya, ya."
+                    })
+                }
+            }]
+        })
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr("ruangkampus.routers.discovery.get_settings", configured_settings)
+
+    first = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "ruangan mana yg kosong di hari senin"},
+        headers=auth_headers(),
+    )
+    assert first.status_code == 200, first.text
+    first_data = first.json()["data"]
+    assert first_data["intent"] == "ROOM_AVAILABILITY"
+    assert first_data["slots"]["date"] == "2026-11-30"
+    assert first_data["slots"]["start_time"] is None
+    assert first_data["slots"]["end_time"] is None
+    assert set(first_data["missing_fields"]) == {"start_time", "end_time"}
+
+    second = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "jam 10 - 12",
+            "conversation_id": first_data["conversation_id"],
+        },
+        headers=auth_headers(),
+    )
+    assert second.status_code == 200, second.text
+    data = second.json()["data"]
+    assert data["intent"] == "ROOM_AVAILABILITY"
+    assert data["slots"]["date"] == "2026-11-30"
+    assert data["slots"]["start_time"] == "10:00:00"
+    assert data["slots"]["end_time"] == "12:00:00"
+    assert data["requires_clarification"] is False
+    assert room["id"] in {item["id"] for item in data["rooms"]}
+    assert data["engine"] == "HYBRID"
