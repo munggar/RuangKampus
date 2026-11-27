@@ -487,6 +487,8 @@ export async function installMockApi(page: Page, initialRole: NullableRole): Pro
         batch_id: currentBatch.batch_id,
         status: "COMPLETED",
         inserted: currentBatch.valid_count,
+        restored: 0,
+        imported: currentBatch.valid_count,
         row_count: currentBatch.row_count,
         invalid_count: currentBatch.invalid_count,
       });
