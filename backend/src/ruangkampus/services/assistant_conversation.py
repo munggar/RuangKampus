@@ -133,7 +133,30 @@ def merge_room_slots(
         except (TypeError, ValueError):
             date_changed = False
 
+    # Facility mentions in follow-up questions are additive by default:
+    # "ada proyektor?" should keep previously required AC and Wi-Fi.
+    # A clear replacement phrase ("ganti fasilitas", "cukup Wi-Fi saja") replaces
+    # the previous list. Negated follow-ups never re-add old positive facilities.
+    current_facilities = merged.get("facilities") or []
+    previous_facilities = prior.get("facilities") or []
+    asks_to_replace_facilities = bool(
+        re.search(r"\\b(?:ganti|ubah|cukup|hanya)\\b", text)
+        or re.search(r"\\b(?:saja|aja)\\b", text)
+    )
+    if current_facilities and previous_facilities and not has_negation and not asks_to_replace_facilities:
+        combined: list[str] = []
+        seen: set[str] = set()
+        for facility in [*current_facilities, *previous_facilities]:
+            label = str(facility).strip()
+            key = label.casefold()
+            if label and key not in seen:
+                combined.append(label)
+                seen.add(key)
+        merged["facilities"] = combined
+
     for field in _SLOT_FIELDS:
+        if field == "facilities" and current_facilities:
+            continue
         if date_changed and field in {"start_time", "end_time"}:
             continue
         value = merged.get(field)
