@@ -150,6 +150,7 @@ STOP_WORDS.update({
     "organisasi", "depan", "setelah", "sebelum", "keperluan",
     "sekitar", "pesertanya", "jumlah", "ikut", "hadir", "anggota",
     "kalau", "habis", "kelas",
+    "nya", "ga", "gak", "nggak", "enggak", "engga", "sampe",
 })
 
 SEARCH_INTENTS = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
@@ -488,7 +489,12 @@ def _parse_message_filters(
             expanded_tokens.append(token)
     tokens = [
         token for token in expanded_tokens
-        if len(token) >= 3 and token not in STOP_WORDS and not token.isdigit()
+        if len(token) >= 3
+        and token not in STOP_WORDS
+        and not token.isdigit()
+        and not re.fullmatch(r"20\d{2}-\d{2}-\d{2}", token)
+        and not re.fullmatch(r"\d{1,2}[:.]\d{2}", token)
+        and not re.fullmatch(r"\d{1,2}-\d{1,2}", token)
     ]
 
     # Remove all catalogue facility and faculty/building labels from free-text terms.
