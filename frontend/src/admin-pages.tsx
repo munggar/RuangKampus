@@ -12,13 +12,14 @@ import {
 } from "./api";
 import type { DashboardSummary, Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from "./types";
 import { PageTitle } from "./layout";
-import { Button, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
+import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
+import { useLanguage } from "./i18n";
 
 function campusTimestamp(date: string, time: string): number {
   return new Date(date + "T" + time.slice(0, 8) + "+07:00").getTime();
 }
 function formatCampusClock(timestamp: number): string {
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat(typeof document !== "undefined" && document.documentElement.lang === "en" ? "en-US" : "id-ID", {
     timeZone: "Asia/Jakarta",
     hour: "2-digit",
     minute: "2-digit",
@@ -27,7 +28,7 @@ function formatCampusClock(timestamp: number): string {
   }).format(timestamp);
 }
 function formatCampusDate(timestamp: number): string {
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat(typeof document !== "undefined" && document.documentElement.lang === "en" ? "en-US" : "id-ID", {
     timeZone: "Asia/Jakarta",
     weekday: "long",
     day: "numeric",
@@ -456,6 +457,7 @@ export function AdminRequestsPage() {
 }
 
 export function AdminRoomsPage() {
+  const { language } = useLanguage();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -472,6 +474,10 @@ export function AdminRoomsPage() {
   const [bulkHoursStart, setBulkHoursStart] = useState("08:00");
   const [bulkHoursEnd, setBulkHoursEnd] = useState("17:00");
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState("");
+  const [bulkDeleteError, setBulkDeleteError] = useState("");
 
   const reload = () => {
     setLoading(true); setError(""); setNotice("");
@@ -579,6 +585,28 @@ export function AdminRoomsPage() {
     finally { setDeleting(false); }
   }
 
+  async function removeSelectedRooms() {
+    if (!selectedIds.length) return;
+    const confirmationWord = language === "id" ? "HAPUS" : "DELETE";
+    if (bulkDeleteConfirmation.trim().toUpperCase() !== confirmationWord) return;
+    setBulkDeleting(true);
+    setBulkDeleteError("");
+    try {
+      const result = await roomApi.bulkDelete(selectedIds);
+      const removedIds = new Set(result.room_ids);
+      setRooms((current) => current.filter((room) => !removedIds.has(room.id)));
+      setNotice(result.deleted_count + " ruangan berhasil dihapus dari direktori. Riwayat reservasi tetap tersimpan.");
+      setSelectedIds([]);
+      setBulkStatus("");
+      setBulkDeleteConfirmation("");
+      setBulkDeleteOpen(false);
+    } catch (cause) {
+      setBulkDeleteError(cause instanceof Error ? cause.message : "Tidak ada ruangan yang dihapus. Periksa reservasi mendatang pada ruangan terpilih.");
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   return <div className="page-stack">
     <PageTitle eyebrow="ROOM MANAGEMENT" title="Kelola ruangan" description={rooms.length + " ruangan dalam inventaris kampus."} action={<Link className="button button--primary" to="/admin/rooms/new"><Plus size={17} />Tambah ruangan</Link>} />
     <div className="panel list-toolbar">
@@ -595,18 +623,26 @@ export function AdminRoomsPage() {
         <b>{visible.length}</b>
       </label>
       <span className="room-selection-toolbar__count">{selectedIds.length} ruangan dipilih</span>
-      {selectedIds.length > 0 ? <div className="room-selection-toolbar__actions">
-        <Field label="Ubah status menjadi">
-          <select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value as RoomStatus | "")} disabled={bulkUpdating}>
-            <option value="">Pilih status…</option>
-            <option value="ACTIVE">Aktif</option>
-            <option value="INACTIVE">Nonaktif</option>
-            <option value="MAINTENANCE">Pemeliharaan</option>
-          </select>
-        </Field>
-        <Button disabled={!bulkStatus || bulkUpdating} onClick={() => setBulkConfirmOpen(true)}>Terapkan status</Button>
-        <Button variant="secondary" disabled={bulkUpdating} onClick={() => setBulkHoursOpen(true)}><Clock3 size={15} />Atur jam operasional</Button>
-        <Button variant="secondary" disabled={bulkUpdating} onClick={() => { setSelectedIds([]); setBulkStatus(""); }}>Batal pilih</Button>
+      {selectedIds.length > 0 ? <div className="room-selection-toolbar__bulk-row">
+        <div className="room-selection-toolbar__danger">
+          <div className="room-selection-toolbar__danger-label"><AlertTriangle size={16} /><span>AREA BAHAYA</span></div>
+          <Button variant="danger" disabled={bulkUpdating || bulkDeleting} onClick={() => { setBulkDeleteConfirmation(""); setBulkDeleteError(""); setBulkDeleteOpen(true); }}>
+            <Trash2 size={15} />Hapus pilihan ({selectedIds.length})
+          </Button>
+        </div>
+        <div className="room-selection-toolbar__actions">
+          <Field label="Ubah status menjadi">
+            <select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value as RoomStatus | "")} disabled={bulkUpdating || bulkDeleting}>
+              <option value="">Pilih status…</option>
+              <option value="ACTIVE">Aktif</option>
+              <option value="INACTIVE">Nonaktif</option>
+              <option value="MAINTENANCE">Pemeliharaan</option>
+            </select>
+          </Field>
+          <Button disabled={!bulkStatus || bulkUpdating || bulkDeleting} onClick={() => setBulkConfirmOpen(true)}>Terapkan status</Button>
+          <Button variant="secondary" disabled={bulkUpdating || bulkDeleting} onClick={() => setBulkHoursOpen(true)}><Clock3 size={15} />Atur jam operasional</Button>
+          <Button variant="secondary" disabled={bulkUpdating || bulkDeleting} onClick={() => { setSelectedIds([]); setBulkStatus(""); }}>Batal pilih</Button>
+        </div>
       </div> : <small className="room-selection-toolbar__hint">Centang ruangan untuk mengubah status atau jam operasional beberapa ruangan sekaligus.</small>}
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
@@ -663,6 +699,35 @@ export function AdminRoomsPage() {
         <div className="modal-actions">
           <Button variant="secondary" disabled={bulkUpdating} onClick={() => setBulkHoursOpen(false)}>Batal</Button>
           <Button disabled={bulkUpdating || !bulkHoursDays.length || bulkHoursEnd <= bulkHoursStart} onClick={() => void applyBulkOperatingHours()}>{bulkUpdating ? "Menyimpan…" : "Simpan jam operasional"}</Button>
+        </div>
+      </div>
+    </Modal>
+    <Modal
+      open={bulkDeleteOpen}
+      title={"Hapus " + selectedIds.length + " ruangan terpilih?"}
+      description="Penghapusan massal akan mengeluarkan ruangan dari direktori aktif. Riwayat reservasi tetap dipertahankan."
+      closeDisabled={bulkDeleting}
+      onClose={() => { if (!bulkDeleting) { setBulkDeleteOpen(false); setBulkDeleteConfirmation(""); setBulkDeleteError(""); } }}
+    >
+      <div className="stack-form">
+        <div className="danger-zone-callout">
+          <strong><AlertTriangle size={17} />PERINGATAN — AREA BAHAYA</strong>
+          <p>Ruangan terpilih akan dihapus dari direktori. Data riwayat reservasi dan audit tetap disimpan.</p>
+          <ul>
+            <li>Ruangan dengan reservasi mendatang berstatus Menunggu atau Disetujui akan memblokir penghapusan.</li>
+            <li>Jika satu ruangan terblokir, seluruh proses dibatalkan. Tidak ada penghapusan sebagian.</li>
+            <li>Penghapusan menggunakan soft-delete agar histori tidak rusak.</li>
+          </ul>
+        </div>
+        {bulkDeleteError ? <Notice tone="error">{bulkDeleteError}</Notice> : null}
+        <Field label={language === "id" ? "Ketik HAPUS untuk mengonfirmasi" : "Type DELETE to confirm"}>
+          <input value={bulkDeleteConfirmation} onChange={(event) => setBulkDeleteConfirmation(event.target.value)} placeholder={language === "id" ? "Ketik HAPUS" : "Type DELETE"} autoComplete="off" disabled={bulkDeleting} />
+        </Field>
+        <div className="modal-actions">
+          <Button variant="secondary" disabled={bulkDeleting} onClick={() => { setBulkDeleteOpen(false); setBulkDeleteConfirmation(""); setBulkDeleteError(""); }}>Batal</Button>
+          <Button variant="danger" disabled={bulkDeleting || bulkDeleteConfirmation.trim().toUpperCase() !== (language === "id" ? "HAPUS" : "DELETE")} onClick={() => void removeSelectedRooms()}>
+            <Trash2 size={15} />{bulkDeleting ? "Menghapus…" : "Hapus " + selectedIds.length + " ruangan"}
+          </Button>
         </div>
       </div>
     </Modal>

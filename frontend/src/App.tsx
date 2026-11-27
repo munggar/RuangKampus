@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "./auth";
 import { AppShell } from "./layout";
+import { BrandLogo } from "./ui";
 import {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
   ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
@@ -12,9 +13,7 @@ import {
 
 function FullScreenLoading() {
   return <main className="loading-screen loading-screen--branded" role="status" aria-live="polite">
-    <div className="loading-screen__brand">
-      <img src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
-    </div>
+    <div className="loading-screen__brand"><BrandLogo variant="loading" /></div>
     <span className="spinner" aria-hidden="true" />
     <strong>Menyiapkan RuangKampus</strong>
     <span className="loading-screen__message">Menghubungkan sesi dan memuat aplikasi…</span>

@@ -10,7 +10,8 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth";
 import { notificationApi } from "./api";
 import type { AppRole } from "./types";
-import { initialsFromName } from "./ui";
+import { BrandLogo, initialsFromName } from "./ui";
+import { LanguageSwitch } from "./i18n";
 
 interface NavigationItem {
   label: string; shortLabel: string; path: string; icon: typeof LayoutDashboard; ai?: boolean;
@@ -31,10 +32,7 @@ function navigationFor(role: AppRole): NavigationItem[] {
   ];
 }
 function Brand() {
-  return <>
-    <img className="brand-logo brand-logo--navigation brand-wordmark" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
-    <img className="brand-logo brand-mark" src="/brand/favicon/favicon-128x128.png" alt="RuangKampus" />
-  </>;
+  return <BrandLogo variant="navigation" />;
 }
 function useTheme() {
   const [theme, setThemeState] = useState<"light" | "dark">(() => {
@@ -208,6 +206,7 @@ export function AppShell({ role }: { role: AppRole }) {
         <Link className="mobile-brand" to={root + "/dashboard"}><Brand /></Link>
         <div className="topbar-page"><span>{role === "Student" ? "STUDENT PORTAL" : "ADMINISTRATION"}</span><strong>{pageLabel(location.pathname, role)}</strong></div>
         <div className="topbar-actions">
+          <LanguageSwitch />
           <ThemeButton theme={theme} toggle={() => setTheme(theme === "dark" ? "light" : "dark")} />
           <Link
             className="icon-button notification-link"

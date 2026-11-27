@@ -4,12 +4,13 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { ApiError, authApi, isApiConfigured } from "./api";
 import { useAuth } from "./auth";
 import type { AppRole } from "./types";
-import { Button, Field, Notice } from "./ui";
+import { BrandLogo, Button, Field, Notice } from "./ui";
+import { LanguageSwitch } from "./i18n";
 
 function BrandHero() {
   return <aside className="auth-hero">
     <div className="auth-brand">
-      <img className="brand-logo brand-logo--auth" src="/brand/logo-primary.png" alt="RuangKampus — Find the Room. Book the Space." />
+      <BrandLogo variant="auth" />
     </div>
     <div className="auth-hero__text">
       <p className="eyebrow">CAMPUS FACILITY RESERVATIONS</p>
@@ -41,6 +42,7 @@ export function LoginPage() {
   }
 
   return <main className="auth-layout">
+    <LanguageSwitch className="auth-language-switch" />
     <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">
@@ -113,6 +115,7 @@ export function ForgotPasswordPage() {
   }
 
   return <main className="auth-layout">
+    <LanguageSwitch className="auth-language-switch" />
     <BrandHero />
     <section className="auth-panel"><div className="auth-panel__inner">
       <p className="eyebrow">ACCOUNT SUPPORT</p>
@@ -176,6 +179,7 @@ export function RegisterPage() {
   }
 
   return <main className="auth-layout">
+    <LanguageSwitch className="auth-language-switch" />
     <BrandHero />
     <section className="auth-panel">
       <div className="auth-panel__inner">

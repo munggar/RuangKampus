@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import "@fontsource-variable/plus-jakarta-sans";
 import { BrowserRouter } from "react-router";
 import { AuthProvider } from "./auth";
+import { LanguageProvider } from "./i18n";
 import { App } from "./App";
 import "./styles/tokens.css";
 import "./styles.css";
@@ -19,10 +20,12 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/+$/, "") || "/"}>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
+    <LanguageProvider>
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/+$/, "") || "/"}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </LanguageProvider>
   </React.StrictMode>,
 );
