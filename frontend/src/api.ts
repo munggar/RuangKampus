@@ -281,6 +281,7 @@ export function availabilityReasonLabel(reason: string): string {
 export interface RoomImportRow {
   row_number: number; room_name: string; room_code: string; capacity_estimate: string;
   status: "VALID" | "INVALID"; errors: string[]; has_photo: boolean; floor: string | null;
+  import_action?: "CREATE" | "RESTORE" | "BLOCKED";
   faculty?: string | null; location_description?: string | null; facilities?: string[];
 }
 export interface RoomImportBatch {
@@ -294,7 +295,7 @@ export const roomImportApi = {
     return apiRequest<RoomImportBatch>("/admin/rooms/imports/preview", { method: "POST", body: form });
   },
   commit: (batch_id: string) =>
-    apiRequest<{ batch_id: string; status: string; inserted: number; row_count: number; invalid_count: number }>(
+    apiRequest<{ batch_id: string; status: string; inserted: number; restored: number; imported: number; row_count: number; invalid_count: number }>(
       "/admin/rooms/imports/commit", { method: "POST", body: { batch_id } },
     ),
   list: (limit = 20) => apiRequest<RoomImportBatch[]>("/admin/rooms/imports?limit=" + limit),

@@ -1180,3 +1180,175 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
   .mobile-nav__items[data-item-count="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .mobile-nav__items[data-item-count="6"] .nav-link { padding-right: 1px; padding-left: 1px; font-size: 8px; }
 }
+
+
+/* Room import workspace: give the preview table the full content width. */
+.data-import-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+  padding: clamp(18px, 2.2vw, 30px);
+}
+.data-import-main {
+  gap: 22px;
+}
+.data-import-preview {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 5px;
+}
+.data-import-preview > .data-import-overview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.data-import-preview .data-import-overview__card {
+  min-height: 76px;
+  padding: 16px 18px;
+}
+.data-import-preview__table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+.data-import-preview__table {
+  width: 100%;
+  min-width: 1700px;
+  table-layout: fixed;
+  font-size: 12px;
+}
+.data-import-preview__table th,
+.data-import-preview__table td {
+  padding: 13px 14px;
+  line-height: 1.55;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.data-import-preview__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  white-space: normal;
+  font-size: 11px;
+}
+.data-import-preview__table th:nth-child(1),
+.data-import-preview__table td:nth-child(1) { width: 64px; }
+.data-import-preview__table th:nth-child(2),
+.data-import-preview__table td:nth-child(2) { width: 190px; }
+.data-import-preview__table th:nth-child(3),
+.data-import-preview__table td:nth-child(3) { width: 90px; }
+.data-import-preview__table th:nth-child(4),
+.data-import-preview__table td:nth-child(4) { width: 124px; }
+.data-import-preview__table th:nth-child(5),
+.data-import-preview__table td:nth-child(5) { width: 230px; }
+.data-import-preview__table th:nth-child(6),
+.data-import-preview__table td:nth-child(6) { width: 225px; }
+.data-import-preview__table th:nth-child(7),
+.data-import-preview__table td:nth-child(7) { width: 280px; }
+.data-import-preview__table th:nth-child(8),
+.data-import-preview__table td:nth-child(8) { width: 150px; }
+.data-import-preview__table th:nth-child(9),
+.data-import-preview__table td:nth-child(9) { width: 100px; }
+.data-import-preview__table th:nth-child(10),
+.data-import-preview__table td:nth-child(10) { width: 250px; }
+.data-import-action {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  padding: 5px 9px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.data-import-action--create {
+  color: var(--status-success);
+  background: var(--status-success-surface);
+}
+.data-import-action--restore {
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+.data-import-action--blocked {
+  color: var(--status-danger);
+  background: var(--status-danger-surface);
+}
+.data-import-guide {
+  padding: 21px;
+}
+.data-import-guide > .notice {
+  margin-top: 17px;
+}
+.data-import-history {
+  padding: clamp(18px, 2.2vw, 28px);
+}
+.data-import-history > .data-import-step-title {
+  margin-bottom: 17px;
+}
+.data-import-bottom {
+  gap: 14px;
+  padding: 18px 20px;
+  margin-top: 2px;
+}
+.data-import-bottom p {
+  margin: 5px 0 0;
+  line-height: 1.55;
+}
+.data-import-tabs {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.data-import-tabs .data-import-tab {
+  flex: 0 0 auto;
+}
+@media (max-width: 900px) {
+  .data-import-layout {
+    padding: 19px;
+    gap: 20px;
+  }
+  .data-import-preview > .data-import-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .data-import-layout {
+    padding: 15px;
+    gap: 18px;
+  }
+  .data-import-overview {
+    grid-template-columns: 1fr;
+  }
+  .data-import-overview__card {
+    padding: 13px;
+  }
+  .data-import-preview > .data-import-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .data-import-preview .data-import-overview__card {
+    min-height: 68px;
+    padding: 12px;
+  }
+  .data-import-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+  .data-import-actions .button {
+    width: 100%;
+  }
+  .data-import-guide {
+    padding: 16px;
+  }
+  .data-import-history {
+    padding: 16px;
+  }
+  .data-import-bottom {
+    align-items: flex-start;
+    padding: 15px;
+  }
+}

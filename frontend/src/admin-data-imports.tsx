@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "r
 import { AlertCircle, BookOpen, Building2, CalendarDays, CheckCircle2, FileSpreadsheet, GraduationCap, Info, UploadCloud } from "lucide-react";
 import { Link } from "react-router";
 import { PageTitle } from "./layout";
-import { formatDateTime, roomImportApi, type RoomImportBatch } from "./api";
+import { ApiError, formatDateTime, roomImportApi, type RoomImportBatch } from "./api";
 import { Button, Notice } from "./ui";
 
 type DatasetKey = "students" | "courses" | "rooms";
@@ -62,16 +62,30 @@ export function AdminDataImportsPage() {
 
   async function commit() {
     if (!batch) return;
-    if (!window.confirm("Simpan " + batch.valid_count + " data ruangan yang valid ke database? Data yang sudah diimpor tidak otomatis terhapus saat impor berikutnya.")) return;
+    const restoreCount = batch.row_results.filter((row) => row.status === "VALID" && row.import_action === "RESTORE").length;
+    const createCount = batch.row_results.filter((row) => row.status === "VALID" && row.import_action !== "RESTORE").length;
+    const confirmation = "Simpan " + batch.valid_count + " data ruangan? " +
+      createCount + " data baru dan " + restoreCount + " data lama dipulihkan. Data yang sudah ada tidak dihapus saat impor berikutnya.";
+    if (!window.confirm(confirmation)) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const result = await roomImportApi.commit(batch.batch_id);
-      setMessage(result.inserted + " ruangan berhasil disimpan. " + result.invalid_count + " baris tidak diimpor.");
+      setMessage(
+        result.imported + " ruangan berhasil diproses: " + result.inserted +
+        " data baru dan " + result.restored + " data lama dipulihkan. " +
+        result.invalid_count + " baris tidak diimpor."
+      );
       setBatch(null); setFile(null);
       if (inputRef.current) inputRef.current.value = "";
       await loadHistory();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Impor gagal disimpan.");
+      const detail = e instanceof Error ? e.message : "Impor gagal disimpan.";
+      setBatch(null);
+      setError(
+        (e instanceof ApiError && e.status === 409 ? detail + " " : detail + " ") +
+        "Pratinjau direset; tekan Pratinjau & validasi kembali sebelum mencoba impor."
+      );
+      await loadHistory();
     } finally { setBusy(false); }
   }
 
@@ -123,8 +137,25 @@ export function AdminDataImportsPage() {
               <article className="data-import-overview__card"><div><b>{batch.valid_count}</b><small>Valid</small></div></article>
               <article className="data-import-overview__card"><div><b>{batch.invalid_count}</b><small>Perlu diperbaiki</small></div></article>
             </div>
-            <div className="table-wrap"><table className="data-table"><thead><tr><th>Baris</th><th>Nama ruangan</th><th>Lantai</th><th>Kapasitas estimasi</th><th>Fasilitas terdeteksi</th><th>Fakultas</th><th>Alamat/lokasi</th><th>Foto</th><th>Status / catatan</th></tr></thead><tbody>
-              {batch.row_results.map((row) => <tr key={row.row_number}><td>{row.row_number}</td><td>{row.room_name}</td><td>{row.floor ? "Lantai " + row.floor : "Belum diketahui"}</td><td>{row.capacity_estimate || "—"}</td><td>{row.facilities?.length ? row.facilities.join(", ") : "Tidak terdeteksi"}</td><td>{row.faculty || "—"}</td><td>{row.location_description || "—"}</td><td>{row.has_photo ? "Tersedia" : "Tidak ada"}</td><td>{row.status === "VALID" ? <span className="status-pill status-pill--success"><CheckCircle2 size={13} />Valid</span> : <span className="status-pill status-pill--danger">{row.errors.join(", ")}</span>}</td></tr>)}
+            <div className="table-wrap data-import-preview__table-wrap"><table className="data-table data-import-preview__table"><thead><tr><th>Baris</th><th>Nama ruangan</th><th>Lantai</th><th>Kapasitas estimasi</th><th>Fasilitas terdeteksi</th><th>Fakultas</th><th>Alamat/lokasi</th><th>Rencana aksi</th><th>Foto</th><th>Status / catatan</th></tr></thead><tbody>
+              {batch.row_results.map((row) => <tr key={row.row_number}>
+                <td>{row.row_number}</td>
+                <td>{row.room_name}</td>
+                <td>{row.floor ? "Lantai " + row.floor : "Belum diketahui"}</td>
+                <td>{row.capacity_estimate || "—"}</td>
+                <td>{row.facilities?.length ? row.facilities.join(", ") : "Tidak terdeteksi"}</td>
+                <td>{row.faculty || "—"}</td>
+                <td>{row.location_description || "—"}</td>
+                <td>
+                  {row.import_action === "RESTORE"
+                    ? <span className="data-import-action data-import-action--restore">Pulihkan data lama</span>
+                    : row.import_action === "BLOCKED"
+                      ? <span className="data-import-action data-import-action--blocked">Sudah aktif</span>
+                      : <span className="data-import-action data-import-action--create">Buat data baru</span>}
+                </td>
+                <td>{row.has_photo ? "Tersedia" : "Tidak ada"}</td>
+                <td>{row.status === "VALID" ? <span className="status-pill status-pill--success"><CheckCircle2 size={13} />Valid</span> : <span className="status-pill status-pill--danger">{row.errors.join(", ")}</span>}</td>
+              </tr>)}
             </tbody></table></div>
             <Notice tone="warning">Kapasitas operasional menggunakan batas bawah rentang (misalnya 20–25 menjadi 20), sedangkan rentang asli tetap disimpan. Fakultas dan alamat pada kolom Lokasi Gedung akan dipetakan otomatis. Kolom tersebut berisi alamat, bukan nama gedung, sehingga label gedung tetap “Belum ditentukan”. Jam operasional juga belum ada di workbook; ruangan tetap nonaktif sampai Admin melengkapi nama gedung dan jam operasional.</Notice>
           </div>}
