@@ -46,13 +46,21 @@ function AssistantRoomResultCard({
 }) {
   const hasCompleteWindow = Boolean(slots?.date && slots.start_time && slots.end_time);
   const target = hasCompleteWindow
-    ? roomDetailPath(
-      room.id,
-      slots?.date || "",
-      slots?.start_time || "",
-      slots?.end_time || "",
-      String(slots?.participant_count || 1),
-    )
+    ? availabilityChecked
+      ? roomBookingPath(
+        room.id,
+        slots?.date || "",
+        slots?.start_time || "",
+        slots?.end_time || "",
+        String(slots?.participant_count || 1),
+      )
+      : roomDetailPath(
+        room.id,
+        slots?.date || "",
+        slots?.start_time || "",
+        slots?.end_time || "",
+        String(slots?.participant_count || 1),
+      )
     : "/student/rooms/" + encodeURIComponent(room.id);
 
   return <Link className="assistant-room-card" to={target}>
@@ -78,7 +86,9 @@ function AssistantRoomResultCard({
           {formatDate(slots.date)} · {formatTime(slots.start_time)}–{formatTime(slots.end_time)} WIB
         </small>
       ) : null}
-      <span className="assistant-room-card__cta">Lihat detail ruang <ArrowRight size={15} /></span>
+      <span className="assistant-room-card__cta">
+        {availabilityChecked ? "Lanjut ajukan reservasi" : "Lihat detail ruang"} <ArrowRight size={15} />
+      </span>
     </div>
   </Link>;
 }
@@ -410,7 +420,11 @@ export function RoomAssistantPage() {
             <p>{turn.message}</p>
             {turn.sender === "assistant" && turn.engine ? (
               <small className={"assistant-message__engine assistant-message__engine--" + turn.engine.toLowerCase()}>
-                {turn.engine === "HYBRID" ? "AI aktif" : "Mode standar"}
+                {turn.engine === "HYBRID"
+                  ? "AI aktif"
+                  : ["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"].includes(turn.intent || "")
+                    ? "Data kampus terverifikasi"
+                    : "Mode standar"}
               </small>
             ) : null}
             {turn.sender === "assistant" && turn.intent ? (
