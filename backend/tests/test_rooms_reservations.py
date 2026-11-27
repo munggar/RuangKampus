@@ -91,6 +91,140 @@ def test_student_can_cancel_only_own_pending_reservation(client, auth_headers, s
     assert cancelled.json()["data"]["status"] == "CANCELLED"
 
 
+def test_admin_can_override_cancellation_after_start_for_any_room(
+    client, db_session, auth_headers, student, admin, create_room, monkeypatch,
+):
+    from datetime import datetime as RealDateTime, time
+    from uuid import UUID
+    from zoneinfo import ZoneInfo
+
+    from sqlalchemy import select
+
+    from ruangkampus.models import Reservation, Room, RoomUpdateLog
+    from ruangkampus.routers import reservations as reservations_router
+
+    room_data = create_room()
+    room = db_session.scalar(select(Room).where(Room.id == UUID(room_data["id"])))
+    reservation = Reservation(
+        user_id=student.id,
+        room_id=room.id,
+        purpose="Past session cancellation",
+        reservation_date=date(2026, 11, 27),
+        start_time=time(13, 0),
+        end_time=time(15, 0),
+        participant_count=2,
+        status="APPROVED",
+    )
+    db_session.add(reservation)
+    db_session.commit()
+
+    fixed_now = RealDateTime(2026, 11, 27, 13, 41, tzinfo=ZoneInfo("Asia/Jakarta"))
+    monkeypatch.setattr(reservations_router, "utcnow", lambda: fixed_now)
+
+    response = client.patch(
+        f"/api/v1/reservations/{reservation.id}/cancel",
+        json={"reason": "Ruangan perlu dikosongkan untuk kebutuhan kampus"},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["status"] == "CANCELLED"
+    assert response.json()["data"]["cancellation_reason"] == "Ruangan perlu dikosongkan untuk kebutuhan kampus"
+
+    db_session.refresh(reservation)
+    assert reservation.cancelled_by_id == admin.id
+    assert db_session.scalar(
+        select(RoomUpdateLog).where(
+            RoomUpdateLog.entity_type == "RESERVATION",
+            RoomUpdateLog.entity_id == reservation.id,
+            RoomUpdateLog.action == "CANCEL_RESERVATION",
+        )
+    ) is not None
+
+
+def test_admin_override_requires_cancellation_reason(
+    client, db_session, auth_headers, student, admin, create_room, monkeypatch,
+):
+    from datetime import datetime as RealDateTime, time
+    from uuid import UUID
+    from zoneinfo import ZoneInfo
+
+    from sqlalchemy import select
+
+    from ruangkampus.models import Reservation, Room
+    from ruangkampus.routers import reservations as reservations_router
+
+    room_data = create_room()
+    room = db_session.scalar(select(Room).where(Room.id == UUID(room_data["id"])))
+    reservation = Reservation(
+        user_id=student.id,
+        room_id=room.id,
+        purpose="Require override reason",
+        reservation_date=date(2026, 11, 27),
+        start_time=time(13, 0),
+        end_time=time(15, 0),
+        participant_count=2,
+        status="APPROVED",
+    )
+    db_session.add(reservation)
+    db_session.commit()
+    monkeypatch.setattr(
+        reservations_router,
+        "utcnow",
+        lambda: RealDateTime(2026, 11, 27, 13, 41, tzinfo=ZoneInfo("Asia/Jakarta")),
+    )
+
+    response = client.patch(
+        f"/api/v1/reservations/{reservation.id}/cancel",
+        json={},
+        headers=auth_headers("admin.uhamka"),
+    )
+    assert response.status_code == 422, response.text
+    db_session.refresh(reservation)
+    assert reservation.status == "APPROVED"
+
+
+def test_student_cannot_override_cancellation_after_start(
+    client, db_session, auth_headers, student, admin, create_room, monkeypatch,
+):
+    from datetime import datetime as RealDateTime, time
+    from uuid import UUID
+    from zoneinfo import ZoneInfo
+
+    from sqlalchemy import select
+
+    from ruangkampus.models import Reservation, Room
+    from ruangkampus.routers import reservations as reservations_router
+
+    room_data = create_room()
+    room = db_session.scalar(select(Room).where(Room.id == UUID(room_data["id"])))
+    reservation = Reservation(
+        user_id=student.id,
+        room_id=room.id,
+        purpose="Student past cancellation",
+        reservation_date=date(2026, 11, 27),
+        start_time=time(13, 0),
+        end_time=time(15, 0),
+        participant_count=2,
+        status="APPROVED",
+    )
+    db_session.add(reservation)
+    db_session.commit()
+    monkeypatch.setattr(
+        reservations_router,
+        "utcnow",
+        lambda: RealDateTime(2026, 11, 27, 13, 41, tzinfo=ZoneInfo("Asia/Jakarta")),
+    )
+
+    response = client.patch(
+        f"/api/v1/reservations/{reservation.id}/cancel",
+        json={"reason": "Tried to override as student"},
+        headers=auth_headers(),
+    )
+    assert response.status_code == 409, response.text
+    db_session.refresh(reservation)
+    assert reservation.status == "APPROVED"
+
+
 def test_schedule_creation_rejects_reservation_conflict(client, auth_headers, student, admin, create_room):
     room = create_room()
     booking_date = next_weekday(0)
