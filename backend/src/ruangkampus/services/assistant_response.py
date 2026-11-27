@@ -31,7 +31,7 @@ def compose_intent_response(intent: str, response_variant: str | None = None) ->
         return (
             "Gue bisa diajak diskusi, bantu cari ruang, cek ketersediaan, nyari slot alternatif, "
             "lihat detail ruang, dan jelasin alur reservasi. Mode AI ngikutin konfigurasi layanan, "
-            "jadi nggak bisa diaktifin cuma lewat chat."
+            "jadi tidak bisa diaktifkan hanya lewat chat."
         )
     if intent == "SMALLTALK":
         if response_variant == "THANKS":
