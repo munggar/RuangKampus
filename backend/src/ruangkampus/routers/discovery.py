@@ -1266,9 +1266,19 @@ def room_assistant_chat(
 
     follow_up = []
     if not has_effective_search_criteria:
-        follow_up.append(
-            "Lu butuh ruang buat kegiatan apa, atau kira-kira berapa orang?"
+        has_meeting_context = bool(
+            re.search(r"\b(?:rapat|organisasi|meeting)\b", normalization.normalized_text)
         )
+        follow_up.append(
+            "Sip, gue catat buat rapat organisasi. Kira-kira ada berapa orang yang ikut?"
+            if has_meeting_context
+            else "Lu butuh ruang buat kegiatan apa, atau kira-kira berapa orang?"
+        )
+        if has_meeting_context:
+            response_message = (
+                "Oke, gue catat buat rapat organisasi minggu depan. "
+                "Kira-kira ada berapa orang yang bakal ikut?"
+            )
     elif not has_complete_availability_window:
         follow_up.append(
             "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
