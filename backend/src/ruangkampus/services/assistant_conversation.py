@@ -31,6 +31,20 @@ _RESET_PHRASES = (
     "ganti topik",
 )
 
+_NEW_SEARCH_PATTERN = re.compile(
+    r"\b(?:cari(?:kan|in)?|carikan|mencari|nyari)\b.{0,50}"
+    r"\b(?:ruang(?:an)?|rgn|room|lab|laboratorium)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def is_new_room_search_request(message: str) -> bool:
+    """Detect an explicit new search request, not an elliptical filter follow-up."""
+    normalized = " ".join(message.casefold().split())
+    return bool(_NEW_SEARCH_PATTERN.search(normalized))
+
+
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -106,7 +120,22 @@ def merge_room_slots(
     explicit = explicitly_supplied or set()
     has_negation = bool(re.search(r"\b(tidak|bukan|jangan|tanpa|kecuali)\b", text))
 
+    # A changed date starts a different availability window. Do not silently carry
+    # the previous date's hours into the new day, but keep stable room criteria.
+    current_date = merged.get("date")
+    previous_date = prior.get("date")
+    date_changed = False
+    if current_date is not None and previous_date is not None:
+        try:
+            current_value = date.fromisoformat(current_date) if isinstance(current_date, str) else current_date
+            previous_value = date.fromisoformat(previous_date) if isinstance(previous_date, str) else previous_date
+            date_changed = current_value != previous_value
+        except (TypeError, ValueError):
+            date_changed = False
+
     for field in _SLOT_FIELDS:
+        if date_changed and field in {"start_time", "end_time"}:
+            continue
         value = merged.get(field)
         empty = value is None or value == [] or (field == "search_terms" and not value)
         if field == "participant_count":

@@ -931,3 +931,98 @@ def test_room_assistant_understands_availability_follow_up_from_same_conversatio
     assert data["intent"] == "ROOM_AVAILABILITY"
     assert data["missing_fields"] == ["date", "start_time", "end_time"]
     assert "tanggal dan jam" in data["follow_up_questions"][0].lower()
+
+
+
+def test_rukka_new_organization_search_keeps_follow_up_filters_without_stale_schedule(
+    client, auth_headers, student, admin, room_payload
+):
+    room = create_located_room(client, auth_headers, room_payload, faculty="FTII")
+    headers = auth_headers()
+
+    # A completed earlier lookup must not leak its date or time into a fresh search.
+    old_date = future_weekday(0)
+    first = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": f"Carikan ruangan kosong pada {old_date.isoformat()} jam 10 - 12"
+        },
+        headers=headers,
+    )
+    assert first.status_code == 200, first.text
+    previous_data = first.json()["data"]
+    conversation_id = previous_data["conversation_id"]
+    assert previous_data["slots"]["date"] == old_date.isoformat()
+    assert previous_data["slots"]["start_time"] == "10:00:00"
+    assert previous_data["slots"]["end_time"] == "12:00:00"
+
+    new_search = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "Gue mau nyari ruang buat rapat organisasi minggu depan.",
+            "conversation_id": conversation_id,
+        },
+        headers=headers,
+    )
+    assert new_search.status_code == 200, new_search.text
+    new_data = new_search.json()["data"]
+    assert new_data["intent"] == "ROOM_SEARCH"
+    assert new_data["slots"]["date"] is None
+    assert new_data["slots"]["start_time"] is None
+    assert new_data["slots"]["end_time"] is None
+    assert new_data["slots"]["search_terms"] == []
+    assert "berapa orang" in new_data["follow_up_questions"][0].lower()
+
+    participants = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "Pesertanya sekitar 18 sampai 25 orang",
+            "conversation_id": conversation_id,
+        },
+        headers=headers,
+    )
+    assert participants.status_code == 200, participants.text
+    participants_data = participants.json()["data"]
+    assert participants_data["intent"] == "ROOM_SEARCH"
+    assert participants_data["slots"]["min_capacity"] == 25, participants_data
+    assert participants_data["slots"]["participant_count"] == 25
+    assert participants_data["slots"]["search_terms"] == []
+    assert room["id"] in {item["id"] for item in participants_data["rooms"]}
+
+    weekday = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "Kalau bisa hari Rabu setelah kelas",
+            "conversation_id": conversation_id,
+        },
+        headers=headers,
+    )
+    assert weekday.status_code == 200, weekday.text
+    weekday_data = weekday.json()["data"]
+    selected_date = date.fromisoformat(weekday_data["slots"]["date"])
+    assert selected_date.weekday() == 2
+    assert selected_date > date.today()
+    assert selected_date != old_date
+    assert weekday_data["slots"]["min_capacity"] == 25
+    assert weekday_data["slots"]["participant_count"] == 25
+    assert weekday_data["slots"]["start_time"] is None
+    assert weekday_data["slots"]["end_time"] is None
+    assert room["id"] in {item["id"] for item in weekday_data["rooms"]}
+
+    hours = client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message": "jam 10 - 12",
+            "conversation_id": conversation_id,
+        },
+        headers=headers,
+    )
+    assert hours.status_code == 200, hours.text
+    hours_data = hours.json()["data"]
+    assert hours_data["intent"] == "ROOM_AVAILABILITY"
+    assert hours_data["slots"]["date"] == selected_date.isoformat()
+    assert hours_data["slots"]["start_time"] == "10:00:00"
+    assert hours_data["slots"]["end_time"] == "12:00:00"
+    assert hours_data["slots"]["min_capacity"] == 25
+    assert hours_data["slots"]["participant_count"] == 25
+    assert room["id"] in {item["id"] for item in hours_data["rooms"]}

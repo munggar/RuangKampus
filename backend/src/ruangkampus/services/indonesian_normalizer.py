@@ -141,6 +141,9 @@ COMMON_TOKENS = PARSER_STOP_WORDS | frozenset({
 
 _TOKEN_PATTERN = re.compile(
     r"20\d{2}-\d{2}-\d{2}"
+    # General numeric ranges must precede clock-only ranges. Otherwise "18 sampai 25"
+    # is partially tokenized as the valid hour range "18 sampai 2" plus "5".
+    r"|\d{1,4}\s*(?:-|–|—|s/d|sd|sampai|hingga|to)\s*\d{1,4}"
     r"|(?:[01]?\d|2[0-3])(?:[:.][0-5]\d)?\s*(?:-|–|—|s/d|sd|sampai|hingga|to)\s*(?:[01]?\d|2[0-3])(?:[:.][0-5]\d)?"
     r"|(?:[01]?\d|2[0-3])[:.][0-5]\d"
     r"|[A-Za-z0-9]+(?:[-._/][A-Za-z0-9]+)+"
