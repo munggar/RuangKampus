@@ -8,7 +8,7 @@ import {
   apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
 } from "./api";
 import type {
-  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult, AssistantChatSlots,
+  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult,
   AssistantFeedbackReason, AvailabilityResult, Room,
 } from "./types";
 import { PageTitle } from "./layout";
@@ -41,7 +41,7 @@ function AssistantRoomResultCard({
   room, slots, availabilityChecked,
 }: {
   room: Room;
-  slots?: AssistantChatSlots;
+  slots?: AssistantChatResult["filters"];
   availabilityChecked: boolean;
 }) {
   const hasCompleteWindow = Boolean(slots?.date && slots.start_time && slots.end_time);
