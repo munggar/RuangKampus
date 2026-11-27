@@ -6,44 +6,62 @@
     <meta name="x-apple-disable-message-reformatting">
     <title>{{ title }}</title>
   </head>
-  <body style="margin:0;padding:0;background:#eef3fb;color:#17243b;font-family:Arial,Helvetica,sans-serif;">
+  <body style="margin:0;padding:0;background:#f2f5ff;color:#182847;font-family:Arial,Helvetica,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{{ preheader }}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef3fb;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f2f5ff;">
       <tr>
-        <td align="center" style="padding:34px 14px;">
+        <td align="center" style="padding:30px 12px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;">
             <tr>
-              <td style="padding:25px 30px 27px;background:#142544;background-image:linear-gradient(120deg,#142544 0%,#1d4074 62%,#315fc7 100%);border-radius:20px 20px 0 0;">
+              <td style="padding:24px 26px 25px;background:#203b78;background-image:linear-gradient(125deg,#172f5c 0%,#254d91 58%,#5a55bd 100%);border-radius:22px 22px 0 0;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td valign="middle">
-                      <span style="display:inline-block;width:38px;height:38px;line-height:38px;text-align:center;background:#ffffff;border-radius:12px;color:#2459bd;font-size:21px;font-weight:900;">R</span>
-                      <span style="display:inline-block;margin-left:9px;vertical-align:middle;color:#ffffff;font-size:18px;font-weight:800;letter-spacing:.2px;">RuangKampus</span>
+                    <td valign="middle" style="padding-right:10px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td bgcolor="#ffffff" style="padding:7px 10px;border-radius:13px;">
+                            <img src="{{ brand_logo_url }}" width="145" alt="RuangKampus" style="display:block;width:145px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">
+                          </td>
+                        </tr>
+                      </table>
                     </td>
-                    <td align="right" valign="middle" style="color:#c9d8f4;font-size:10px;font-weight:700;letter-spacing:1.2px;">CAMPUS SPACE UPDATE</td>
+                    <td align="right" valign="middle" style="width:42%;color:#ffffff;font-size:10px;font-weight:800;line-height:1.55;">
+                      <div>Universitas Muhammadiyah Prof Dr Hamka</div>
+                      <div style="margin-top:6px;color:#dce4ff;font-size:9px;letter-spacing:1px;">BERSAMA TIM CODEMU</div>
+                    </td>
                   </tr>
                 </table>
-                <div style="margin-top:22px;color:#d8e5ff;font-size:12px;line-height:1.5;">Informasi reservasi dan akun kampus, langsung ke inbox kamu.</div>
+                <div style="margin-top:21px;">
+                  <span style="display:inline-block;padding:7px 11px;background:#ffe59a;border-radius:999px;color:#5e4311;font-size:10px;font-weight:800;letter-spacing:.8px;">&#10024; EMAIL RESMI KAMPUS</span>
+                </div>
+                <div style="margin-top:13px;color:#ffffff;font-size:18px;font-weight:800;line-height:1.45;">Hai, warga UHAMKA!</div>
+                <div style="margin-top:4px;color:#e3eaff;font-size:12px;line-height:1.65;">Info reservasi ruang dan kabar penting kampus, langsung mampir ke inbox kamu.</div>
               </td>
             </tr>
             <tr>
-              <td style="padding:32px 30px 30px;background:#ffffff;border:1px solid #e0e7f2;border-top:0;border-radius:0 0 20px 20px;">
-                <div style="display:inline-block;padding:7px 11px;background:#eef4ff;border:1px solid #dce8ff;border-radius:999px;color:#315fc7;font-size:10px;font-weight:800;letter-spacing:1px;">{{ eyebrow }}</div>
-                <h1 style="margin:18px 0 12px;color:#15233b;font-size:25px;line-height:1.28;letter-spacing:-.4px;">{{ title }}</h1>
-                <div style="color:#53627a;font-size:14px;line-height:1.8;">{{ message_html }}</div>
+              <td style="height:5px;background:#ffcf65;font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:30px 28px 28px;background:#ffffff;border:1px solid #e2e8f7;border-top:0;border-radius:0 0 20px 20px;">
+                <div style="display:inline-block;padding:7px 11px;background:#f0edff;border:1px solid #e1dcff;border-radius:999px;color:#5b4ab0;font-size:10px;font-weight:800;letter-spacing:.8px;">{{ eyebrow }}</div>
+                <h1 style="margin:17px 0 12px;color:#182847;font-size:25px;line-height:1.3;letter-spacing:-.4px;">{{ title }}</h1>
+                <div style="padding:15px 16px;background:#f7f8ff;border:1px solid #eaedfb;border-radius:15px;color:#52617c;font-size:14px;line-height:1.8;">{{ message_html }}</div>
                 {{ details_html }}
                 {{ action_html }}
-                <div style="margin-top:30px;padding:16px 17px;background:#f7f9fd;border:1px solid #e8edf5;border-radius:13px;">
-                  <div style="color:#1c3154;font-size:12px;font-weight:800;margin-bottom:5px;">Butuh bantuan?</div>
-                  <div style="color:#738198;font-size:12px;line-height:1.6;">Masuk ke RuangKampus melalui tombol di atas untuk melihat informasi terbaru pada akunmu.</div>
+                <div style="margin-top:28px;padding:16px 17px;background:#fff8e8;border:1px solid #ffedc2;border-radius:14px;">
+                  <div style="color:#654d18;font-size:12px;font-weight:800;margin-bottom:5px;">Butuh bantuan? Yuk, hubungi tim kampus ✨</div>
+                  <div style="color:#7b6b49;font-size:12px;line-height:1.65;">Masuk ke RuangKampus melalui tombol di atas untuk melihat informasi terbaru pada akunmu. Untuk bantuan lebih lanjut, silakan hubungi Staff Sekretariat.</div>
                 </div>
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding:20px 18px 0;color:#7d8ba1;font-size:11px;line-height:1.7;">
-                <strong style="color:#50617c;">RuangKampus</strong><br>
-                {{ footer_note }}<br>
-                <span style="color:#9aa6b8;">© RuangKampus · Portal Reservasi Ruang Kampus</span>
+              <td align="center" style="padding:20px 18px 0;color:#7d8ba1;font-size:11px;line-height:1.75;">
+                <strong style="color:#42577c;">RuangKampus</strong><br>
+                Dikembangkan oleh <strong style="color:#42577c;">Tim CodeMu</strong> untuk<br>
+                <strong style="color:#42577c;">Universitas Muhammadiyah Prof Dr Hamka</strong><br>
+                <span style="color:#9aa6b8;">&#169; RuangKampus · Portal Reservasi Ruang Kampus</span><br>
+                <div style="margin-top:7px;color:#8a96aa;">{{ footer_note }}</div>
+                <span style="color:#a7b0bf;">Pesan otomatis. Mohon jangan membalas email ini.</span>
               </td>
             </tr>
           </table>

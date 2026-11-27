@@ -109,7 +109,7 @@ def test_brevo_delivery_uses_transactional_email_api(monkeypatch):
     assert captured["url"] == "https://api.brevo.com/v3/smtp/email"
     assert captured["headers"]["api-key"] == "xkeysib-test-secret"
     assert captured["payload"] == {
-        "sender": {"name": "RuangKampus", "email": "notifications@example.test"},
+        "sender": {"name": "RuangKampus · Tim CodeMu · UHAMKA", "email": "notifications@example.test"},
         "to": [{"email": "student@example.test"}],
         "subject": "Reservation approved",
         "htmlContent": "<html><body><p>Your reservation is approved.</p></body></html>",
@@ -180,11 +180,28 @@ def test_branded_email_includes_details_button_and_fallback_link():
         eyebrow="RESERVASI DISETUJUI",
         details=[("Ruangan", "Lab Komputer"), ("Tanggal", "30/11/2026")],
         accent_color="#159b70",
+        footer_note="Jangan bagikan tautan reset ini kepada siapa pun.",
     )
     assert "RuangKampus" in result
+    assert "Universitas Muhammadiyah Prof Dr Hamka" in result
+    assert "BERSAMA TIM CODEMU" in result
+    assert "EMAIL RESMI KAMPUS" in result
+    assert "Jangan bagikan tautan reset ini kepada siapa pun." in result
     assert "RESERVASI DISETUJUI" in result
     assert "Lab Komputer" in result
     assert "30/11/2026" in result
     assert 'href="https://ruangkampus.example/student/reservations/abc-123"' in result
     assert "Lihat detail reservasi" in result
     assert "salin tautan berikut" in result
+
+
+def test_branded_email_uses_official_public_logo_url(monkeypatch):
+    monkeypatch.setattr(mail, "get_settings", lambda: SimpleNamespace(public_app_url="https://ruangkampus.example"))
+    result = mail.render_html_email("Hai!", "Ada kabar baru.")
+    assert 'src="https://ruangkampus.example/brand/logo-primary.png"' in result
+    assert "Universitas Muhammadiyah Prof Dr Hamka" in result
+
+
+def test_sender_name_always_identifies_codemu_and_uhamka():
+    assert mail._branded_sender_name("RuangKampus") == "RuangKampus · Tim CodeMu · UHAMKA"
+    assert mail._branded_sender_name("RuangKampus · Tim CodeMu · UHAMKA") == "RuangKampus · Tim CodeMu · UHAMKA"

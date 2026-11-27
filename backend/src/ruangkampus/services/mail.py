@@ -2,6 +2,7 @@ import html
 import logging
 import smtplib
 from email.message import EmailMessage
+from email.utils import formataddr
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,6 +12,17 @@ from ruangkampus.config import get_settings
 
 logger = logging.getLogger(__name__)
 _TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "email.html"
+
+
+def _branded_sender_name(configured_name: str | None) -> str:
+    """Keep the configured sender label while consistently identifying CodeMu and UHAMKA."""
+    base_name = (configured_name or "RuangKampus").strip() or "RuangKampus"
+    additions = []
+    if "codemu" not in base_name.casefold():
+        additions.append("Tim CodeMu")
+    if "uhamka" not in base_name.casefold():
+        additions.append("UHAMKA")
+    return " · ".join([base_name, *additions])
 
 
 def render_html_email(
@@ -27,6 +39,9 @@ def render_html_email(
 ) -> str:
     """Render the branded transactional email. All dynamic text and URLs are escaped."""
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
+    settings = get_settings()
+    app_url = getattr(settings, "public_app_url", "http://localhost:5173").rstrip("/")
+    brand_logo_url = html.escape(f"{app_url}/brand/logo-primary.png", quote=True)
     safe_title = html.escape(title)
     safe_body = "<br>".join(html.escape(line) for line in body.splitlines())
     preheader_text = preheader or (body.splitlines()[0] if body else "Pembaruan dari RuangKampus")
@@ -74,6 +89,7 @@ def render_html_email(
 
     replacements = {
         "{{ title }}": safe_title,
+        "{{ brand_logo_url }}": brand_logo_url,
         "{{ preheader }}": safe_preheader,
         "{{ eyebrow }}": safe_eyebrow,
         "{{ message_html }}": safe_body,
@@ -138,7 +154,7 @@ def send_email(
             },
             json={
                 "sender": {
-                    "name": settings.brevo_sender_name,
+                    "name": _branded_sender_name(settings.brevo_sender_name),
                     "email": sender_email,
                 },
                 "to": [{"email": to_email}],
@@ -156,7 +172,7 @@ def send_email(
         return False
 
     message = EmailMessage()
-    message["From"] = settings.smtp_from_email
+    message["From"] = formataddr((_branded_sender_name(getattr(settings, "brevo_sender_name", "RuangKampus")), settings.smtp_from_email))
     message["To"] = to_email
     message["Subject"] = subject
     message.set_content(body)

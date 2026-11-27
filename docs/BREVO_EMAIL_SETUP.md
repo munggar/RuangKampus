@@ -18,10 +18,10 @@ Set these variables on the `ruangkampus-api` service in the production environme
 | `EMAIL_BACKEND` | `brevo` |
 | `BREVO_API_KEY` | The Brevo API v3 key |
 | `BREVO_SENDER_EMAIL` | The exact verified sender email address |
-| `BREVO_SENDER_NAME` | `RuangKampus` |
+| `BREVO_SENDER_NAME` | `RuangKampus` (shown as `RuangKampus · Tim CodeMu · UHAMKA`) |
 | `PUBLIC_APP_URL` | `https://ruangkampus-web-production.up.railway.app` |
 
-For compatibility with an existing Railway setup, the backend also accepts `BREVO_SENDER_MAIL`. Prefer renaming it to `BREVO_SENDER_EMAIL` when convenient; no sender address needs to be changed. The `EMAIL_BACKEND` value is normalized to lowercase, so `BREVO` also works.
+For compatibility with an existing Railway setup, the backend also accepts `BREVO_SENDER_MAIL`. Prefer renaming it to `BREVO_SENDER_EMAIL` when convenient; no sender address needs to be changed. The sender display name is automatically branded as `RuangKampus · Tim CodeMu · UHAMKA`, including when an older Railway variable still contains only `RuangKampus`. SMTP delivery uses the same display name. Email headers show the official `Universitas Muhammadiyah Prof Dr Hamka` name and the CodeMu team identity. The header logo is served from `/brand/logo-primary.png`; the frontend build extracts and verifies that official asset from `RuangKampus-Brand-Assets (1).zip` in the repository. The `EMAIL_BACKEND` value is normalized to lowercase, so `BREVO` also works.
 
 The existing `SMTP_TIMEOUT_SECONDS` value is also used as the Brevo HTTP request timeout. `PUBLIC_APP_URL` is the base URL used to build role-specific buttons in all reservation emails. Do not set the Brevo key in `ruangkampus-web`; it belongs only in `ruangkampus-api`.
 
@@ -29,11 +29,11 @@ After setting the variables, Railway redeploys the API. Production configuration
 
 ## Events already connected to the mail service
 
-- New reservation request: polished email to active TU/Admin accounts, with applicant and booking details and a direct Admin reservation link.
+- New reservation request: polished email to active Staff Sekretariat accounts, with applicant and booking details and a direct Staff Sekretariat reservation link.
 - Reservation approved: email to the student, with booking details and a direct Student reservation link.
 - Reservation rejected: email to the student, including the rejection reason and a direct Student reservation link.
-- Reservation cancelled by TU/Admin: email to the student, including cancellation details and a direct Student reservation link.
-- Reservation cancelled by student: email to active TU/Admin accounts, including the student, reason, booking details and a direct Admin reservation link.
+- Reservation cancelled by Staff Sekretariat: email to the student, including cancellation details and a direct Student reservation link.
+- Reservation cancelled by student: email to active Staff Sekretariat accounts, including the student, reason, booking details and a direct Staff Sekretariat reservation link.
 - Password reset: branded security email with a one-time reset button and expiry information.
 
 In-app notifications remain persisted in PostgreSQL and the existing API responses do not change. Email is an additional delivery channel.
