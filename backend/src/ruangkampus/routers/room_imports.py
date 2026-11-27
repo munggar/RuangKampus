@@ -404,7 +404,7 @@ def commit_room_import(
                 raise HTTPException(
                     status_code=409,
                     detail=(
-                        f"Ruangan {row[\"room_name\"]} sudah aktif sejak pratinjau dibuat. "
+                        f"Ruangan {row['room_name']} sudah aktif sejak pratinjau dibuat. "
                         "Tidak ada perubahan yang disimpan; jalankan pratinjau ulang."
                     ),
                 )
