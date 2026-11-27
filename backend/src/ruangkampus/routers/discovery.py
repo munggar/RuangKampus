@@ -143,6 +143,8 @@ STOP_WORDS.update({
     # Activity and relative-time descriptors are context, not room metadata filters.
     "rapat", "organisasi", "depan", "setelah", "sebelum", "keperluan",
     "acara", "kegiatan", "diskusi", "meeting", "seminar", "presentasi",
+    "sekitar", "pesertanya", "jumlah", "ikut", "hadir", "anggota",
+    "kalau", "habis", "kelas",
 })
 
 SEARCH_INTENTS = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
