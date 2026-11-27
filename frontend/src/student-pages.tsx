@@ -58,7 +58,7 @@ function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reserv
         </div>
         {currentItem.room?.photo_url ? <RoomPhoto photoUrl={currentItem.room.photo_url} roomName={currentItem.room.room_name} className="reservation-card__image" /> : null}
         <strong>{currentItem.room?.room_name || "Ruangan"}</strong>
-        <span className="muted">{cleanLocationLabel(currentItem.room?.building) || cleanLocationLabel(currentItem.room?.location_description) || ""}</span>
+        <span className="muted">{cleanLocationLabel(currentItem.room?.building) || ""}</span>
         <div className="reservation-card__meta">
           <span><CalendarDays size={15} />{formatDate(currentItem.reservation_date)}</span>
           <span><Clock3 size={15} />{formatTime(currentItem.start_time)}–{formatTime(currentItem.end_time)}</span>
@@ -194,7 +194,7 @@ export function StudentDashboardPage() {
             <div className="next-session-card__top"><span>SESI ANDA</span><StatusBadge status={upcoming.status} /></div>
             {upcoming.room?.photo_url ? <RoomPhoto photoUrl={upcoming.room.photo_url} roomName={upcoming.room.room_name} className="next-session-card__image" /> : null}
             <h2>{upcoming.room?.room_name || "Ruangan"}</h2>
-            <p>{cleanLocationLabel(upcoming.room?.building) || cleanLocationLabel(upcoming.room?.location_description) || ""}</p>
+            <p>{cleanLocationLabel(upcoming.room?.building) || ""}</p>
             <div className="next-session-card__details">
               <span>{formatDate(upcoming.reservation_date)}<b>{formatTime(upcoming.start_time)}–{formatTime(upcoming.end_time)}</b></span>
               <span>{upcoming.purpose}<b>{upcoming.participant_count} peserta</b></span>
