@@ -68,7 +68,7 @@ def test_follow_up_merges_previous_slots_and_new_criteria_wins():
     assert merged["faculty"] == "FTII"
     assert merged["building"] == "Building B"
     assert merged["min_capacity"] == 20
-    assert merged["facilities"] == ["wifi"]
+    assert merged["facilities"] == ["wifi", "projector"]
     assert merged["date"] == date(2026, 12, 1)
     assert merged["start_time"] == time(9, 0)
     assert merged["participant_count"] == 20
@@ -161,3 +161,35 @@ def test_changed_date_does_not_inherit_previous_days_time_window():
     assert merged["end_time"] is None
     assert merged["min_capacity"] == 20
     assert merged["participant_count"] == 20
+
+
+
+def test_explicit_facility_replacement_does_not_keep_previous_requirements():
+    previous = {
+        "slots": {
+            "facilities": ["projector", "air conditioner"],
+            "faculty": None,
+            "building": None,
+            "min_capacity": None,
+            "date": None,
+            "start_time": None,
+            "end_time": None,
+            "participant_count": 1,
+            "search_terms": [],
+        }
+    }
+    current = {
+        "faculty": None,
+        "building": None,
+        "min_capacity": None,
+        "facilities": ["wifi"],
+        "date": None,
+        "start_time": None,
+        "end_time": None,
+        "participant_count": 1,
+        "search_terms": [],
+    }
+
+    merged = merge_room_slots(current, previous, message="cukup wifi saja")
+
+    assert merged["facilities"] == ["wifi"]
