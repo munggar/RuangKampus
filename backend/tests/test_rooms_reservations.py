@@ -94,7 +94,7 @@ def test_student_can_cancel_only_own_pending_reservation(client, auth_headers, s
 def test_admin_can_override_cancellation_after_start_for_any_room(
     client, db_session, auth_headers, student, admin, create_room, monkeypatch,
 ):
-    from datetime import time
+    from datetime import datetime as RealDateTime, time
     from uuid import UUID
     from zoneinfo import ZoneInfo
 
