@@ -140,7 +140,7 @@ def test_each_reasoning_qa_prompt_reaches_the_general_ai_provider(
     assert response.status_code == 200, response.text
     data = response.json()["data"]
     assert data["intent"] == "OUT_OF_SCOPE"
-    assert data["engine"] == "HYBRID"
+    assert data["engine"] == "RULE_BASED"
     assert data["message"] == answer
     assert data["rooms"] == []
     assert data["follow_up_questions"] == []
