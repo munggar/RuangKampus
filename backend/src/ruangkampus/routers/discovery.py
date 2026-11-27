@@ -185,8 +185,39 @@ def _parse_time(value: str | time) -> time:
     return value if isinstance(value, time) else time.fromisoformat(value)
 
 
+def _clock_time(hour: str, minute: str | None, period: str | None) -> time | None:
+    parsed_hour = int(hour)
+    parsed_minute = int(minute or 0)
+    if period in {"pagi", "malam"} and parsed_hour == 12:
+        parsed_hour = 0
+    elif period in {"siang", "sore", "malam"} and parsed_hour < 12:
+        parsed_hour += 12
+    return time(parsed_hour, parsed_minute) if 0 <= parsed_hour <= 23 else None
+
+
+def _parse_time_range_follow_up(message: str) -> tuple[time, time] | None:
+    """Parse compact ranges such as 'jam 10 - 12' or '10.00–12.00 siang'."""
+    match = re.fullmatch(
+        r"\s*(?:(?:jam|pukul)\s*)?"
+        r"([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*(pagi|siang|sore|malam)?\s*"
+        r"(?:-|–|—|s/d|sd|sampai|hingga|to)\s*"
+        r"(?:(?:jam|pukul)\s*)?([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*"
+        r"(pagi|siang|sore|malam)?[.!?\s]*",
+        message.casefold(),
+    )
+    if not match:
+        return None
+    start_period = match.group(3) or match.group(6)
+    end_period = match.group(6) or match.group(3)
+    start_time = _clock_time(match.group(1), match.group(2), start_period)
+    end_time = _clock_time(match.group(4), match.group(5), end_period)
+    if start_time is None or end_time is None or end_time <= start_time:
+        return None
+    return start_time, end_time
+
+
 def _parse_time_only_follow_up(message: str) -> time | None:
-    """Parse a short time-only reply such as 'sampai jam 12 siang'."""
+    """Parse a short time-only reply such as 'jam 10' or 'sampai jam 12 siang'."""
     match = re.fullmatch(
         r"\s*(?:(?:sampai|hingga|sd|s/d)\s*)?(?:(?:jam|pukul)\s*)?"
         r"([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*"
@@ -195,41 +226,57 @@ def _parse_time_only_follow_up(message: str) -> time | None:
     )
     if not match:
         return None
-    hour = int(match.group(1))
-    minute = int(match.group(2) or 0)
-    period = match.group(3)
-    if period in {"pagi", "malam"} and hour == 12:
-        hour = 0
-    elif period in {"siang", "sore", "malam"} and hour < 12:
-        hour += 12
-    return time(hour, minute) if 0 <= hour <= 23 else None
+    return _clock_time(match.group(1), match.group(2), match.group(3))
+
 
 def _apply_contextual_end_time_follow_up(filters: dict, conversation, message: str) -> bool:
-    """Treat a short time-only reply as the missing end time for the prior room request."""
+    """Merge a time-only follow-up with the current user's previous availability request."""
     if conversation.last_intent not in SEARCH_INTENTS:
         return False
     previous = conversation.state.get("slots", {}) if isinstance(conversation.state, dict) else {}
-    if not isinstance(previous, dict) or previous.get("end_time") is not None:
+    if not isinstance(previous, dict):
         return False
     previous_date = previous.get("date")
-    previous_start = previous.get("start_time")
-    if not previous_date or not previous_start:
-        return False
-    end_time = _parse_time_only_follow_up(message)
-    if end_time is None:
+    if not previous_date:
         return False
     try:
         requested_date = date.fromisoformat(previous_date) if isinstance(previous_date, str) else previous_date
-        start_time = _parse_time(previous_start)
     except (TypeError, ValueError):
         return False
-    if not isinstance(requested_date, date) or end_time <= start_time:
+    if not isinstance(requested_date, date):
         return False
-    filters["date"] = requested_date
-    filters["start_time"] = start_time
-    filters["end_time"] = end_time
-    return True
 
+    # A complete range fills both clock slots, even when the first message only
+    # supplied a day ("ruangan kosong hari Senin").
+    time_range = _parse_time_range_follow_up(message)
+    if time_range is not None:
+        filters["date"] = filters.get("date") or requested_date
+        filters["start_time"], filters["end_time"] = time_range
+        return True
+
+    single_time = _parse_time_only_follow_up(message)
+    if single_time is None:
+        return False
+
+    filters["date"] = filters.get("date") or requested_date
+    previous_start = previous.get("start_time")
+    previous_end = previous.get("end_time")
+    if previous_start is None and previous_end is None:
+        filters["start_time"] = single_time
+        filters["end_time"] = None
+        return True
+
+    if previous_start is not None and previous_end is None:
+        try:
+            start_time = _parse_time(previous_start)
+        except (TypeError, ValueError):
+            return False
+        if single_time <= start_time:
+            return False
+        filters["start_time"] = start_time
+        filters["end_time"] = single_time
+        return True
+    return False
 
 def _room_candidates(
     db: Session,
