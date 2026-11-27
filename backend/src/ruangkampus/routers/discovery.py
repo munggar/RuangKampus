@@ -151,6 +151,7 @@ STOP_WORDS.update({
     "sekitar", "pesertanya", "jumlah", "ikut", "hadir", "anggota",
     "kalau", "habis", "kelas",
     "nya", "ga", "gak", "nggak", "enggak", "engga", "sampe",
+    "coba", "sekalian", "reservasiin", "reservasikan", "ajukan", "pengajuan",
 })
 
 SEARCH_INTENTS = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
