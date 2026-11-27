@@ -8,7 +8,7 @@ import {
   apiAssetUrl, availabilityReasonLabel, discoveryApi, formatDate, formatTime, localToday, roomApi,
 } from "./api";
 import type {
-  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult,
+  AlternativeSlot, AlternativeSlotsResult, AssistantChatResult, AssistantChatSlots,
   AssistantFeedbackReason, AvailabilityResult, Room,
 } from "./types";
 import { PageTitle } from "./layout";
@@ -37,8 +37,54 @@ function roomLocation(room: Room) {
   return [room.faculty, room.building, room.floor ? "Lantai " + room.floor : null, room.location_description]
     .filter(Boolean).join(" · ");
 }
+function AssistantRoomResultCard({
+  room, slots, availabilityChecked,
+}: {
+  room: Room;
+  slots?: AssistantChatSlots;
+  availabilityChecked: boolean;
+}) {
+  const hasCompleteWindow = Boolean(slots?.date && slots.start_time && slots.end_time);
+  const target = hasCompleteWindow
+    ? roomDetailPath(
+      room.id,
+      slots?.date || "",
+      slots?.start_time || "",
+      slots?.end_time || "",
+      String(slots?.participant_count || 1),
+    )
+    : "/student/rooms/" + encodeURIComponent(room.id);
+
+  return <Link className="assistant-room-card" to={target}>
+    <div className="assistant-room-card__media"><AvailabilityRoomPhoto room={room} /></div>
+    <div className="assistant-room-card__content">
+      <div className="assistant-room-card__top">
+        <span className={"assistant-room-card__status" + (availabilityChecked ? " assistant-room-card__status--available" : "")}>
+          {availabilityChecked ? <><CheckCircle2 size={13} />Tersedia saat dicek</> : "Kandidat ruang"}
+        </span>
+        {room.room_code ? <small>{room.room_code}</small> : null}
+      </div>
+      <h3>{room.room_name}</h3>
+      <p>{roomLocation(room) || room.building}</p>
+      <div className="assistant-room-card__facts">
+        <span><Users size={14} />{room.capacity} orang</span>
+        {room.floor ? <span><Building2 size={14} />Lantai {room.floor}</span> : null}
+      </div>
+      {room.facilities.length ? (
+        <div className="chip-list">{room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
+      ) : null}
+      {availabilityChecked && slots?.date && slots.start_time && slots.end_time ? (
+        <small className="assistant-room-card__window">
+          {formatDate(slots.date)} · {formatTime(slots.start_time)}–{formatTime(slots.end_time)} WIB
+        </small>
+      ) : null}
+      <span className="assistant-room-card__cta">Lihat detail ruang <ArrowRight size={15} /></span>
+    </div>
+  </Link>;
+}
 function AlternativeCard({ slot }: { slot: AlternativeSlot }) {
-  return <article className="recommendation-card">
+  return <Link className="recommendation-card recommendation-card--link"
+    to={roomBookingPath(slot.room.id, slot.date, slot.start_time, slot.end_time, String(slot.participant_count))}>
     <div className="recommendation-card__top">
       <span className="status-badge status-badge--active"><CheckCircle2 size={13} />Tersedia saat dicek</span>
       <span className="muted small">{slot.duration_minutes} menit</span>
@@ -52,10 +98,8 @@ function AlternativeCard({ slot }: { slot: AlternativeSlot }) {
     </div>
     <div className="chip-list">{slot.room.facilities.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div>
     <div className="chip-list">{slot.match_reasons.map((reason) => <span key={reason}>{reason.replaceAll("_", " ").toLowerCase()}</span>)}</div>
-    <Link className="button button--primary button--wide" to={roomBookingPath(slot.room.id, slot.date, slot.start_time, slot.end_time, String(slot.participant_count))}>
-      Pilih slot ini <ArrowRight size={16} />
-    </Link>
-  </article>;
+    <span className="recommendation-card__cta">Pilih slot ini <ArrowRight size={16} /></span>
+  </Link>;
 }
 
 export function StudentRoomAvailabilityPage() {
@@ -251,6 +295,8 @@ type AssistantTurn = {
   assistantName?: string;
   message: string;
   rooms?: Room[];
+  slots?: AssistantChatSlots;
+  availabilityChecked?: boolean;
   alternatives?: AlternativeSlot[];
   reservations?: import("./types").AssistantReservationSummary[];
   followUps?: string[];
@@ -277,7 +323,7 @@ export function RoomAssistantPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [turns, setTurns] = useState<AssistantTurn[]>([{
     id: 1, sender: "assistant", assistantName: "RUKKA AI",
-    message: "Hai! Aku RUKKA AI 👋 Mau cari ruang, cek jadwal, atau butuh alternatif slot? Cerita aja santai.",
+    message: "Hai! Gue RUKKA AI 👋 Mau cari ruang, cek jadwal, atau nyari slot alternatif? Cerita aja, gue bantu.",
   }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -330,6 +376,12 @@ export function RoomAssistantPage() {
       setTurns((current) => [...current, {
         id: Date.now() + 1, sender: "assistant", assistantName: response.assistant_name || "RUKKA AI", message: response.message,
         rooms: response.rooms,
+        slots: response.slots ?? response.filters,
+        availabilityChecked: Boolean(
+          response.result_type === "ROOMS_FOUND" &&
+          ["ROOM_AVAILABILITY", "ROOM_SEARCH"].includes(response.intent) &&
+          response.filters?.date && response.filters?.start_time && response.filters?.end_time
+        ),
         alternatives: response.alternative_slots,
         reservations: response.data?.reservations || [],
         followUps: response.follow_up_questions,
@@ -364,7 +416,7 @@ export function RoomAssistantPage() {
             {turn.sender === "assistant" && turn.intent ? (
               <div className="assistant-feedback">
                 {feedbackSent[turn.id] ? (
-                  <small className="assistant-feedback__thanks">Makasih! Masukanmu membantu RUKKA belajar.</small>
+                  <small className="assistant-feedback__thanks">Makasih, feedback lu bantu RUKKA makin paham.</small>
                 ) : (
                   <>
                     <div className="assistant-feedback__actions">
@@ -387,10 +439,13 @@ export function RoomAssistantPage() {
                 )}
               </div>
             ) : null}
-            {turn.rooms?.length ? <div className="assistant-inline-results">
-              {turn.rooms.map((room) => <Link className="assistant-room-link" key={room.id} to={"/student/rooms/" + room.id}>
-                <span><b>{room.room_name}</b><small>{roomLocation(room) || room.building} · {room.capacity} orang</small></span><ArrowRight size={16} />
-              </Link>)}
+            {turn.rooms?.length ? <div className="assistant-room-grid">
+              {turn.rooms.map((room) => <AssistantRoomResultCard
+                key={room.id}
+                room={room}
+                slots={turn.slots}
+                availabilityChecked={Boolean(turn.availabilityChecked)}
+              />)}
             </div> : null}
             {turn.alternatives?.length ? <div className="recommendation-list">{turn.alternatives.map((slot, index) => <AlternativeCard key={slot.room.id + slot.date + slot.start_time + index} slot={slot} />)}</div> : null}
             {turn.reservations?.length ? <div className="assistant-inline-results">
