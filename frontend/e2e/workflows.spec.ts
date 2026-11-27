@@ -176,6 +176,27 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     expect(api.calls).toContain("POST /assistant/chat");
   });
 
+  test("assistant room result renders as a full clickable card and opens room detail", async ({ page }) => {
+    const api = await installMockApi(page, "Student");
+    await page.goto("/student/assistant");
+    await waitForPageReady(page);
+
+    await page.getByLabel("Tulis pertanyaan").fill("Cari ruang untuk delapan orang");
+    await page.getByRole("button", { name: "Kirim" }).click();
+
+    const roomCard = page.locator(".assistant-room-card").filter({ hasText: "Ruang Diskusi Uji" });
+    await expect(roomCard).toBeVisible();
+    await expect(roomCard).toContainText("32 orang");
+    await expect(roomCard).toContainText("Proyektor");
+    await expect(roomCard).toContainText("Lihat detail ruang");
+    await roomCard.click();
+
+    await expect(page).toHaveURL(/\/student\/rooms\/room-e2e-001$/);
+    await expect(page.getByRole("heading", { name: "Ruang Diskusi Uji" })).toBeVisible();
+    expect(api.calls).toContain("POST /assistant/chat");
+    expect(api.calls).toContain("GET /rooms/room-e2e-001");
+  });
+
   test("updates profile details using the profile form", async ({ page }) => {
     const api = await installMockApi(page, "Student");
     await page.goto("/student/profile");
