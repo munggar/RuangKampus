@@ -701,11 +701,15 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<AppLanguage>(() => {
+    let initial: AppLanguage = "id";
     try {
-      return window.localStorage.getItem("rk-language") === "en" ? "en" : "id";
+      initial = window.localStorage.getItem("rk-language") === "en" ? "en" : "id";
     } catch {
-      return "id";
+      initial = "id";
     }
+    // Set the document locale before child pages format dates on their first render.
+    document.documentElement.lang = initial;
+    return initial;
   });
 
   useEffect(() => {
@@ -762,7 +766,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<LanguageContextValue>(() => ({
     language,
-    setLanguage: setLanguageState,
+    setLanguage: (nextLanguage) => {
+      // Apply synchronously so date/number formatting updates in the same render.
+      document.documentElement.lang = nextLanguage;
+      try {
+        window.localStorage.setItem("rk-language", nextLanguage);
+      } catch {
+        // Keep the selected language for the current session if storage is unavailable.
+      }
+      setLanguageState(nextLanguage);
+    },
   }), [language]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
