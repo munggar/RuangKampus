@@ -459,7 +459,9 @@ def test_rukka_uses_casual_student_friendly_dynamic_response_style(monkeypatch):
     assert answer is not None
     system_prompt = captured["body"]["messages"][0]["content"]
     assert "teman kampus yang asik" in system_prompt
-    assert "sapaan 'aku/kamu'" in system_prompt
+    assert "persona orang pertama 'gue'" in system_prompt
+    assert "panggil pengguna 'lu'" in system_prompt
+    assert "Jangan campur dengan 'aku/kamu'" in system_prompt
     assert "maksimal 80 kata" in system_prompt
     assert "maksimal 3 bullet" in system_prompt
     assert "1-2 kalimat pendek" in system_prompt

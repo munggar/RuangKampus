@@ -902,8 +902,8 @@ def test_room_assistant_only_asks_for_time_when_date_was_already_parsed(
     assert data["intent"] == "ROOM_AVAILABILITY"
     assert data["slots"]["date"]
     assert data["missing_fields"] == ["start_time", "end_time"]
-    assert "tanggalnya sudah aku catat" in data["message"].lower()
-    assert "jam mulai dan selesai" in data["follow_up_questions"][0].lower()
+    assert "tanggalnya udah gue catat" in data["message"].lower()
+    assert "mulai dan selesai jam berapa" in data["follow_up_questions"][0].lower()
 
 
 def test_room_assistant_understands_availability_follow_up_from_same_conversation(

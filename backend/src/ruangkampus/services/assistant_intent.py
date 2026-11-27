@@ -188,8 +188,8 @@ def detect_assistant_intent(
             matched_rule="EMPTY_INPUT",
             requires_clarification=True,
             clarification_message=(
-                "Tulis kebutuhanmu terlebih dahulu. Aku bisa membantu mencari "
-                "ruangan dan memeriksa ketersediaannya."
+                "Ceritain kebutuhan lu dulu. Gue bisa bantu cari "
+                "ruang dan cek ketersediaannya."
             ),
         )
 
@@ -234,8 +234,8 @@ def detect_assistant_intent(
             matched_rule="ROOM_DETAIL_QUESTION",
             requires_clarification=True,
             clarification_message=(
-                "Ruangan mana yang ingin kamu ketahui? Sebutkan nama atau kode "
-                "ruangannya agar informasinya tidak tertukar."
+                "Ruang mana yang mau lu cek? Sebutin nama atau kode "
+                "ruangnya biar infonya nggak ketuker."
             ),
         )
 
@@ -335,8 +335,8 @@ def detect_assistant_intent(
             matched_rule="ROOM_REFERENCE_NEEDS_CRITERIA",
             requires_clarification=True,
             clarification_message=(
-                "Kamu ingin mencari ruangan, melihat detailnya, atau mengecek "
-                "ketersediaannya? Ceritakan sedikit kebutuhanmu."
+                "Lu mau cari ruang, lihat detailnya, atau cek "
+                "ketersediaannya? Ceritain dikit kebutuhan lu."
             ),
         )
 
