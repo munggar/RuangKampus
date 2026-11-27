@@ -147,8 +147,7 @@ STOP_WORDS = {
 STOP_WORDS.update(PARSER_STOP_WORDS)
 STOP_WORDS.update({
     # Activity and relative-time descriptors are context, not room metadata filters.
-    "rapat", "organisasi", "depan", "setelah", "sebelum", "keperluan",
-    "acara", "kegiatan", "diskusi", "meeting", "seminar", "presentasi",
+    "organisasi", "depan", "setelah", "sebelum", "keperluan",
     "sekitar", "pesertanya", "jumlah", "ikut", "hadir", "anggota",
     "kalau", "habis", "kelas",
 })
