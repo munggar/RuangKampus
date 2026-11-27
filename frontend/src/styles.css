@@ -2113,3 +2113,28 @@ button, a, input, select, textarea { touch-action: manipulation; }
 /* The public auth hero intentionally remains a light brand surface in dark mode. */
 .auth-brand .brand-lockup__words b { color: var(--text-brand-identity); }
 .auth-brand .brand-lockup__words small { color: var(--text-brand-identity-secondary); }
+
+
+/* Responsive brand lockup: keep the same transparent mark + wordmark on mobile. */
+@media (max-width: 1180px) {
+  .mobile-brand {
+    display: inline-flex !important;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 1 auto;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 4px 0;
+    border-radius: 0;
+    background: transparent !important;
+  }
+  .mobile-brand .brand-lockup__mark {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+  .mobile-brand .brand-lockup__words b { font-size: 14px; }
+  .mobile-brand .brand-lockup__words small { font-size: 7px; }
+}
