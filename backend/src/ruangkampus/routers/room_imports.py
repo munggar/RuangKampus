@@ -355,24 +355,105 @@ def commit_room_import(
     if not valid_rows:
         raise HTTPException(status_code=422, detail="Tidak ada baris valid untuk diimpor")
 
-    created_rooms = []
+    inserted_count = 0
+    restored_count = 0
+    moved_photos: list[Path] = []
+
+    def store_photo(row: dict) -> str | None:
+        photo_key = row.get("photo_key")
+        if not photo_key:
+            return None
+        staged = _staging_dir(batch.id) / Path(photo_key).name
+        if not staged.exists():
+            return None
+        final_name = f"{uuid4().hex}{staged.suffix.lower()}"
+        destination = _photo_dir() / final_name
+        shutil.move(str(staged), str(destination))
+        moved_photos.append(destination)
+        return f"/media/rooms/{final_name}"
+
+    def room_snapshot(room: Room) -> dict:
+        return {
+            "room_name": room.room_name,
+            "room_code": room.room_code,
+            "building": room.building,
+            "faculty": room.faculty,
+            "floor": room.floor,
+            "location_description": room.location_description,
+            "capacity": room.capacity,
+            "capacity_estimate": room.capacity_estimate,
+            "description": room.description,
+            "facilities": room.facilities,
+            "operating_hours": room.operating_hours,
+            "room_status": room.room_status,
+            "photo_url": room.photo_url,
+            "deleted_at": room.deleted_at.isoformat() if room.deleted_at else None,
+        }
+
     try:
         for row in valid_rows:
-            duplicate = db.scalar(select(Room.id).where(
+            name_key = row["room_name"].strip().casefold()
+            active_duplicate = db.scalar(select(Room.id).where(
                 Room.deleted_at.is_(None),
-                (func.lower(Room.room_name) == row["room_name"].lower()) | (Room.room_code == row["room_code"]),
+                or_(
+                    func.lower(Room.room_name) == name_key,
+                    Room.room_code == row["room_code"],
+                ),
             ))
-            if duplicate:
-                raise HTTPException(status_code=409, detail=f"Ruangan {row['room_name']} sudah terdaftar; tidak ada data yang disimpan")
-            photo_url = None
-            photo_key = row.get("photo_key")
-            if photo_key:
-                staged = _staging_dir(batch.id) / Path(photo_key).name
-                if staged.exists():
-                    final_name = f"{uuid4().hex}{staged.suffix.lower()}"
-                    destination = _photo_dir() / final_name
-                    shutil.move(str(staged), str(destination))
-                    photo_url = f"/media/rooms/{final_name}"
+            if active_duplicate:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Ruangan {row[\"room_name\"]} sudah aktif sejak pratinjau dibuat. "
+                        "Tidak ada perubahan yang disimpan; jalankan pratinjau ulang."
+                    ),
+                )
+
+            # Reuse the historical row so its ID and reservation references stay intact.
+            historical_room = db.scalar(select(Room).where(
+                Room.deleted_at.is_not(None),
+                Room.room_code == row["room_code"],
+            ).with_for_update())
+            if historical_room is None:
+                historical_room = db.scalar(select(Room).where(
+                    Room.deleted_at.is_not(None),
+                    func.lower(Room.room_name) == name_key,
+                ).with_for_update())
+
+            photo_url = store_photo(row)
+            if historical_room is not None:
+                previous_value = room_snapshot(historical_room)
+                historical_room.room_name = row["room_name"]
+                if not historical_room.room_code:
+                    historical_room.room_code = row["room_code"]
+                historical_room.building = row["building"]
+                historical_room.faculty = row["faculty"]
+                historical_room.floor = row["floor"]
+                historical_room.location_description = row["location_description"]
+                historical_room.capacity = row["capacity"]
+                historical_room.capacity_estimate = row["capacity_estimate"]
+                historical_room.description = row["description"]
+                historical_room.facilities = row["facilities"]
+                historical_room.operating_hours = row["operating_hours"]
+                historical_room.room_status = row["room_status"]
+                historical_room.photo_url = photo_url
+                historical_room.deleted_at = None
+                historical_room.updated_at = utcnow()
+                db.flush()
+                db.add(RoomUpdateLog(
+                    admin_id=admin.id,
+                    entity_type="ROOM",
+                    entity_id=historical_room.id,
+                    action="IMPORT_RESTORE",
+                    previous_value=previous_value,
+                    new_value={
+                        **room_snapshot(historical_room),
+                        "import_batch_id": str(batch.id),
+                    },
+                ))
+                restored_count += 1
+                continue
+
             room = Room(
                 room_name=row["room_name"], room_code=row["room_code"],
                 building=row["building"], faculty=row["faculty"], floor=row["floor"],
@@ -386,28 +467,49 @@ def commit_room_import(
             db.add(RoomUpdateLog(
                 admin_id=admin.id, entity_type="ROOM", entity_id=room.id,
                 action="IMPORT_CREATE", previous_value=None,
-                new_value={"room_name": room.room_name, "room_code": room.room_code,
-                           "capacity": room.capacity, "capacity_estimate": room.capacity_estimate,
-                           "photo_url": room.photo_url, "import_batch_id": str(batch.id)},
+                new_value={
+                    **room_snapshot(room),
+                    "import_batch_id": str(batch.id),
+                },
             ))
-            created_rooms.append(room)
+            inserted_count += 1
+
         batch.status = "COMPLETED"
         batch.completed_at = utcnow()
         db.commit()
     except HTTPException:
         db.rollback()
+        for path in moved_photos:
+            path.unlink(missing_ok=True)
         raise
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Terjadi duplikasi data; tidak ada perubahan yang disimpan") from None
+        for path in moved_photos:
+            path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Data ruangan berubah atau kode internal sudah digunakan. "
+                "Tidak ada perubahan yang disimpan; jalankan pratinjau ulang."
+            ),
+        ) from None
+    except Exception:
+        db.rollback()
+        for path in moved_photos:
+            path.unlink(missing_ok=True)
+        raise
     finally:
         shutil.rmtree(_photo_dir().parent / ".room-import-staging" / str(batch.id), ignore_errors=True)
+
     return success({
-        "batch_id": str(batch.id), "status": batch.status,
-        "inserted": len(created_rooms), "row_count": batch.row_count,
+        "batch_id": str(batch.id),
+        "status": batch.status,
+        "inserted": inserted_count,
+        "restored": restored_count,
+        "imported": inserted_count + restored_count,
+        "row_count": batch.row_count,
         "invalid_count": batch.invalid_count,
     }, "Data ruangan berhasil diimpor")
-
 
 @router.get("")
 def list_room_imports(
