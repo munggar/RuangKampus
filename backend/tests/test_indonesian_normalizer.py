@@ -227,6 +227,14 @@ def test_only_symbols_and_whitespace_are_cleaned_without_inventing_tokens():
         assert result.tokens == []
 
 
+def test_general_numeric_ranges_remain_one_token_for_capacity_parsing():
+    result = normalize_indonesian_message("Pesertanya sekitar 18 sampai 25 orang")
+
+    assert "18 sampai 25" in result.normalized_tokens
+    assert "18 sampai 2" not in result.normalized_tokens
+    assert "5" not in result.normalized_tokens
+
+
 def test_room_codes_and_date_time_tokens_are_not_reduced_as_repeated_characters():
     result = normalize_indonesian_message("RK-FTII-111 2026-11-30 09:00-11:00")
 
