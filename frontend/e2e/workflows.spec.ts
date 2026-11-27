@@ -154,7 +154,7 @@ test.describe("Student workflows — fixture-backed browser E2E", () => {
     await expect(page.getByText("AI aktif", { exact: true })).toBeVisible();
     await expect(page.getByText("RUKKA AI", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: "Jawaban membantu" }).click();
-    await expect(page.getByText("Makasih! Masukanmu membantu RUKKA belajar.")).toBeVisible();
+    await expect(page.getByText("Makasih, feedback lu bantu RUKKA makin paham.")).toBeVisible();
     expect(api.calls).toContain("POST /assistant/chat");
     expect(api.calls).toContain("POST /assistant/feedback");
   });
