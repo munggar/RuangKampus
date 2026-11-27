@@ -122,7 +122,13 @@ def _parse_date_from_message(message: str) -> date | None:
     if re.search(r"\blusa\b", message):
         return today + timedelta(days=2)
 
+    # "Minggu depan" means the following week, not the Sunday weekday.
+    # A specific weekday in the same phrase (e.g. "minggu depan hari Rabu")
+    # is still resolved to its next occurrence.
+    next_week_phrase = bool(re.search(r"\bminggu\s+depan\b", message))
     for label, weekday in WEEKDAYS.items():
+        if label == "minggu" and next_week_phrase:
+            continue
         if re.search(rf"\b{label}\b", message):
             delta = (weekday - today.weekday()) % 7
             return today + timedelta(days=delta or 7)
