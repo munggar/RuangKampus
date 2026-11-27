@@ -24,6 +24,80 @@ MAX_BYTES = 5 * 1024 * 1024
 MAX_EXPANDED_BYTES = 25 * 1024 * 1024
 PREVIEW_TTL = timedelta(hours=24)
 
+ROOM_IMPORT_HEADERS = {
+    "room_name": {"nomor ruangan", "nama ruangan", "room name", "room_name"},
+    "capacity": {"kapasitas", "kapasitas estimasi", "kapasitas (estimasi)", "capacity", "capacity estimate"},
+    "facilities": {"fasilitas", "facility", "facilities"},
+    "documentation": {"dokumentasi", "foto", "photo", "documentation"},
+    "location": {"lokasi gedung", "lokasi", "alamat gedung", "alamat", "building location"},
+    "faculty": {"fakultas", "faculty"},
+}
+ROOM_IMPORT_REQUIRED = ("room_name", "capacity", "facilities")
+
+
+def _normalise_header(value) -> str:
+    return re.sub(r"\\s+", " ", str(value or "").replace("\\xa0", " ").strip()).casefold()
+
+
+def _header_columns(sheet) -> dict[str, int]:
+    columns: dict[str, int] = {}
+    for index, cell in enumerate(sheet[1], start=1):
+        header = _normalise_header(cell.value)
+        if not header:
+            continue
+        for field, aliases in ROOM_IMPORT_HEADERS.items():
+            if header in aliases:
+                if field in columns:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Kolom {field.replace('_', ' ')} ditemukan lebih dari satu kali",
+                    )
+                columns[field] = index
+                break
+
+    missing = [field for field in ROOM_IMPORT_REQUIRED if field not in columns]
+    if missing:
+        labels = {
+            "room_name": "Nomor Ruangan",
+            "capacity": "Kapasitas atau Kapasitas (estimasi)",
+            "facilities": "Fasilitas",
+        }
+        required = ", ".join(labels[field] for field in missing)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Kolom wajib belum ditemukan: {required}. "
+                "Urutan kolom bebas; kolom Lokasi Gedung, Fakultas, dan Dokumentasi bersifat opsional."
+            ),
+        )
+    return columns
+
+
+def _facility_tags(value: str) -> list[str]:
+    """Extract only facilities explicitly named in the source description.
+
+    The full original text remains in Room.description; this list contains short,
+    searchable labels for the room directory and RUKKA facility filters.
+    """
+    text = value.casefold()
+    patterns = (
+        ("air conditioner", r"\\b(?:ac|air conditioner|pendingin)\\b"),
+        ("wifi", r"\\bwi[\\s-]?fi\\b|\\binternet\\b"),
+        ("projector", r"\\b(?:projector|proyektor|perangkat proyeksi)\\b"),
+        ("whiteboard", r"\\b(?:whiteboard|papan tulis)\\b"),
+        ("computer", r"\\b(?:komputer|computer|workstation|desktop|pc)\\b"),
+        ("monitor", r"\\bmonitor\\b"),
+        ("display", r"\\b(?:layar|display)\\b"),
+        ("meja komputer", r"\\bmeja komputer\\b"),
+        ("meja praktikum", r"\\bmeja praktikum\\b"),
+        ("meja gambar", r"\\bmeja gambar\\b"),
+        ("meja rapat", r"\\bmeja rapat\\b"),
+        ("instrumen elektronika", r"\\b(?:instrumen|perangkat) elektronika\\b"),
+        ("kabel", r"\\bkabel\\b"),
+        ("kursi", r"\\bkursi\\b"),
+    )
+    return [label for label, pattern in patterns if re.search(pattern, text)]
+
 
 def _safe_filename(value: str | None) -> str:
     leaf = Path((value or "rooms.xlsx").replace("\\", "/")).name
@@ -81,7 +155,7 @@ def _batch_payload(batch: RoomImportBatch) -> dict:
 def _parse_workbook(content: bytes, batch_id: UUID) -> tuple[list[dict], dict[int, tuple[str, bytes]]]:
     if not content or len(content) > MAX_BYTES:
         raise HTTPException(status_code=413 if content else 422, detail="File kosong atau melebihi batas 5 MB")
-    if not content.startswith(b"PK\x03\x04"):
+    if not content.startswith(b"PK\\x03\\x04"):
         raise HTTPException(status_code=415, detail="File harus berupa workbook .xlsx yang valid")
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
@@ -101,16 +175,22 @@ def _parse_workbook(content: bytes, batch_id: UUID) -> tuple[list[dict], dict[in
         sheet = workbook.active
         if sheet is None:
             raise HTTPException(status_code=422, detail="Sheet aktif tidak ditemukan")
-        headers = [str(cell.value or "").strip().lower() for cell in sheet[1]]
-        expected = ["nomor ruangan", "kapasitas (estimasi)", "fasilitas"]
-        if headers[:3] != expected:
-            raise HTTPException(status_code=422, detail="Kolom wajib harus: nomor ruangan, Kapasitas (estimasi), Fasilitas")
+        columns = _header_columns(sheet)
+
+        def cell_value(row_number: int, field: str):
+            column = columns.get(field)
+            return sheet.cell(row_number, column).value if column else None
+
         for row_number in range(2, sheet.max_row + 1):
-            name = str(sheet.cell(row_number, 1).value or "").strip()
-            capacity_value = sheet.cell(row_number, 2).value
-            facilities_text = str(sheet.cell(row_number, 3).value or "").strip()
-            if not name and not capacity_value and not facilities_text:
+            name = str(cell_value(row_number, "room_name") or "").strip()
+            capacity_value = cell_value(row_number, "capacity")
+            facilities_text = str(cell_value(row_number, "facilities") or "").strip()
+            location_value = str(cell_value(row_number, "location") or "").strip()
+            faculty_value = str(cell_value(row_number, "faculty") or "").strip()
+
+            if not any((name, capacity_value not in (None, ""), facilities_text, location_value, faculty_value)):
                 continue
+
             errors = []
             if not name:
                 errors.append("Nama ruangan wajib diisi")
@@ -119,19 +199,38 @@ def _parse_workbook(content: bytes, batch_id: UUID) -> tuple[list[dict], dict[in
             except ValueError as exc:
                 errors.append(str(exc))
                 capacity_min, capacity_max, capacity_label = 1, 1, ""
+
             if not facilities_text:
                 errors.append("Deskripsi fasilitas kosong")
+            if len(location_value) > 500:
+                errors.append("Lokasi Gedung maksimal 500 karakter")
+            if len(faculty_value) > 160:
+                errors.append("Fakultas maksimal 160 karakter")
+
             code = _slug_code(name) if name else ""
             rows.append({
-                "row_number": row_number, "room_name": name, "room_code": code,
-                "building": "Belum ditentukan", "faculty": None, "floor": _room_floor(name),
-                "location_description": None, "capacity": capacity_min,
-                "capacity_min": capacity_min, "capacity_max": capacity_max,
-                "capacity_estimate": capacity_label, "description": facilities_text,
-                "facilities": [part.strip() for part in re.split(r"[;,]", facilities_text) if part.strip()],
-                "operating_hours": {}, "room_status": "INACTIVE", "photo_key": None,
+                "row_number": row_number,
+                "room_name": name,
+                "room_code": code,
+                # The workbook supplies a street address, not a building name.
+                # Preserve it as location_description and leave the building label
+                # for an admin to complete before activating the room.
+                "building": "Belum ditentukan",
+                "faculty": faculty_value or None,
+                "floor": _room_floor(name),
+                "location_description": location_value or None,
+                "capacity": capacity_min,
+                "capacity_min": capacity_min,
+                "capacity_max": capacity_max,
+                "capacity_estimate": capacity_label,
+                "description": facilities_text,
+                "facilities": _facility_tags(facilities_text),
+                "operating_hours": {},
+                "room_status": "INACTIVE",
+                "photo_key": None,
                 "errors": errors,
             })
+
         for image in getattr(sheet, "_images", []):
             row_number = image.anchor._from.row + 1
             try:
@@ -151,7 +250,6 @@ def _parse_workbook(content: bytes, batch_id: UUID) -> tuple[list[dict], dict[in
     if len(rows) > 500:
         raise HTTPException(status_code=413, detail="Maksimal 500 ruangan per impor")
     return rows, photos
-
 
 @router.post("/preview", status_code=201)
 async def preview_room_import(
@@ -187,6 +285,9 @@ async def preview_room_import(
         "has_photo": bool(row["photo_key"]),
         "capacity_estimate": row["capacity_estimate"],
         "floor": row["floor"],
+        "faculty": row["faculty"],
+        "location_description": row["location_description"],
+        "facilities": row["facilities"],
     } for row in rows]
     valid = sum(1 for item in results if item["status"] == "VALID")
     batch = RoomImportBatch(
