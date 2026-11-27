@@ -171,14 +171,14 @@ def _missing_availability_fields(filters: dict) -> list[str]:
 def _availability_clarification(filters: dict) -> str:
     missing = set(_missing_availability_fields(filters))
     if missing == {"start_time", "end_time"} and filters.get("date") is not None:
-        return "Tanggalnya sudah aku catat. Jam mulai dan selesai berapa? Contoh: 09.00–11.00."
+        return "Sip, tanggalnya udah gue catat. Lu mau mulai dan selesai jam berapa? Contoh: 09.00–11.00."
     if missing == {"date"}:
-        return "Jamnya sudah aku catat. Tanggal pemakaiannya kapan?"
+        return "Jamnya udah gue catat. Lu mau pakai ruang tanggal berapa?"
     if missing == {"start_time"}:
-        return "Jam selesai sudah aku catat. Jam mulai berapa?"
+        return "Jam selesai udah gue catat. Mulainya jam berapa?"
     if missing == {"end_time"}:
-        return "Jam mulai sudah aku catat. Jam selesai berapa?"
-    return "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
+        return "Jam mulai udah gue catat. Selesainya jam berapa?"
+    return "Tanggal dan jamnya kapan, nih? Kirim sekalian, misalnya besok 09.00–11.00."
 
 
 def _parse_time(value: str | time) -> time:
@@ -629,7 +629,7 @@ def _references_previous_room_result(message: str) -> bool:
         "ruang tadi", "rekomendasi tadi", "direkomendasikan",
         "kenapa ruangan", "kenapa ruang", "alasan rekomendasi",
         "pilihan tadi", "kandidat tadi", "hasil pencarian tadi",
-        "yang tadi kamu rekomendasikan", "yang kamu rekomendasikan",
+        "yang tadi kamu rekomendasikan", "yang kamu rekomendasikan", "yang tadi lu rekomendasikan", "yang lu rekomendasikan",
     )
     return any(
         re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", normalized)
@@ -1007,7 +1007,7 @@ def room_assistant_chat(
                 db.commit()
                 return response
         clarify = (
-            "Aku menemukan lebih dari satu kemungkinan ruangan. Sebutkan kode ruangan agar tidak tertukar."
+            "Gue nemu beberapa kemungkinan ruang. Sebutin kode ruangnya biar nggak ketuker."
             if len(matches) > 1
             else "Ruangan yang dimaksud belum dapat dipastikan. Sebutkan nama atau kode ruangannya."
         )
@@ -1121,10 +1121,10 @@ def room_assistant_chat(
             response_variant=detection.response_variant,
         )
         partial_message = (
-            f"Aku menemukan {len(partial_room_data)} kandidat ruangan. Jadwalnya belum bisa dipastikan. {clarification}"
+            f"Gue nemu {len(partial_room_data)} kandidat ruang. Jadwalnya belum bisa dipastiin. {clarification}"
             if partial_room_data else
             (
-                f"Aku paham kamu mau cek ruangan kosong. {clarification}"
+                f"Oke, gue paham lu mau cek ruang kosong. {clarification}"
                 if not has_room_criteria else
                 f"Belum ada kandidat yang cocok dengan kriteria awal. Coba longgarkan fakultas, gedung, kapasitas, atau fasilitas. {clarification}"
             )
@@ -1237,7 +1237,7 @@ def room_assistant_chat(
     follow_up = []
     if not has_effective_search_criteria:
         follow_up.append(
-            "Kira-kira ruangan dibutuhkan untuk kegiatan apa atau untuk berapa orang?"
+            "Lu butuh ruang buat kegiatan apa, atau kira-kira berapa orang?"
         )
     elif not has_complete_availability_window:
         follow_up.append(
