@@ -189,3 +189,97 @@ def test_room_import_accepts_six_column_inventory_workbook_and_maps_optional_fie
     assert room["capacity"] == 20
     assert room["room_status"] == "INACTIVE"
     assert room["photo_url"].startswith("/media/rooms/")
+
+
+
+def test_room_import_restores_soft_deleted_room_instead_of_violating_unique_room_code(
+    client, auth_headers, admin, db_session
+):
+    from datetime import date, time
+    from sqlalchemy import select
+    from ruangkampus.models import Reservation, Room
+
+    headers = auth_headers("admin.uhamka")
+    historical = Room(
+        room_name="Laboratorium Komputer Dasar",
+        room_code="AUTO-LABORATORIUM-KOMPUTER-DASAR",
+        building="Gedung lama",
+        faculty=None,
+        floor="1",
+        capacity=18,
+        capacity_estimate="18–20",
+        description="Data sebelum dihapus",
+        facilities=["computer"],
+        operating_hours={},
+        room_status="INACTIVE",
+        deleted_at=admin.created_at,
+    )
+    db_session.add(historical)
+    db_session.flush()
+    booking = Reservation(
+        user_id=admin.id,
+        room_id=historical.id,
+        purpose="Riwayat sebelum impor ulang",
+        reservation_date=date(2026, 11, 20),
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+        participant_count=4,
+        status="CANCELLED",
+    )
+    db_session.add(booking)
+    db_session.commit()
+    historical_id = historical.id
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Nomor Ruangan", "Kapasitas", "Fasilitas"])
+    sheet.append(["Laboratorium Komputer Dasar", "20–25", "Workstation, monitor, meja komputer"])
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+
+    preview = upload(client, headers, output.getvalue())
+    assert preview.status_code == 201, preview.text
+    batch = preview.json()["data"]
+    assert batch["valid_count"] == 1
+    assert batch["row_results"][0]["import_action"] == "RESTORE"
+
+    committed = client.post(
+        "/api/v1/admin/rooms/imports/commit",
+        headers=headers,
+        json={"batch_id": batch["batch_id"]},
+    )
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["data"]["inserted"] == 0
+    assert committed.json()["data"]["restored"] == 1
+    assert committed.json()["data"]["imported"] == 1
+
+    restored = db_session.scalar(select(Room).where(Room.id == historical_id))
+    assert restored is not None
+    assert restored.deleted_at is None
+    assert restored.room_name == "Laboratorium Komputer Dasar"
+    assert restored.capacity == 20
+    assert restored.capacity_estimate == "20–25"
+    assert restored.room_status == "INACTIVE"
+    assert db_session.scalar(select(Reservation).where(Reservation.room_id == historical_id)) is not None
+
+
+def test_room_import_preview_marks_duplicate_rows_inside_workbook_invalid(
+    client, auth_headers, admin
+):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Nomor Ruangan", "Kapasitas", "Fasilitas"])
+    sheet.append(["Ruang 701", "20", "AC"])
+    sheet.append(["Ruang 701  ", "25", "Projector"])
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+
+    response = upload(client, auth_headers("admin.uhamka"), output.getvalue())
+    assert response.status_code == 201, response.text
+    batch = response.json()["data"]
+    assert batch["valid_count"] == 1
+    assert batch["invalid_count"] == 1
+    assert batch["row_results"][1]["status"] == "INVALID"
+    assert any("duplikat dengan baris Excel 2" in error for error in batch["row_results"][1]["errors"])
