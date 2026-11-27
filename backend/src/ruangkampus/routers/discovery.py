@@ -197,12 +197,12 @@ def _clock_time(hour: str, minute: str | None, period: str | None) -> time | Non
 
 def _parse_time_range_follow_up(message: str) -> tuple[time, time] | None:
     """Parse compact ranges such as 'jam 10 - 12' or '10.00–12.00 siang'."""
-    match = re.fullmatch(
-        r"\s*(?:(?:jam|pukul)\s*)?"
+    match = re.search(
+        r"(?<!\d)(?:(?:jam|pukul)\s*)?"
         r"([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*(pagi|siang|sore|malam)?\s*"
         r"(?:-|–|—|s/d|sd|sampai|hingga|to)\s*"
         r"(?:(?:jam|pukul)\s*)?([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*"
-        r"(pagi|siang|sore|malam)?[.!?\s]*",
+        r"(pagi|siang|sore|malam)?(?!\d)",
         message.casefold(),
     )
     if not match:
@@ -1121,7 +1121,7 @@ def room_assistant_chat(
             response_variant=detection.response_variant,
         )
         partial_message = (
-            f"Gue nemu {len(partial_room_data)} kandidat ruang. Jadwalnya belum bisa dipastiin. {clarification}"
+            f"Gue nemu {len(partial_room_data)} kandidat ruang. Jadwalnya belum bisa dipastikan dulu. {clarification}"
             if partial_room_data else
             (
                 f"Oke, gue paham lu mau cek ruang kosong. {clarification}"
