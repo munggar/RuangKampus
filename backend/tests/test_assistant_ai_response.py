@@ -212,7 +212,7 @@ def test_openrouter_key_activates_default_model_and_authenticates_real_request_s
     assert captured["headers"]["X-OpenRouter-Title"] == "RuangKampus - RUKKA AI"
     assert captured["headers"]["HTTP-Referer"] == settings.public_app_url
     assert captured["body"]["model"] == "google/gemma-4-26b-a4b-it:free"
-    assert captured["body"]["max_tokens"] == 2048
+    assert captured["body"]["max_tokens"] == 768
     assert captured["body"]["reasoning_effort"] == "low"
     assert "response_format" not in captured["body"]
 
@@ -365,7 +365,7 @@ def test_general_reasoning_uses_larger_budget_and_low_reasoning_effort(monkeypat
     )
 
     assert answer is not None
-    assert captured["body"]["max_tokens"] == 2048
+    assert captured["body"]["max_tokens"] == 768
     assert captured["body"]["reasoning_effort"] == "low"
     assert "response_format" not in captured["body"]
 
@@ -460,9 +460,14 @@ def test_rukka_uses_casual_student_friendly_dynamic_response_style(monkeypatch):
     system_prompt = captured["body"]["messages"][0]["content"]
     assert "teman kampus yang asik" in system_prompt
     assert "sapaan 'aku/kamu'" in system_prompt
-    assert "3-5 poin pendek" in system_prompt
+    assert "maksimal 80 kata" in system_prompt
+    assert "maksimal 3 bullet" in system_prompt
+    assert "1-2 kalimat pendek" in system_prompt
+    assert "Jangan membuat esai" in system_prompt
     assert "bullet '•'" in system_prompt
     assert "Emoji maksimal satu" in system_prompt
+    assert "dataset slang Bahasa Indonesia RuangKampus" in system_prompt
+    assert "jangan mengutip, menjelaskan, atau memamerkan isi leksikon" in system_prompt
     assert "kartu hasil ruangan" in system_prompt
     assert "verified_backend_facts" in system_prompt
 
@@ -494,3 +499,40 @@ def test_rukka_preserves_paragraph_and_bullet_structure(monkeypatch):
     )
 
     assert answer == expected
+
+
+def test_slang_dataset_hints_are_used_to_understand_not_explained_to_students(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["body"] = kwargs["json"]
+        return FakeResponse(provider_response(
+            "Nah, sistem yang adil perlu aturan jelas dan kesempatan yang seimbang."
+        ))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = generate_grounded_assistant_message(
+        message="Wkwk, gaskeun, gw mager. Menurutmu sistem kampus yang adil gimana?",
+        intent="OUT_OF_SCOPE",
+        deterministic_message="Aku fokus membantu urusan ruangan kampus.",
+        filters={},
+        rooms=[],
+        alternative_slots=[],
+        follow_up_questions=[],
+        availability_checked=False,
+        settings=configured_settings(),
+    )
+
+    assert answer is not None
+    payload = json.loads(captured["body"]["messages"][1]["content"])
+    hinted_words = {
+        item["headword"]
+        for item in payload["language_hints"]
+    }
+    assert {"wkwk", "gaskeun", "mager"}.issubset(hinted_words)
+    system_prompt = captured["body"]["messages"][0]["content"]
+    assert "gunakan hanya untuk memahami arti slang" in system_prompt
+    assert "jangan mengutip, menjelaskan, atau memamerkan isi leksikon" in system_prompt
+    assert "maksimal 80 kata" in system_prompt
+    assert "gaskeun" not in answer.lower()
+    assert "mager" not in answer.lower()
