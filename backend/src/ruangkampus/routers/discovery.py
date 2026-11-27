@@ -45,6 +45,7 @@ from ruangkampus.services.assistant_response import (
 from ruangkampus.services.assistant_analytics import record_assistant_outcome
 from ruangkampus.services.assistant_adaptive_learning import get_adaptive_learning_preferences
 from ruangkampus.services.assistant_conversation import (
+    is_new_room_search_request,
     load_or_create_conversation,
     merge_room_slots,
     save_conversation_state,
@@ -138,6 +139,11 @@ STOP_WORDS = {
     "jan", "feb", "mar", "apr", "may", "jun", "jul", "agu", "aug", "sep", "okt", "oct", "nov", "des", "dec",
 }
 STOP_WORDS.update(PARSER_STOP_WORDS)
+STOP_WORDS.update({
+    # Activity and relative-time descriptors are context, not room metadata filters.
+    "rapat", "organisasi", "depan", "setelah", "sebelum", "keperluan",
+    "acara", "kegiatan", "diskusi", "meeting", "seminar", "presentasi",
+})
 
 SEARCH_INTENTS = {"ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS"}
 _CONTEXTUAL_AVAILABILITY_FOLLOW_UPS = (
@@ -397,17 +403,26 @@ def _parse_message_filters(
     catalog = catalog if catalog is not None else build_assistant_data_catalog(db)
     min_capacity = payload.min_capacity
     if min_capacity is None:
-        capacity_match = re.search(
+        # For a stated attendance range, size the room for the upper bound.
+        capacity_range = re.search(
+            r"\b(\d{1,4})\s*(?:sampai|hingga|[-–])\s*(\d{1,4})\s*"
+            r"(?:orang|org|peserta|pax|people|person|mahasiswa|mhs|students?)\b",
+            message,
+        )
+        capacity_match = None if capacity_range else re.search(
             r"\b(\d{1,4})\s*(?:orang|org|peserta|pax|people|person|mahasiswa|mhs|students?)\b",
             message,
         )
-        if capacity_match is None:
-            capacity_match = re.search(
-                r"\b(?:muat|kapasitas(?:\s+minimal)?|minimal)\s+(\d{1,4})\b",
-                message,
-            )
-        if capacity_match:
-            min_capacity = int(capacity_match.group(1))
+        if capacity_range:
+            min_capacity = max(int(capacity_range.group(1)), int(capacity_range.group(2)))
+        else:
+            if capacity_match is None:
+                capacity_match = re.search(
+                    r"\b(?:muat|kapasitas(?:\s+minimal)?|minimal)\s+(\d{1,4})\b",
+                    message,
+                )
+            if capacity_match:
+                min_capacity = int(capacity_match.group(1))
 
     building = payload.building
     if building is None:
@@ -448,7 +463,7 @@ def _parse_message_filters(
     # An activity's purpose is not always a room-name/description filter.
     # Keep explicit types ("ruang rapat") searchable but ignore "buat rapat".
     search_message = re.sub(
-        r"\b(?:buat|untuk|keperluan)\s+(?:rapat|meeting|diskusi|brainstorming|seminar|presentasi|kuliah|organisasi|acara|kegiatan)\b",
+        r"\b(?:buat|untuk|keperluan)\s+(?:rapat(?:\s+organisasi)?|meeting|diskusi|brainstorming|seminar|presentasi|kuliah|organisasi|acara|kegiatan)\b",
         " ",
         message,
     )
@@ -807,11 +822,13 @@ def room_assistant_chat(
     normalization = normalize_indonesian_message(payload.message, catalog)
     normalized_payload = payload.model_copy(update={"message": normalization.parser_text})
     filters = _parse_message_filters(db, normalized_payload, catalog)
-    _apply_contextual_end_time_follow_up(
-        filters,
-        conversation,
-        normalization.parser_text,
-    )
+    starts_new_search = is_new_room_search_request(normalization.parser_text)
+    if not starts_new_search:
+        _apply_contextual_end_time_follow_up(
+            filters,
+            conversation,
+            normalization.parser_text,
+        )
 
     explicit_fields = set(payload.model_fields_set)
     if "requested_date" in explicit_fields:
@@ -910,9 +927,14 @@ def room_assistant_chat(
 
     search_intents = SEARCH_INTENTS
     if detection.intent in search_intents:
+        previous_search_state = (
+            {"version": 1, "slots": {}}
+            if starts_new_search
+            else conversation.state
+        )
         filters = merge_room_slots(
             filters,
-            conversation.state,
+            previous_search_state,
             message=normalization.normalized_text,
             explicitly_supplied=explicit_fields,
         )
