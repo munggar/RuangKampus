@@ -256,7 +256,7 @@ test.describe("Staff Sekretariat workflows — fixture-backed browser E2E", () =
 
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Konfirmasi & impor 1" }).click();
-    await expect(page.getByText("1 ruangan berhasil disimpan")).toBeVisible();
+    await expect(page.getByText(/1 ruangan berhasil diproses: 1 data baru dan 0 data lama dipulihkan/)).toBeVisible();
     expect(api.calls).toContain("POST /admin/rooms/imports/preview");
     expect(api.calls).toContain("POST /admin/rooms/imports/commit");
   });
