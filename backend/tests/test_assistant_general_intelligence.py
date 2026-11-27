@@ -240,7 +240,7 @@ def test_general_reasoning_response_uses_context_and_variable_length(
     assert "Ruang 301" in sent_context
     assert "test@example.com" not in sent_context
     assert "2403045007" not in sent_context
-    assert captured["body"]["max_tokens"] == 2048
+    assert captured["body"]["max_tokens"] == 768
     assert captured["body"]["reasoning_effort"] == "low"
     assert "response_format" not in captured["body"]
     assert captured["headers"]["Authorization"] == "Bearer test-only-secret"
@@ -485,3 +485,47 @@ def test_recommendation_follow_up_uses_database_verified_room_context(
     assert evidence["rooms"][0]["room_name"] == "Ruang Diskusi Rekomendasi"
     assert evidence["rooms"][0]["capacity"] == 45
     assert set(evidence["rooms"][0]["facilities"]) == {"Projector", "Air Conditioner"}
+
+
+def test_general_reply_prompt_requires_compact_reasoning_structure(
+    monkeypatch, client, auth_headers, student
+):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["body"] = kwargs["json"]
+        return FakeResponse({
+            "choices": [{
+                "message": {
+                    "content": json.dumps({
+                        "message": (
+                            "Menurutku, aturannya harus transparan dan tidak boleh dikuasai satu kelompok. "
+                            "• Beri prioritas berdasarkan kebutuhan.\n"
+                            "• Batasi booking rutin agar merata.\n"
+                            "• Sediakan antrean saat slot penuh.\n"
+                            "Intinya, semua mahasiswa perlu peluang yang setara."
+                        )
+                    })
+                }
+            }]
+        })
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr("ruangkampus.routers.discovery.get_settings", configured_settings)
+
+    response = client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Menurutmu gimana sistem pinjam ruang yang adil?"},
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["engine"] == "HYBRID"
+    assert data["message"].startswith("Menurutku")
+    prompt = captured["body"]["messages"][0]["content"]
+    assert "maksimal 80 kata" in prompt
+    assert "maksimal 3 bullet" in prompt
+    assert "jangan membuat esai" in prompt
+    assert captured["body"]["max_tokens"] == 768
+    assert captured["body"]["reasoning_effort"] == "low"
