@@ -569,39 +569,228 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
   </div>;
 }
 
+const notificationTitles: Record<string, string> = {
+  RESERVATION_NEW: "Pengajuan reservasi baru",
+  RESERVATION_APPROVED: "Reservasi disetujui",
+  RESERVATION_REJECTED: "Reservasi ditolak",
+  RESERVATION_CANCELLED: "Reservasi dibatalkan",
+  RESERVATION_CANCELLED_BY_STUDENT: "Reservasi dibatalkan mahasiswa",
+  RESERVATION_COMPLETED: "Reservasi selesai",
+};
+
+function localizedNotificationMessage(item: AppNotification): string {
+  const legacy = item.message;
+  let match: RegExpMatchArray | null = null;
+  switch (item.notification_type) {
+    case "RESERVATION_NEW":
+      match = legacy.match(/^A new request was submitted for (.+) on (\d{4}-\d{2}-\d{2})\.$/);
+      return match ? `Ada pengajuan reservasi baru untuk ${match[1]} pada ${formatDate(match[2])}.` : legacy;
+    case "RESERVATION_APPROVED":
+      match = legacy.match(/^Your reservation for (.+) has been approved\.$/);
+      return match ? `Reservasi ${match[1]} telah disetujui oleh Admin.` : legacy;
+    case "RESERVATION_REJECTED":
+      match = legacy.match(/^Your reservation was rejected\. Reason: (.*)$/);
+      return match ? `Pengajuan reservasi kamu ditolak. Alasan: ${match[1]}` : legacy;
+    case "RESERVATION_CANCELLED":
+      match = legacy.match(/^Your reservation for (.+) was cancelled by the administrator\.$/);
+      return match ? `Reservasi ${match[1]} dibatalkan oleh Admin.` : legacy;
+    case "RESERVATION_CANCELLED_BY_STUDENT":
+      match = legacy.match(/^A reservation for (.+) on (\d{4}-\d{2}-\d{2}) was cancelled by the applicant\.$/);
+      return match ? `Reservasi ${match[1]} pada ${formatDate(match[2])} dibatalkan oleh mahasiswa.` : legacy;
+    default:
+      return legacy;
+  }
+}
+
 export function NotificationsPage({ role }: { role: AppRole }) {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [retryingId, setRetryingId] = useState("");
+  const [markingAll, setMarkingAll] = useState(false);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [allTotal, setAllTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [unreadTotal, setUnreadTotal] = useState(0);
   const root = role === "Student" ? "/student" : "/admin";
+  const pageSize = 20;
+
   useEffect(() => {
-    let active = true; setLoading(true);
-    notificationApi.list(new URLSearchParams({ page: "1", limit: "100" }))
-      .then((result) => { if (active) setItems(result.items); })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Notifikasi belum dapat dimuat."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, []);
+    let active = true;
+    const loadFirstPage = async (silent = false) => {
+      if (!silent) { setLoading(true); setError(""); }
+      try {
+        const params = new URLSearchParams({ page: "1", limit: String(pageSize) });
+        if (filter === "unread") params.set("unreadOnly", "true");
+        const [result, allNotifications, unread] = await Promise.all([
+          notificationApi.list(params),
+          notificationApi.list(new URLSearchParams({ page: "1", limit: "1" })),
+          notificationApi.list(new URLSearchParams({ unreadOnly: "true", page: "1", limit: "1" })),
+        ]);
+        if (!active) return;
+        setItems((current) => {
+          if (!silent) return result.items;
+          const firstPageIds = new Set(result.items.map((item) => item.id));
+          const olderLoadedItems = current.filter((item) => !firstPageIds.has(item.id));
+          return [...result.items, ...olderLoadedItems].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          );
+        });
+        setTotal(result.meta?.total ?? result.items.length);
+        setAllTotal(allNotifications.meta?.total ?? allNotifications.items.length);
+        setTotalPages(result.meta?.total_pages ?? 1);
+        setUnreadTotal(unread.meta?.total ?? unread.items.filter((item) => !item.read_at).length);
+        setPage((current) => silent ? current : 1);
+      } catch (cause) {
+        if (active && !silent) setError(cause instanceof Error ? cause.message : "Notifikasi belum dapat dimuat.");
+      } finally {
+        if (active && !silent) setLoading(false);
+      }
+    };
+    void loadFirstPage();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadFirstPage(true);
+    };
+    const interval = window.setInterval(() => void loadFirstPage(true), 15_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("rk-notifications-updated", refreshWhenVisible);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("rk-notifications-updated", refreshWhenVisible);
+    };
+  }, [filter]);
+
+  async function loadMore() {
+    if (loadingMore || page >= totalPages) return;
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ page: String(nextPage), limit: String(pageSize) });
+      if (filter === "unread") params.set("unreadOnly", "true");
+      const result = await notificationApi.list(params);
+      setItems((current) => {
+        const known = new Set(current.map((item) => item.id));
+        return [...current, ...result.items.filter((item) => !known.has(item.id))];
+      });
+      setPage(nextPage);
+      setTotal(result.meta?.total ?? total);
+      setTotalPages(result.meta?.total_pages ?? totalPages);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Notifikasi berikutnya belum dapat dimuat.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   async function markRead(id: string) {
     setBusyId(id);
-    try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); window.dispatchEvent(new Event("rk-notifications-updated")); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui."); }
-    finally { setBusyId(""); }
+    setError("");
+    try {
+      const updated = await notificationApi.markRead(id);
+      setItems((current) => filter === "unread" ? current.filter((item) => item.id !== id) : current.map((item) => item.id === id ? updated : item));
+      setUnreadTotal((current) => Math.max(0, current - 1));
+      setTotal((current) => filter === "unread" ? Math.max(0, current - 1) : current);
+      window.dispatchEvent(new Event("rk-notifications-updated"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui.");
+    } finally {
+      setBusyId("");
+    }
   }
+
+  async function markAllRead() {
+    setMarkingAll(true);
+    setError("");
+    try {
+      const result = await notificationApi.markAllRead();
+      const readAt = result.read_at || new Date().toISOString();
+      setItems((current) => filter === "unread" ? [] : current.map((item) => ({ ...item, read_at: item.read_at || readAt })));
+      if (filter === "unread") setTotal(0);
+      setUnreadTotal(0);
+      window.dispatchEvent(new Event("rk-notifications-updated"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Semua notifikasi belum berhasil ditandai dibaca.");
+    } finally {
+      setMarkingAll(false);
+    }
+  }
+
+  async function retryEmail(id: string) {
+    setRetryingId(id);
+    setError("");
+    try {
+      const updated = await notificationApi.retryEmail(id);
+      setItems((current) => current.map((item) => item.id === id ? updated : item));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Pengiriman email belum berhasil dicoba ulang.");
+    } finally {
+      setRetryingId("");
+    }
+  }
+
+  const emailStatusLabel = (status: string) => ({
+    SENT: "Diterima penyedia email",
+    LOCAL_MAILBOX_WRITTEN: "Tersimpan di kotak lokal",
+    FAILED: "Gagal dikirim",
+    ATTEMPTED: "Sedang diproses",
+    NOT_CONFIGURED: "Email tidak diaktifkan",
+  }[status] || "Belum dikirim");
+
   return <div className="page-stack">
-    <PageTitle eyebrow="UPDATES" title="Notifikasi" description="Tetap terhubung dengan informasi terbaru reservasi ruangan." />
+    <PageTitle
+      eyebrow="PEMBARUAN AKUN & RESERVASI"
+      title="Notifikasi"
+      description="Pantau setiap perubahan status reservasi dan informasi penting akun."
+      action={unreadTotal > 0 ? <Button variant="secondary" onClick={() => void markAllRead()} disabled={markingAll}>{markingAll ? "Memproses…" : "Tandai semua dibaca"}</Button> : undefined}
+    />
+    <div className="panel notification-toolbar">
+      <div className="segmented-tabs" aria-label="Filter notifikasi">
+        <button type="button" className={filter === "all" ? "is-active" : ""} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>Semua ({allTotal})</button>
+        <button type="button" className={filter === "unread" ? "is-active" : ""} aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}>Belum dibaca ({unreadTotal})</button>
+      </div>
+      <span className="muted small">Diperbarui otomatis setiap 15 detik · Status email menunjukkan hasil penyedia, bukan konfirmasi masuk ke kotak masuk.</span>
+    </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
-    {loading ? <Loading label="Memuat notifikasi…" /> : items.length ? <div className="card-list">
-      {items.map((item) => <article className={"notification-card" + (!item.read_at ? " is-unread" : "")} key={item.id}>
-        <div className="notification-card__icon"><Bell size={18} /></div>
-        <div className="notification-card__content"><div className="notification-card__heading"><strong>{item.title}</strong><span>{item.notification_type === "RESERVATION_APPROVED" ? formatDateTime(item.created_at) : formatDate(item.created_at)}</span></div><p>{item.message}</p>
-          <small>In-app: {item.delivery_status.replaceAll("_", " ").toLowerCase()} · Email: {item.email_delivery_status.replaceAll("_", " ").toLowerCase()}</small>
-        </div>
-        {!item.read_at ? <Button variant="secondary" disabled={busyId === item.id} onClick={() => void markRead(item.id)}>Tandai dibaca</Button> : <span className="read-mark"><Check size={15} />Dibaca</span>}
-      </article>)}
-    </div> : <EmptyState title="Belum ada notifikasi" description="Pembaruan permohonan dan informasi akun akan muncul di sini." icon={<Bell size={22} />} />}
-    <Link className="button button--primary" to={root + (role === "Student" ? "/reservations" : "/reservations")}>Lihat reservasi</Link>
+    {loading ? <Loading label="Memuat notifikasi…" /> : items.length ? <>
+      <div className="card-list">
+        {items.map((item) => {
+          const actionUrl = item.action_url?.startsWith("/") && !item.action_url.startsWith("//") ? item.action_url : null;
+          const emailFailed = item.email_delivery_status === "FAILED";
+          const canRetryEmail = emailFailed && item.email_attempt_count < 3;
+          return <article className={"notification-card" + (!item.read_at ? " is-unread" : "")} key={item.id}>
+            <div className="notification-card__icon"><Bell size={18} /></div>
+            <div className="notification-card__content">
+              <div className="notification-card__heading">
+                <strong>{notificationTitles[item.notification_type] || item.title}</strong>
+                <time dateTime={item.created_at}>{formatDateTime(item.created_at)}</time>
+              </div>
+              <p>{localizedNotificationMessage(item)}</p>
+              <div className="notification-card__delivery">
+                <span>Aplikasi: Tersimpan</span>
+                <span className={emailFailed ? "notification-card__email--failed" : ""}>Email: {emailStatusLabel(item.email_delivery_status)}{item.email_attempt_count > 0 ? ` · ${item.email_attempt_count}/3 percobaan` : ""}</span>
+                {item.email_sent_at ? <span>Dikirim {formatDateTime(item.email_sent_at)}</span> : null}
+              </div>
+              <div className="notification-card__actions">
+                {actionUrl ? <Link className="text-link" to={actionUrl}>Lihat detail reservasi <ArrowRight size={14} /></Link> : null}
+                {canRetryEmail ? <Button variant="secondary" disabled={retryingId === item.id} onClick={() => void retryEmail(item.id)}>{retryingId === item.id ? "Mencoba…" : "Coba kirim email lagi"}</Button> : null}
+              </div>
+            </div>
+            {!item.read_at ? <Button variant="secondary" disabled={busyId === item.id} onClick={() => void markRead(item.id)}>{busyId === item.id ? "Memproses…" : "Tandai dibaca"}</Button> : <span className="read-mark"><Check size={15} />Dibaca</span>}
+          </article>;
+        })}
+      </div>
+      {page < totalPages ? <div className="notification-load-more"><Button variant="secondary" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? "Memuat…" : "Muat lebih banyak"}</Button></div> : null}
+    </> : <EmptyState title={filter === "unread" ? "Semua notifikasi sudah dibaca" : "Belum ada notifikasi"} description={filter === "unread" ? "Tidak ada notifikasi yang menunggu perhatian." : "Pembaruan reservasi dan informasi akun akan muncul di sini."} icon={<Bell size={22} />} />}
+    <Link className="button button--primary notification-reservation-link" to={root + "/reservations"}>Lihat reservasi</Link>
   </div>;
 }
 

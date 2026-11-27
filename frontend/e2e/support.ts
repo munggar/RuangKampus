@@ -100,12 +100,14 @@ const fixtureSchedule = {
 const fixtureNotification = {
   id: "notification-e2e-001",
   notification_type: "RESERVATION_APPROVED",
-  title: "Reservation approved",
+  title: "Reservasi disetujui",
   message: "Reservasi Ruang Diskusi Uji telah disetujui. Ini adalah notifikasi fixture.",
   read_at: null,
-  delivery_status: "SENT",
-  email_delivery_status: "SKIPPED",
-  email_sent_at: null,
+  delivery_status: "IN_APP_CREATED",
+  email_delivery_status: "SENT",
+  email_attempt_count: 1,
+  email_sent_at: isoJakartaDate() + "T09:01:00+07:00",
+  action_url: "/student/reservations/reservation-approved-e2e",
   created_at: isoJakartaDate() + "T09:00:00+07:00",
 };
 
@@ -405,6 +407,18 @@ export async function installMockApi(page: Page, initialRole: NullableRole): Pro
       const unreadOnly = url.searchParams.get("unreadOnly") === "true";
       const filtered = unreadOnly ? notifications.filter((item) => !item.read_at) : notifications;
       return paged(route, filtered);
+    }
+    if (path === "/notifications/read-all" && method === "PATCH") {
+      const readAt = new Date().toISOString();
+      const updatedCount = notifications.filter((item) => !item.read_at).length;
+      notifications = notifications.map((item) => ({ ...item, read_at: item.read_at || readAt }));
+      return data(route, { updated_count: updatedCount, read_at: readAt });
+    }
+    const retryMatch = path.match(/^\/notifications\/([^/]+)\/retry-email$/);
+    if (retryMatch && method === "POST") {
+      const id = decodeURIComponent(retryMatch[1]);
+      notifications = notifications.map((item) => item.id === id ? { ...item, email_delivery_status: "SENT", email_attempt_count: Number(item.email_attempt_count || 0) + 1, email_sent_at: new Date().toISOString() } : item);
+      return data(route, notifications.find((item) => item.id === id) || fixtureNotification);
     }
     const notificationMatch = path.match(/^\/notifications\/([^/]+)\/read$/);
     if (notificationMatch && method === "PATCH") {

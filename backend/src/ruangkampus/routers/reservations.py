@@ -50,6 +50,7 @@ def _notify_once(
     title: str,
     message: str,
     event_key: str,
+    action_url: str | None = None,
 ) -> tuple[Notification, bool]:
     existing = db.scalar(select(Notification).where(Notification.event_key == event_key))
     if existing is not None:
@@ -62,6 +63,7 @@ def _notify_once(
         delivery_status="IN_APP_CREATED",
         email_delivery_status="NOT_CONFIGURED",
         event_key=event_key,
+        action_url=action_url,
     )
     try:
         with db.begin_nested():
@@ -192,9 +194,10 @@ def create_reservation(payload: ReservationCreateIn, user: User = Depends(requir
     pending_deliveries = []
     for admin in admins:
         notification, is_new = _notify_once(
-            db, admin, "RESERVATION_NEW", "New reservation request",
-            f"A new request was submitted for {room.room_name} on {payload.date.isoformat()}.",
+            db, admin, "RESERVATION_NEW", "Pengajuan reservasi baru",
+            f"{user.name} mengajukan reservasi {room.room_name} untuk {payload.date.strftime('%d/%m/%Y')}.",
             f"reservation:{reservation.id}:new:{admin.id}",
+            f"/admin/reservations/{reservation.id}",
         )
         if is_new:
             pending_deliveries.append((notification, admin))
@@ -289,9 +292,10 @@ def cancel_reservation(reservation_id: UUID, payload: ReservationCancelIn | None
     pending_deliveries = []
     if user.role == "TU_ADMIN":
         notification, is_new = _notify_once(
-            db, reservation.user, "RESERVATION_CANCELLED", "Reservation cancelled",
-            f"Your reservation for {reservation.room.room_name} was cancelled by the administrator.",
+            db, reservation.user, "RESERVATION_CANCELLED", "Reservasi dibatalkan",
+            f"Reservasi {reservation.room.room_name} pada {reservation.reservation_date.strftime('%d/%m/%Y')} dibatalkan oleh Admin. Alasan: {reservation.cancellation_reason or 'Tidak dicantumkan'}.",
             f"reservation:{reservation.id}:cancelled:{reservation.user_id}",
+            f"/student/reservations/{reservation.id}",
         )
         if is_new:
             pending_deliveries.append((notification, reservation.user))
@@ -301,9 +305,10 @@ def cancel_reservation(reservation_id: UUID, payload: ReservationCancelIn | None
         )).all()
         for admin in admins:
             notification, is_new = _notify_once(
-                db, admin, "RESERVATION_CANCELLED_BY_STUDENT", "Reservation cancelled by student",
-                f"A reservation for {reservation.room.room_name} on {reservation.reservation_date.isoformat()} was cancelled by the applicant.",
+                db, admin, "RESERVATION_CANCELLED_BY_STUDENT", "Reservasi dibatalkan mahasiswa",
+                f"{user.name} membatalkan reservasi {reservation.room.room_name} pada {reservation.reservation_date.strftime('%d/%m/%Y')}. Alasan: {reservation.cancellation_reason or 'Tidak dicantumkan'}.",
                 f"reservation:{reservation.id}:cancelled-by-student:{admin.id}",
+                f"/admin/reservations/{reservation.id}",
             )
             if is_new:
                 pending_deliveries.append((notification, admin))
@@ -349,9 +354,10 @@ def approve_reservation(reservation_id: UUID, admin: User = Depends(require_admi
     reservation.updated_at = utcnow()
     _audit_reservation_action(db, admin, reservation, "APPROVE_RESERVATION", previous_status)
     notification, is_new = _notify_once(
-        db, reservation.user, "RESERVATION_APPROVED", "Reservation approved",
-        f"Your reservation for {room.room_name} has been approved.",
+        db, reservation.user, "RESERVATION_APPROVED", "Reservasi disetujui",
+        f"Reservasi {room.room_name} pada {reservation.reservation_date.strftime('%d/%m/%Y')} telah disetujui oleh Admin.",
         f"reservation:{reservation.id}:approved:{reservation.user_id}",
+        f"/student/reservations/{reservation.id}",
     )
     db.commit()
     if is_new:
@@ -378,9 +384,10 @@ def reject_reservation(reservation_id: UUID, payload: ReservationRejectIn, admin
     reservation.updated_at = utcnow()
     _audit_reservation_action(db, admin, reservation, "REJECT_RESERVATION", previous_status)
     notification, is_new = _notify_once(
-        db, reservation.user, "RESERVATION_REJECTED", "Reservation rejected",
-        f"Your reservation was rejected. Reason: {reservation.rejection_reason}",
+        db, reservation.user, "RESERVATION_REJECTED", "Reservasi ditolak",
+        f"Reservasi {reservation.room.room_name} pada {reservation.reservation_date.strftime('%d/%m/%Y')} ditolak. Alasan: {reservation.rejection_reason}",
         f"reservation:{reservation.id}:rejected:{reservation.user_id}",
+        f"/student/reservations/{reservation.id}",
     )
     db.commit()
     if is_new:
@@ -410,6 +417,20 @@ def complete_reservation(reservation_id: UUID, admin: User = Depends(require_adm
     reservation.admin_id = admin.id
     reservation.updated_at = utcnow()
     _audit_reservation_action(db, admin, reservation, "COMPLETE_RESERVATION", previous_status)
+    notification, is_new = _notify_once(
+        db, reservation.user, "RESERVATION_COMPLETED", "Reservasi selesai",
+        f"Reservasi {reservation.room.room_name} pada {reservation.reservation_date.strftime('%d/%m/%Y')} telah ditandai selesai oleh Admin.",
+        f"reservation:{reservation.id}:completed:{reservation.user_id}",
+        f"/student/reservations/{reservation.id}",
+    )
     db.commit()
+    if is_new:
+        _deliver_notification_email(
+            db, notification, reservation.user, reservation=reservation,
+            email_subject=f"✅ Reservasi selesai · {reservation.room.room_name}",
+            email_intro="Sesi peminjaman ruangan kamu telah ditandai selesai oleh Admin. Terima kasih telah menggunakan RuangKampus.",
+            eyebrow="RESERVASI SELESAI",
+            accent_color="#3268dc",
+        )
     db.refresh(reservation)
     return success(serialize_reservation(reservation), "Reservation marked completed")

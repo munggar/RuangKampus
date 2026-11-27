@@ -202,6 +202,8 @@ export const reservationApi = {
 export const notificationApi = {
   list: (params: URLSearchParams) => apiPage<AppNotification>("/notifications?" + params.toString()),
   markRead: (id: string) => apiRequest<AppNotification>("/notifications/" + encodeURIComponent(id) + "/read", { method: "PATCH" }),
+  markAllRead: () => apiRequest<{ updated_count: number; read_at: string }>("/notifications/read-all", { method: "PATCH" }),
+  retryEmail: (id: string) => apiRequest<AppNotification>("/notifications/" + encodeURIComponent(id) + "/retry-email", { method: "POST" }),
 };
 
 export const dashboardApi = {

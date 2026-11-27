@@ -26,7 +26,8 @@ export interface Reservation {
 export interface AvailabilityResult { room_id: string; available: boolean; reasons: string[]; checked_at: string; }
 export interface AppNotification {
   id: string; notification_type: string; title: string; message: string; read_at: string | null;
-  delivery_status: string; email_delivery_status: string; email_sent_at: string | null; created_at: string;
+  delivery_status: string; email_delivery_status: string; email_sent_at: string | null;
+  email_attempt_count: number; action_url: string | null; created_at: string;
 }
 export interface DashboardSummary {
   role: string; total_rooms?: number; active_rooms?: number; total_users?: number;

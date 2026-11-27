@@ -177,6 +177,7 @@ class Notification(Base):
     email_attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     event_key: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    action_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
     recipient: Mapped[User] = relationship()
 
