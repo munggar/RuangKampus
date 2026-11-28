@@ -6,7 +6,7 @@ import {
   IconUsers as Users, IconCircleX as XCircle, IconCompass as Compass,
   IconSparkles as Sparkles, IconCalendarPlus as CalendarPlus, IconX as X,
 } from "@tabler/icons-react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   ApiError, apiAssetUrl, availabilityReasonLabel, canCancelReservation, dashboardApi, formatDate, formatDateTime, formatTime, localToday,
   notificationApi, profileApi, reservationApi, roomApi, statusLabel,
@@ -14,7 +14,7 @@ import {
 import { useAuth } from "./auth";
 import type { AppNotification, AppRole, AuthUser, AvailabilityResult, DashboardSummary, Reservation, Room } from "./types";
 import { PageTitle } from "./layout";
-import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
+import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, StatusBadge, useToast } from "./ui";
 
 function usePageError() {
   const [error, setError] = useState("");
@@ -23,6 +23,7 @@ function usePageError() {
 }
 
 function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reservation; showCancel?: boolean; onUpdated?: (updated: Reservation) => void }) {
+  const { notify } = useToast();
   const [currentItem, setCurrentItem] = useState(item);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -42,6 +43,7 @@ function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reserv
       onUpdated?.(updated);
       setCancelReason("");
       setCancelOpen(false);
+      notify("Reservasi berhasil dibatalkan.", { tone: "success" });
     } catch (cause) {
       setCancelError(cause instanceof Error ? cause.message : "Pembatalan belum berhasil. Silakan coba kembali.");
     } finally {
@@ -65,7 +67,6 @@ function ReservationCard({ item, showCancel = false, onUpdated }: { item: Reserv
         </div>
         <p>{currentItem.purpose}</p>
       </Link>
-      {cancelError ? <div className="reservation-card__feedback"><Notice tone="error">{cancelError}</Notice></div> : null}
       {canCancel ? (
         <div className="reservation-card__actions">
           <Button variant="danger" onClick={() => { setCancelError(""); setCancelOpen(true); }}>
@@ -445,7 +446,7 @@ export function BookingPage() {
           faculty: room.faculty || "",
           building: room.building,
         }).toString()}><CalendarDays size={16} />Cari waktu atau ruang alternatif</Link> : null}
-        {error ? <Notice tone="error">{error}</Notice> : null}
+        {error ? <Notice tone="error" floating>{error}</Notice> : null}
         <Button type="submit" disabled={!availability?.available || !purpose.trim() || submitting} className="button--wide">Tinjau dan kirim permohonan <ArrowRight size={17} /></Button>
       </form>
       <aside className="panel booking-summary">
@@ -501,6 +502,9 @@ export function StudentReservationsPage() {
 
 export function ReservationDetailPage({ role }: { role: AppRole }) {
   const { reservationId = "" } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { notify } = useToast();
   const [searchParams] = useSearchParams();
   const [item, setItem] = useState<Reservation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -518,6 +522,13 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
     return () => { active = false; };
   }, [reservationId]);
 
+  useEffect(() => {
+    if (!success || role !== "Student") return;
+    notify("Permohonan berhasil dikirim. Status awalnya menunggu peninjauan TU/Admin.", { tone: "success", duration: 6500 });
+    setSuccess(false);
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, navigate, notify, role, success]);
+
   const isAdmin = role === "Staff Sekretariat";
 
   async function cancel() {
@@ -527,8 +538,12 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
       return;
     }
     setBusy(true); setError("");
-    try { const updated = await reservationApi.cancel(reservationId, reason || undefined); setItem(updated); setCancelOpen(false); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Pembatalan belum berhasil."); }
+    try {
+      const updated = await reservationApi.cancel(reservationId, reason || undefined);
+      setItem(updated); setCancelOpen(false);
+      notify("Reservasi berhasil dibatalkan.", { tone: "success" });
+    }
+    catch (cause) { notify(cause instanceof Error ? cause.message : "Pembatalan belum berhasil.", { tone: "error" }); }
     finally { setBusy(false); }
   }
 
@@ -542,7 +557,6 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
   return <div className="page-stack">
     <Link className="back-link" to={root + "/reservations"}><ArrowLeft size={16} />Kembali ke reservasi</Link>
     <PageTitle eyebrow="RESERVATION DETAILS" title="Detail reservasi" description="Periksa informasi permohonan dan keputusan administrator." action={<StatusBadge status={item.status} />} />
-    {success ? <Notice tone="success">Permohonan berhasil dikirim. Status awalnya menunggu peninjauan TU/Admin.</Notice> : null}
     {error ? <Notice tone="error">{error}</Notice> : null}
     {item.rejection_reason ? <Notice tone="warning"><b>Alasan penolakan:</b> {item.rejection_reason}</Notice> : null}
     <div className="detail-layout">
@@ -600,6 +614,7 @@ export function ReservationDetailPage({ role }: { role: AppRole }) {
 }
 
 export function NotificationsPage({ role }: { role: AppRole }) {
+  const { notify } = useToast();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -615,8 +630,13 @@ export function NotificationsPage({ role }: { role: AppRole }) {
   }, []);
   async function markRead(id: string) {
     setBusyId(id);
-    try { const updated = await notificationApi.markRead(id); setItems((current) => current.map((item) => item.id === id ? updated : item)); window.dispatchEvent(new Event("rk-notifications-updated")); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui."); }
+    try {
+      const updated = await notificationApi.markRead(id);
+      setItems((current) => current.map((item) => item.id === id ? updated : item));
+      window.dispatchEvent(new Event("rk-notifications-updated"));
+      notify("Notifikasi ditandai sudah dibaca.", { tone: "success", duration: 3200 });
+    }
+    catch (cause) { notify(cause instanceof Error ? cause.message : "Notifikasi gagal diperbarui.", { tone: "error" }); }
     finally { setBusyId(""); }
   }
   return <div className="page-stack">
@@ -651,7 +671,7 @@ export function ProfilePage({ role }: { role: AppRole }) {
   }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const { notify } = useToast();
   const navigate = useNavigate();
   const accountRoot = role === "Student" ? "/student" : "/admin";
 
@@ -663,23 +683,23 @@ export function ProfilePage({ role }: { role: AppRole }) {
   }, [replaceUser]);
 
   async function saveProfile(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setError(""); setMessage("");
+    event.preventDefault(); setSaving(true); setError("");
     try {
       const updated = await profileApi.update({ name: name.trim(), phone: phone.trim() || null });
       setProfile(updated); setName(updated.name); setEmail(updated.email); setPhone(updated.phone || "");
-      replaceUser(updated); setMessage("Profil berhasil diperbarui.");
+      replaceUser(updated); notify("Profil berhasil diperbarui.", { tone: "success" });
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Profil belum berhasil disimpan."); }
+    catch (cause) { notify(cause instanceof Error ? cause.message : "Profil belum berhasil disimpan.", { tone: "error" }); }
     finally { setSaving(false); }
   }
 
   async function savePassword(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setError(""); setMessage("");
+    event.preventDefault(); setSaving(true); setError("");
     try {
       await profileApi.changePassword(currentPassword, newPassword);
-      setMessage("Password berhasil diubah. Silakan masuk kembali.");
+      notify("Password berhasil diubah. Silakan masuk kembali.", { tone: "success", duration: 6500 });
       await logout(); navigate("/login", { replace: true });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Password belum berhasil diubah."); }
+    } catch (cause) { notify(cause instanceof Error ? cause.message : "Password belum berhasil diubah.", { tone: "error" }); }
     finally { setSaving(false); }
   }
 
@@ -694,7 +714,6 @@ export function ProfilePage({ role }: { role: AppRole }) {
   return <div className="page-stack">
     <PageTitle eyebrow="YOUR ACCOUNT" title="Profil" description="Kelola informasi akun dan preferensi tampilan Anda." />
     {error ? <Notice tone="error">{error}</Notice> : null}
-    {message ? <Notice tone="success">{message}</Notice> : null}
     <section className="panel profile-summary"><span className="avatar avatar--large">{initials}</span><div><h2>{profile?.name || "Pengguna"}</h2><p>{role === "Student" ? "Mahasiswa" : "Staff Sekretariat"} · {profile?.account_status === "ACTIVE" ? "Aktif" : "Nonaktif"}</p><small>{profile?.email}</small></div></section>
     <div className="profile-grid">
       <form className="panel stack-form" onSubmit={saveProfile}>

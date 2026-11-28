@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   IconBell as Bell, IconBuilding as Building2, IconCalendar as CalendarDays,
   IconCalendarCheck as CalendarCheck, IconClock as Clock3, IconChevronDown as ChevronDown,
@@ -9,8 +9,8 @@ import {
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth";
 import { notificationApi } from "./api";
-import type { AppRole } from "./types";
-import { BrandLogo, initialsFromName } from "./ui";
+import type { AppNotification, AppRole } from "./types";
+import { BrandLogo, initialsFromName, useToast } from "./ui";
 import { LanguageSwitch } from "./i18n";
 
 interface NavigationItem {
@@ -116,8 +116,11 @@ function Navigation({ items, mobile = false }: { items: NavigationItem[]; mobile
   </nav>;
 }
 
-function useUnreadNotificationCount() {
+function useUnreadNotificationCount(onNewNotification: (item: AppNotification) => void) {
   const [unreadCount, setUnreadCount] = useState(0);
+  const knownIds = useRef<Set<string> | null>(null);
+  const onNewRef = useRef(onNewNotification);
+  useEffect(() => { onNewRef.current = onNewNotification; }, [onNewNotification]);
 
   useEffect(() => {
     let active = true;
@@ -125,10 +128,19 @@ function useUnreadNotificationCount() {
       void notificationApi.list(new URLSearchParams({
         unreadOnly: "true",
         page: "1",
-        limit: "1",
+        limit: "10",
       })).then((result) => {
         if (!active) return;
-        setUnreadCount(result.meta?.total ?? result.items.filter((item) => !item.read_at).length);
+        const unread = result.items.filter((item) => !item.read_at);
+        const ids = unread.map((item) => item.id);
+        if (knownIds.current) {
+          const newItems = unread.filter((item) => !knownIds.current?.has(item.id));
+          newItems.slice(-3).reverse().forEach((item) => onNewRef.current(item));
+          knownIds.current = new Set([...knownIds.current, ...ids].slice(-500));
+        } else {
+          knownIds.current = new Set(ids);
+        }
+        setUnreadCount(result.meta?.total ?? unread.length);
       }).catch(() => {
         // Preserve the last known count when the API is temporarily unavailable.
       });
@@ -167,7 +179,16 @@ export function AppShell({ role }: { role: AppRole }) {
   const name = user?.name || (role === "Student" ? "Mahasiswa" : "Administrator");
   const initials = initialsFromName(name);
   const root = role === "Student" ? "/student" : "/admin";
-  const unreadCount = useUnreadNotificationCount();
+  const { notify } = useToast();
+  const onNewNotification = useCallback((item: AppNotification) => {
+    notify(item.message, {
+      title: item.title,
+      tone: "info",
+      duration: 8000,
+      action: { label: "Buka notifikasi", onClick: () => navigate(root + "/notifications") },
+    });
+  }, [navigate, notify, root]);
+  const unreadCount = useUnreadNotificationCount(onNewNotification);
 
   useEffect(() => {
     if (!menuOpen) return;

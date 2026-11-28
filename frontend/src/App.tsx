@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "./auth";
 import { AppShell } from "./layout";
-import { BrandLogo } from "./ui";
+import { BrandLogo, ToastProvider } from "./ui";
 import {
   AdminDashboardPage, AdminRequestsPage, AdminRoomsPage, AdminRoomEditorPage, AdminSchedulesPage,
   ForgotPasswordPage, LoginPage, RegisterPage, NotificationsPage, ProfilePage,
@@ -45,7 +45,7 @@ export function App() {
   if (loading) return <FullScreenLoading />;
 
   return (
-    <Routes>
+    <ToastProvider><Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -82,6 +82,6 @@ export function App() {
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    </Routes></ToastProvider>
   );
 }

@@ -2140,3 +2140,110 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .mobile-brand .brand-lockup__words b { font-size: 14px; }
   .mobile-brand .brand-lockup__words small { font-size: 7px; }
 }
+
+/* Focused motion for student workflows and short-lived feedback. */
+.app-shell--student :is(.room-grid, .card-list, .recommendation-list) > * {
+  animation: student-result-enter 180ms cubic-bezier(.16, 1, .3, 1) both;
+}
+.app-shell--student :is(.room-grid, .card-list, .recommendation-list) > :nth-child(2) { animation-delay: 24ms; }
+.app-shell--student :is(.room-grid, .card-list, .recommendation-list) > :nth-child(3) { animation-delay: 48ms; }
+.app-shell--student :is(.room-grid, .card-list, .recommendation-list) > :nth-child(4) { animation-delay: 72ms; }
+.app-shell--student :is(.room-grid, .card-list, .recommendation-list) > :nth-child(5) { animation-delay: 96ms; }
+@keyframes student-result-enter { from { opacity: .7; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (hover: hover) and (pointer: fine) {
+  .app-shell--student :is(.room-card, .reservation-card, .notification-card, .student-overview-card) {
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+  .app-shell--student :is(.room-card, .reservation-card, .notification-card):hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--brand-primary) 36%, var(--border-default));
+    box-shadow: var(--shadow-card);
+  }
+  .app-shell--student .student-overview-card:hover {
+    border-color: color-mix(in srgb, var(--brand-primary) 30%, var(--border-default));
+  }
+  .room-card__media:hover img { transform: scale(1.035); }
+}
+@media (hover: none), (pointer: coarse) {
+  .app-shell--student .student-quick-action:hover,
+  .room-card__media:hover img,
+  .recommendation-card--link:hover,
+  .assistant-room-card:hover { transform: none; }
+}
+
+.account-dropdown { transform-origin: top right; animation: student-popover-enter 170ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes student-popover-enter { from { opacity: 0; transform: translateY(-4px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.modal-backdrop { animation: student-overlay-enter 180ms ease-out both; }
+.modal-card { animation: student-dialog-enter 220ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes student-overlay-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes student-dialog-enter { from { opacity: .72; transform: translateY(5px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.floating-toast-viewport {
+  position: fixed;
+  z-index: 90;
+  top: 88px;
+  right: 22px;
+  display: grid;
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(72vh, 620px);
+  gap: 10px;
+  overflow-y: auto;
+  padding: 2px;
+  pointer-events: none;
+  scrollbar-width: thin;
+}
+.floating-toast {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 38px minmax(0, 1fr) 28px;
+  align-items: start;
+  gap: 11px;
+  overflow: hidden;
+  padding: 14px 13px 16px;
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--status-info);
+  border-radius: 14px;
+  color: var(--text-primary);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-popover);
+  pointer-events: auto;
+  animation: floating-toast-enter 220ms cubic-bezier(.16, 1, .3, 1) both;
+}
+.floating-toast--success { border-left-color: var(--status-success); }
+.floating-toast--error { border-left-color: var(--status-error); }
+.floating-toast--warning { border-left-color: var(--status-warning); }
+.floating-toast.is-exiting { animation: none; opacity: 0; transform: translateY(-4px) scale(.99); transition: opacity 120ms ease, transform 120ms ease; }
+@keyframes floating-toast-enter { from { opacity: 0; transform: translateY(-7px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.floating-toast__icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 11px; color: var(--status-info); background: var(--status-info-surface); }
+.floating-toast--success .floating-toast__icon { color: var(--status-success); background: var(--status-success-surface); }
+.floating-toast--error .floating-toast__icon { color: var(--status-error); background: var(--status-error-surface); }
+.floating-toast--warning .floating-toast__icon { color: var(--status-warning); background: var(--status-warning-surface); }
+.floating-toast__copy { display: grid; min-width: 0; gap: 4px; padding-top: 1px; }
+.floating-toast__copy > strong { font-size: 12px; line-height: 1.35; }
+.floating-toast__copy > span { color: var(--text-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.floating-toast__action { justify-self: start; padding: 3px 0 0; border: 0; color: var(--brand-primary); background: transparent; font: inherit; font-size: 11px; font-weight: 750; text-align: left; text-underline-offset: 3px; }
+.floating-toast__action:hover { text-decoration: underline; }
+.floating-toast__close { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 8px; color: var(--text-muted); background: transparent; }
+.floating-toast__close:hover { color: var(--text-primary); background: var(--surface-muted); }
+.floating-toast :is(button):focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+.floating-toast__timer { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--brand-primary); transform-origin: left; animation-name: floating-toast-countdown; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes floating-toast-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+@media (max-width: 700px) {
+  .floating-toast-viewport { top: auto; right: 12px; bottom: 84px; left: 12px; width: auto; max-height: min(58vh, 480px); }
+  .floating-toast { grid-template-columns: 34px minmax(0, 1fr) 28px; gap: 9px; padding: 12px 11px 14px; border-radius: 12px; }
+  .floating-toast__icon { width: 33px; height: 33px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell--student :is(.room-grid, .card-list, .recommendation-list) > *,
+  .account-dropdown, .modal-backdrop, .modal-card, .floating-toast { animation: none; }
+  .floating-toast.is-exiting { transform: none; }
+  .app-shell--student :is(.room-card, .reservation-card, .notification-card, .student-overview-card):hover,
+  .app-shell--student .student-quick-action:hover,
+  .room-card__media:hover img,
+  .recommendation-card--link:hover,
+  .assistant-room-card:hover { transform: none; }
+  .floating-toast__timer { display: none; }
+}

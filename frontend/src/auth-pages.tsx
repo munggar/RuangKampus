@@ -73,7 +73,7 @@ export function LoginPage() {
             </span>
           </Field>
           <div className="form-between"><Link to="/forgot-password">Lupa password?</Link></div>
-          {error ? <Notice tone="error">{error}</Notice> : null}
+          {error ? <Notice tone="error" floating>{error}</Notice> : null}
           <Button type="submit" disabled={submitting} className="button--wide">{submitting ? "Memeriksa…" : <>Masuk ke RuangKampus <ArrowRight size={17} /></>}</Button>
         </form>
         <div className="secure-note"><ShieldCheck size={18} /><span>Akses akun diproses melalui layanan autentikasi RuangKampus.</span></div>
@@ -126,8 +126,8 @@ export function ForgotPasswordPage() {
           <Field label="Password baru"><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></Field>
           <Field label="Konfirmasi password"><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required /></Field>
         </> : <Field label="Email kampus"><input type="email" autoComplete="email" placeholder="nama@kampus.ac.id" value={email} onChange={(event) => setEmail(event.target.value)} required /></Field>}
-        {error ? <Notice tone="error">{error}</Notice> : null}
-        {success ? <Notice tone="success">{success}</Notice> : null}
+        {error ? <Notice tone="error" floating>{error}</Notice> : null}
+        {success ? <Notice tone="success" floating>{success}</Notice> : null}
         <Button type="submit" disabled={busy} className="button--wide">{busy ? "Memproses…" : token ? "Simpan password baru" : "Kirim instruksi reset"}</Button>
       </form>
       <Link className="back-link" to="/login">← Kembali ke halaman masuk</Link>
@@ -209,7 +209,7 @@ export function RegisterPage() {
           <Field label="Konfirmasi password">
             <input type="password" autoComplete="new-password" minLength={8} maxLength={128} placeholder="Ulangi password" value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
           </Field>
-          {error ? <Notice tone="error">{error}</Notice> : null}
+          {error ? <Notice tone="error" floating>{error}</Notice> : null}
           <Button type="submit" disabled={busy || !isApiConfigured()} className="button--wide">
             {busy ? "Membuat akun…" : <>Buat akun Student <ArrowRight size={17} /></>}
           </Button>

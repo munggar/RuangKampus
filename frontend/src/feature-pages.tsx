@@ -15,7 +15,7 @@ import type {
   AssistantFeedbackReason, AvailabilityResult, Room,
 } from "./types";
 import { PageTitle } from "./layout";
-import { Button, EmptyState, Field, Loading, Notice, PageSection } from "./ui";
+import { Button, EmptyState, Field, Loading, Notice, PageSection, useToast } from "./ui";
 
 function makeAvailabilityParams(date: string, start: string, end: string, participants: string) {
   return new URLSearchParams({
@@ -209,7 +209,7 @@ export function StudentRoomAvailabilityPage() {
         <Field label="Lokasi detail"><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Contoh: dekat lift / sayap timur" /></Field>
         <Field label="Fasilitas wajib"><input value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="Contoh: proyektor, Wi-Fi" /></Field>
       </div>
-      {error ? <Notice tone="error">{error}</Notice> : null}
+      {error ? <Notice tone="error" floating>{error}</Notice> : null}
       <Button type="submit" disabled={loading}><Search size={16} />{loading ? "Memeriksa..." : "Cari ruangan tersedia"}</Button>
     </form>
     {loading ? <Loading label="Memeriksa jadwal dan ketersediaan ruangan..." /> : null}
@@ -290,7 +290,7 @@ export function AlternativeSlotsPage() {
         <Field label="Gedung"><input value={building} onChange={(e) => setBuilding(e.target.value)} placeholder="Opsional" /></Field>
       </div>
       <Field label="Fasilitas wajib"><input value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="Contoh: proyektor" /></Field>
-      {error ? <Notice tone="error">{error}</Notice> : null}
+      {error ? <Notice tone="error" floating>{error}</Notice> : null}
       <Button type="submit" disabled={loading}><WandSparkles size={16} />{loading ? "Mencari alternatif..." : "Temukan slot alternatif"}</Button>
     </form>
     {loading ? <Loading label="Mencari slot yang cocok di jadwal ruangan..." /> : null}
@@ -332,6 +332,7 @@ const assistantPrompts = [
 ];
 
 export function RoomAssistantPage() {
+  const { notify } = useToast();
   const [message, setMessage] = useState("");
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
@@ -368,6 +369,7 @@ export function RoomAssistantPage() {
       await discoveryApi.feedback({ intent: turn.intent, rating, reason_code });
       setFeedbackSent((current) => ({ ...current, [turn.id]: true }));
       setFeedbackOpenFor(null);
+      notify("Makasih, feedback kamu sudah tercatat.", { tone: "success", duration: 3600 });
     } catch (cause) {
       setFeedbackError(cause instanceof Error ? cause.message : "Feedback belum dapat dikirim.");
     } finally {
@@ -505,8 +507,8 @@ export function RoomAssistantPage() {
         </article>)}
         {loading ? <div className="assistant-processing" role="status" aria-live="polite"><span aria-hidden="true"><i /><i /><i /></span><b>RUKKA sedang memproses pertanyaan</b></div> : null}
       </div>
-      {error ? <Notice tone="error">{error}</Notice> : null}
-      {feedbackError ? <Notice tone="error">{feedbackError}</Notice> : null}
+      {error ? <Notice tone="error" floating>{error}</Notice> : null}
+      {feedbackError ? <Notice tone="error" floating>{feedbackError}</Notice> : null}
       <div className="assistant-suggestions">
         <span className="muted small">Contoh pertanyaan</span>
         {assistantPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => { setMessage(prompt); composerRef.current?.focus(); }}>{prompt}</button>)}

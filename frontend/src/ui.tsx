@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { IconAlertCircle as AlertCircle, IconCheck as Check, IconInfoCircle as Info, IconLoader2 as LoaderCircle, IconX as X } from "@tabler/icons-react";
+import { IconAlertCircle as AlertCircle, IconAlertTriangle as Warning, IconCircleCheck as Check, IconInfoCircle as Info, IconLoader2 as LoaderCircle, IconX as X } from "@tabler/icons-react";
 import { statusLabel } from "./api";
 import type { ReservationStatus } from "./types";
 
@@ -37,9 +37,118 @@ export function initialsFromName(name?: string | null): string {
   return initials || "RK";
 }
 
-export function Notice({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "success" | "warning" | "error" }) {
+export function Notice({ children, tone = "info", floating = false }: { children: ReactNode; tone?: "info" | "success" | "warning" | "error"; floating?: boolean }) {
+  const toast = useContext(ToastContext);
+  useEffect(() => {
+    if (!floating || typeof children !== "string" || !children.trim()) return;
+    toast.notify(children, { tone });
+  }, [children, floating, toast.notify, tone]);
+  if (floating) return null;
   const Icon = tone === "success" ? Check : tone === "error" ? AlertCircle : Info;
   return <div className={"notice notice--" + tone} role={tone === "error" ? "alert" : "status"}><Icon size={17} /><div>{children}</div></div>;
+}
+
+export type ToastTone = "success" | "error" | "warning" | "info";
+export interface ToastAction { label: string; onClick: () => void; }
+interface ToastOptions { title?: string; tone?: ToastTone; duration?: number; action?: ToastAction; }
+interface ToastItem extends ToastOptions { id: number; message: ReactNode; exiting: boolean; }
+type ToastContextValue = { notify: (message: ReactNode, options?: ToastOptions) => number; dismiss: (id: number) => void; };
+
+const ToastContext = createContext<ToastContextValue>({ notify: () => 0, dismiss: () => undefined });
+
+function FloatingToast({ item, onDismiss, suspended = false }: { item: ToastItem; onDismiss: (id: number) => void; suspended?: boolean }) {
+  const [paused, setPaused] = useState(false);
+  const remaining = useRef(item.duration ?? 5200);
+  const timerStartedAt = useRef(0);
+  const timer = useRef<number | null>(null);
+  const ToneIcon = item.tone === "success" ? Check : item.tone === "error" ? AlertCircle : item.tone === "warning" ? Warning : Info;
+  const timerPaused = paused || suspended;
+
+  useEffect(() => {
+    if (timerPaused || item.exiting) return;
+    timerStartedAt.current = Date.now();
+    timer.current = window.setTimeout(() => onDismiss(item.id), remaining.current);
+    return () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+      timer.current = null;
+      if (!item.exiting) remaining.current = Math.max(0, remaining.current - (Date.now() - timerStartedAt.current));
+    };
+  }, [item.exiting, item.id, onDismiss, timerPaused]);
+
+  return <article className={"floating-toast floating-toast--" + (item.tone || "info") + (item.exiting ? " is-exiting" : "")}
+    role={item.tone === "error" ? "alert" : "status"}
+    aria-atomic="true"
+    onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)}
+    onFocus={() => setPaused(true)} onBlur={(event) => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}>
+    <span className="floating-toast__icon" aria-hidden="true"><ToneIcon size={19} strokeWidth={2} /></span>
+    <span className="floating-toast__copy">
+      <strong>{item.title || (item.tone === "success" ? "Berhasil" : item.tone === "error" ? "Terjadi kesalahan" : item.tone === "warning" ? "Perlu perhatian" : "Informasi")}</strong>
+      <span>{item.message}</span>
+      {item.action ? <button className="floating-toast__action" type="button" onClick={() => { item.action?.onClick(); onDismiss(item.id); }}>{item.action.label}</button> : null}
+    </span>
+    <button className="floating-toast__close" type="button" aria-label="Tutup notifikasi" onClick={() => onDismiss(item.id)}><X size={16} /></button>
+    {!item.exiting ? <span className="floating-toast__timer" aria-hidden="true" style={{ animationDuration: `${item.duration ?? 5200}ms`, animationPlayState: timerPaused ? "paused" : "running" }} /> : null}
+  </article>;
+}
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<ToastItem[]>([]);
+  const [surfaceBlocked, setSurfaceBlocked] = useState(false);
+  const nextId = useRef(0);
+  const exitTimers = useRef(new Map<number, number>());
+
+  const dismiss = useCallback((id: number) => {
+    setItems((current) => {
+      const item = current.find((entry) => entry.id === id);
+      if (!item || item.exiting) return current;
+      return current.map((entry) => entry.id === id ? { ...entry, exiting: true } : entry);
+    });
+    if (!exitTimers.current.has(id)) {
+      exitTimers.current.set(id, window.setTimeout(() => {
+        setItems((current) => current.filter((entry) => entry.id !== id));
+        exitTimers.current.delete(id);
+      }, 140));
+    }
+  }, []);
+
+  const notify = useCallback((message: ReactNode, options: ToastOptions = {}) => {
+    const id = ++nextId.current;
+    setItems((current) => {
+      const tone = options.tone || "info";
+      const duration = options.duration ?? (tone === "error" ? 8000 : tone === "warning" ? 6800 : tone === "info" ? 6000 : 4800);
+      const duplicate = current.some((item) => !item.exiting && item.tone === tone && item.title === options.title && item.message === message);
+      return duplicate ? current : [...current.slice(-3), { id, message, exiting: false, ...options, duration, tone }];
+    });
+    return id;
+  }, []);
+
+  const contextValue = useMemo(() => ({ notify, dismiss }), [dismiss, notify]);
+
+  useEffect(() => {
+    const syncBlockedState = () => setSurfaceBlocked(
+      document.visibilityState !== "visible" || Boolean(document.querySelector(".modal-backdrop[role='presentation']")),
+    );
+    const observer = new MutationObserver(syncBlockedState);
+    observer.observe(document.body, { childList: true });
+    document.addEventListener("visibilitychange", syncBlockedState);
+    syncBlockedState();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", syncBlockedState);
+      exitTimers.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  return <ToastContext.Provider value={contextValue}>
+    {children}
+    <div className="floating-toast-viewport" aria-label="Notifikasi terbaru">
+      {items.map((item) => <FloatingToast key={item.id} item={item} onDismiss={dismiss} suspended={surfaceBlocked} />)}
+    </div>
+  </ToastContext.Provider>;
+}
+
+export function useToast() {
+  return useContext(ToastContext);
 }
 
 export function Loading({ label = "Memuat data…" }: { label?: string }) {
