@@ -37,6 +37,7 @@ from ruangkampus.services.assistant_ai_response import generate_grounded_assista
 from ruangkampus.services.assistant_confidence import evaluate_rule_confidence
 from ruangkampus.services.assistant_function_registry import get_assistant_function
 from ruangkampus.services.assistant_response import (
+    compose_general_fallback,
     compose_intent_response,
     compose_reservation_result,
     compose_room_detail,
@@ -842,6 +843,8 @@ def _intent_only_response(
     slots = slots_override or _assistant_empty_slots(payload)
     follow_up = [detection.clarification_message] if detection.clarification_message else []
     base_message = message_override or detection.clarification_message or _intent_response_message(detection.intent, detection.response_variant)
+    if detection.intent == "OUT_OF_SCOPE" and message_override is None and not detection.clarification_message:
+        base_message = compose_general_fallback(payload.message, detection.matched_rule)
     if ai_fallback_used:
         final_message, ai_response_used = base_message, False
     else:
@@ -975,6 +978,7 @@ def room_assistant_chat(
         and detection.matched_rule not in {
             "GENERAL_REASONING_REQUEST",
             "HYPOTHETICAL_REASONING_REQUEST",
+            "ACADEMIC_SCHEDULE_LOOKUP",
         }
         and is_room_operation_candidate(normalization.parser_text)
     ):

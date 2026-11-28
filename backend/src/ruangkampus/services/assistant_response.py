@@ -2,6 +2,68 @@ from __future__ import annotations
 
 from typing import Any
 
+import re
+
+
+def compose_general_fallback(message: str, matched_rule: str | None = None) -> str:
+    """Answer common uncertainty and unavailable-data questions without guessing."""
+    text = " ".join(message.casefold().split())
+
+    if matched_rule == "ACADEMIC_SCHEDULE_LOOKUP":
+        weekdays = re.findall(
+            r"\b(senin|selasa|rabu|kamis|jumat|jum'at|sabtu|minggu)\b", text
+        )
+        if len(set(weekdays)) > 1 or any(
+            term in text for term in ("berbeda", "bertentangan", "tidak sama", "konflik")
+        ):
+            return (
+                "Saya belum bisa memastikan jadwal ujian itu: informasi yang kamu terima saling berbeda. "
+                "Data jadwal ujian, tanggal, jam, ruang, dan pengawas tidak tersedia di RUKKA, jadi saya tidak akan memilih salah satunya. "
+                "Cek kalender akademik resmi atau konfirmasi ke dosen/program studi; nama mata kuliah dan semester akan membantu saat memverifikasi."
+            )
+        return (
+            "Saya belum punya jadwal ujian terverifikasi, jadi belum bisa memastikan tanggal, jam, ruang, atau pengawasnya. "
+            "Cek kalender akademik resmi atau konfirmasi ke dosen/program studi; kirim nama mata kuliah dan semester jika ingin dibantu menyusun pertanyaan verifikasi."
+        )
+
+    if any(term in text for term in ("whatsapp", "pesan wa", "isi pesan", "chat dosen")):
+        return (
+            "Saya tidak dapat mengakses WhatsApp atau pesan pribadi yang belum kamu berikan. "
+            "Cek percakapanmu langsung atau tanyakan kepada dosen melalui kanal resmi."
+        )
+    if any(term in text for term in ("ipk", "nilai saya", "nilai tertinggi", "mahasiswa terbaik", "ranking mahasiswa")):
+        return (
+            "Saya tidak memiliki data nilai atau peringkat mahasiswa, jadi saya tidak bisa memastikan jawabannya. "
+            "Untuk IPK, cek portal akademikmu; untuk peringkat, tanyakan apakah kampus menerbitkan informasi resmi tersebut."
+        )
+    if any(term in text for term in ("toilet", "kamar kecil", "sedang berada", "saat ini")) and any(
+        term in text for term in ("jumlah", "berapa", "orang", "mahasiswa")
+    ):
+        return (
+            "Saya tidak memiliki sensor atau data jumlah orang secara real time di toilet kampus. "
+            "Coba cek langsung atau tanyakan kepada petugas kampus."
+        )
+    if any(term in text for term in ("berbohong", "bohong", "siapa yang berbohong", "siapa yang sedang berbohong")):
+        return (
+            "Saya tidak bisa mengetahui siapa yang berbohong tanpa bukti, dan tidak akan menebak tentang seseorang. "
+            "Coba verifikasi informasinya lewat sumber yang dapat diperiksa atau bicarakan langsung dengan orang terkait."
+        )
+    if any(term in text for term in (
+        "tidak yakin", "belum bisa memastikan", "informasi bertentangan", "informasi saling berbeda",
+        "fallback", "penanganan kegagalan", "tidak memiliki data", "tidak tersedia di database",
+        "sumber yang lebih valid", "meminta informasi tambahan", "mengarahkan saya",
+    )):
+        return (
+            "Kalau belum yakin, saya tidak akan menebak. Saya akan menjelaskan bagian yang belum pasti, "
+            "meminta konteks tambahan bila perlu, lalu memeriksa sumber resmi; jika datanya tidak tersedia atau bertentangan, "
+            "saya akan menyarankan konfirmasi kepada dosen atau petugas kampus."
+        )
+
+    return (
+        "Saya belum punya informasi yang cukup untuk menjawab itu dengan akurat. "
+        "Saya bisa membantu mencari ruang, memeriksa ketersediaan, melihat fasilitas, atau menjelaskan alur reservasi."
+    )
+
 
 def compose_intent_response(intent: str, response_variant: str | None = None) -> str:
     """Create concise, casual text; all factual outputs must come from backend data."""

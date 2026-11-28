@@ -10,7 +10,7 @@ from sqlalchemy import select
 from ruangkampus.config import Settings
 from ruangkampus.models import AssistantConversation
 from ruangkampus.services.assistant_intent import detect_assistant_intent
-from ruangkampus.services.assistant_response import compose_intent_response
+from ruangkampus.services.assistant_response import compose_general_fallback, compose_intent_response
 from ruangkampus.services.indonesian_normalizer import normalize_indonesian_message
 from ruangkampus.services.availability import campus_today
 
@@ -116,6 +116,45 @@ def test_general_reasoning_prompts_do_not_become_room_database_searches():
     for message in GENERAL_REASONING_PROMPTS:
         result = detect_assistant_intent(message)
         assert result.intent == "OUT_OF_SCOPE", (message, result)
+
+
+def test_exam_schedule_question_is_not_misrouted_as_a_room_search():
+    message = (
+        "Dosen bilang ujian hari Senin, teman bilang Selasa, dan kalender akademik Rabu. "
+        "Kapan ujian, tanggal, jam, ruang, dan siapa pengawasnya?"
+    )
+    result = detect_assistant_intent(message)
+    assert result.intent == "OUT_OF_SCOPE"
+    assert result.matched_rule == "ACADEMIC_SCHEDULE_LOOKUP"
+    answer = compose_general_fallback(message, result.matched_rule).casefold()
+    assert "belum bisa memastikan" in answer
+    assert "tidak akan memilih" in answer
+    assert "kalender akademik resmi" in answer
+    assert "senin" not in answer and "selasa" not in answer and "rabu" not in answer
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Siapa mahasiswa dengan nilai tertinggi tahun ini?", "tidak memiliki data nilai"),
+        ("Berapa mahasiswa di toilet kampus saat ini?", "tidak memiliki sensor"),
+        ("Apa isi pesan WhatsApp dosen saya?", "tidak dapat mengakses whatsapp"),
+        ("Berapa IPK saya?", "tidak memiliki data nilai"),
+        ("Siapa yang sedang berbohong kepada saya?", "tidak bisa mengetahui siapa yang berbohong"),
+    ],
+)
+def test_unavailable_or_private_questions_get_specific_honest_fallback(message, expected):
+    answer = compose_general_fallback(message).casefold()
+    assert expected in answer
+
+
+def test_uncertainty_question_explains_verification_behavior():
+    message = "Apa yang kamu lakukan ketika tidak yakin terhadap jawabanmu?"
+    assert detect_assistant_intent(message).intent == "OUT_OF_SCOPE"
+    answer = compose_general_fallback(message).casefold()
+    assert "tidak akan menebak" in answer
+    assert "memeriksa sumber resmi" in answer
+    assert "meminta konteks tambahan" in answer
 
 
 @pytest.mark.parametrize("message", GENERAL_REASONING_PROMPTS)

@@ -103,6 +103,12 @@ FAQ_PHRASES = (
     "aktifkan mode ai", "gunakan ai", "mode standar",
 )
 
+ACADEMIC_SCHEDULE_PHRASES = (
+    "jadwal ujian", "ujian dilaksanakan", "ujian berlangsung", "ujian saya",
+    "ujian mata kuliah", "kalender akademik", "jadwal akademik",
+    "tanggal ujian", "jam ujian", "dosen pengawas",
+)
+
 # These are explicit signs that a student wants explanation, analysis, or planning,
 # not a database lookup. Domain-specific intents above retain precedence.
 HYPOTHETICAL_REASONING_PHRASES = (
@@ -115,6 +121,7 @@ HYPOTHETICAL_REASONING_PHRASES = (
 
 GENERAL_REASONING_PHRASES = (
     "menurutmu", "menurut kamu", "menurut pendapatmu", "bayangkan",
+    "bagaimana kamu menangani", "bagaimana menangani pertanyaan",
     "analisis", "analisa", "jelaskan", "berikan argumen", "berikan contoh",
     "dari beberapa sudut pandang", "apa perbedaan", "apa kemungkinan penyebab",
     "bagaimana kamu mengatur", "bagaimana sistem", "rancang", "buat simulasi",
@@ -201,6 +208,17 @@ def detect_assistant_intent(
 
     has_room = _has_room_reference(text, catalog)
     has_reservation = _has_phrase(text, RESERVATION_TERMS)
+
+    # Exam timetables are academic records, not room availability requests. Keep
+    # weekday/date mentions from turning an exam question into a room search.
+    if _has_phrase(text, ACADEMIC_SCHEDULE_PHRASES) or (
+        _has_phrase(text, ("ujian", "ujian akhir", "uts", "uas"))
+        and _has_phrase(text, ("jadwal", "hari", "tanggal", "kapan", "jam", "ruang"))
+    ):
+        return IntentDetection(
+            intent="OUT_OF_SCOPE",
+            matched_rule="ACADEMIC_SCHEDULE_LOOKUP",
+        )
 
     if has_reservation and _has_unnegated_phrase(text, CANCEL_VERBS):
         return IntentDetection(
