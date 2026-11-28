@@ -547,6 +547,8 @@ h1,h2,h3 { line-height: 1.2; letter-spacing: -.025em; }
 .assistant-room-link small { overflow: hidden; color: var(--text-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .assistant-room-link > svg { flex: 0 0 auto; color: var(--brand-primary); }
 .assistant-follow-up, .assistant-suggestions button { width: fit-content; max-width: 100%; padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--brand-primary) 28%, var(--border-default)); border-radius: 999px; color: var(--brand-primary); background: var(--surface-card); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+.assistant-expand-results { width: fit-content; min-height: 38px; padding: 7px 11px; border: 1px solid var(--border-default); border-radius: 9px; color: var(--brand-primary); background: var(--surface-card); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.assistant-expand-results:hover { border-color: var(--brand-primary); background: var(--brand-primary-soft); }
 .assistant-follow-up:hover, .assistant-suggestions button:hover { background: var(--brand-primary-soft); }
 .assistant-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .assistant-suggestions > span { width: 100%; }
@@ -1849,8 +1851,8 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .app-shell--student .assistant-compose textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand-primary) 45%, transparent); outline-offset: 1px; border-radius: 6px; }
 .app-shell--student .assistant-compose__hint { flex: 1 1 100%; padding: 0 8px 3px; color: var(--text-secondary); font-size: 10px; }
 .app-shell--student .assistant-compose .button { min-width: 104px; min-height: 44px; }
-.app-shell--student .assistant-suggestions button, .app-shell--student .assistant-follow-up { min-height: 40px; }
-.app-shell--student :is(.student-quick-action, .student-active-filters button, .assistant-suggestions button, .assistant-follow-up, .assistant-feedback__actions button, .assistant-feedback__reasons button):focus-visible { outline: 3px solid color-mix(in srgb, var(--brand-primary) 48%, transparent); outline-offset: 2px; }
+.app-shell--student .assistant-suggestions button, .app-shell--student .assistant-follow-up, .app-shell--student .assistant-expand-results { min-height: 40px; }
+.app-shell--student :is(.student-quick-action, .student-active-filters button, .assistant-suggestions button, .assistant-follow-up, .assistant-expand-results, .assistant-feedback__actions button, .assistant-feedback__reasons button):focus-visible { outline: 3px solid color-mix(in srgb, var(--brand-primary) 48%, transparent); outline-offset: 2px; }
 
 @media (max-width: 1120px) {
   .app-shell--student .student-reservation-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }

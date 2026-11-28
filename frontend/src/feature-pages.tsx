@@ -341,12 +341,14 @@ export function RoomAssistantPage() {
     id: 1, sender: "assistant", assistantName: "RUKKA AI",
     message: "Hai! Gue RUKKA AI 👋 Mau cari ruang, cek jadwal, atau nyari slot alternatif? Cerita aja, gue bantu.",
   }]);
+  const [expandedRoomResults, setExpandedRoomResults] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [feedbackOpenFor, setFeedbackOpenFor] = useState<number | null>(null);
   const [feedbackSent, setFeedbackSent] = useState<Record<number, boolean>>({});
   const [feedbackBusyFor, setFeedbackBusyFor] = useState<number | null>(null);
   const [feedbackError, setFeedbackError] = useState("");
+  const latestAssistantTurnId = [...turns].reverse().find((turn) => turn.sender === "assistant")?.id;
 
   useEffect(() => {
     if (!shouldFollowConversation.current || !chatListRef.current) return;
@@ -407,7 +409,7 @@ export function RoomAssistantPage() {
         slots: response.slots ?? response.filters,
         availabilityChecked: Boolean(
           response.result_type === "ROOMS_FOUND" &&
-          ["ROOM_AVAILABILITY", "ROOM_SEARCH"].includes(response.intent) &&
+          ["ROOM_AVAILABILITY", "ROOM_SEARCH", "RESERVATION_CREATE_PREVIEW"].includes(response.intent) &&
           response.filters?.date && response.filters?.start_time && response.filters?.end_time
         ),
         alternatives: response.alternative_slots,
@@ -440,10 +442,12 @@ export function RoomAssistantPage() {
             {turn.sender === "assistant" && turn.engine ? (
               <small className={"assistant-message__engine assistant-message__engine--" + turn.engine.toLowerCase()}>
                 {turn.engine === "HYBRID"
-                  ? "AI aktif"
+                  ? "Jawaban dirangkai AI dari data terverifikasi"
+                  : turn.engine === "AI_INTENT"
+                    ? "Pemahaman pesan dibantu AI"
                   : ["ROOM_SEARCH", "ROOM_AVAILABILITY", "ALTERNATIVE_SLOTS", "ROOM_DETAIL"].includes(turn.intent || "")
                     ? "Data kampus terverifikasi"
-                    : "Mode standar"}
+                    : "Mode aturan cepat"}
               </small>
             ) : null}
             {turn.sender === "assistant" && turn.intent ? (
@@ -473,24 +477,30 @@ export function RoomAssistantPage() {
               </div>
             ) : null}
             {turn.rooms?.length ? <div className="assistant-room-grid">
-              {turn.rooms.map((room) => <AssistantRoomResultCard
+              {turn.rooms.slice(0, expandedRoomResults[turn.id] ? turn.rooms.length : 5).map((room) => <AssistantRoomResultCard
                 key={room.id}
                 room={room}
                 slots={turn.slots}
                 availabilityChecked={Boolean(turn.availabilityChecked)}
               />)}
             </div> : null}
+            {turn.rooms && turn.rooms.length > 5 ? (
+              <button className="assistant-expand-results" type="button" aria-expanded={Boolean(expandedRoomResults[turn.id])}
+                onClick={() => setExpandedRoomResults((current) => ({ ...current, [turn.id]: !current[turn.id] }))}>
+                {expandedRoomResults[turn.id] ? "Sembunyikan sebagian hasil" : "Tampilkan semua hasil ruangan"}
+              </button>
+            ) : null}
             {turn.alternatives?.length ? <div className="recommendation-list">{turn.alternatives.map((slot, index) => <AlternativeCard key={slot.room.id + slot.date + slot.start_time + index} slot={slot} />)}</div> : null}
             {turn.reservations?.length ? <div className="assistant-inline-results">
               {turn.reservations.map((reservation) => <div className="assistant-room-link" key={reservation.id}>
                 <span><b>{reservation.room_name} · {reservation.status}</b><small>{reservation.building} · {formatDate(reservation.date)} · {formatTime(reservation.start_time)}–{formatTime(reservation.end_time)} WIB · {reservation.participant_count} peserta</small></span>
               </div>)}
             </div> : null}
-            {turn.followUps?.filter((question, index, all) =>
+            {turn.id === latestAssistantTurnId ? turn.followUps?.filter((question, index, all) =>
               question.trim() &&
               question.trim().toLocaleLowerCase() !== turn.message.trim().toLocaleLowerCase() &&
               all.findIndex((item) => item.trim().toLocaleLowerCase() === question.trim().toLocaleLowerCase()) === index
-            ).map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>)}
+            ).map((question) => <button className="assistant-follow-up" type="button" key={question} onClick={() => setMessage(question)}>{question}</button>) : null}
           </div>
         </article>)}
         {loading ? <div className="assistant-processing" role="status" aria-live="polite"><span aria-hidden="true"><i /><i /><i /></span><b>RUKKA sedang memproses pertanyaan</b></div> : null}
