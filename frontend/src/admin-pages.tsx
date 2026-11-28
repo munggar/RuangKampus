@@ -12,7 +12,7 @@ import {
 } from "./api";
 import type { DashboardSummary, Reservation, Room, RoomStatus, RoomUnavailability, Schedule } from "./types";
 import { PageTitle } from "./layout";
-import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, StatusBadge } from "./ui";
+import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, Loading, Modal, Notice, PageSection, RoomGridSkeleton, StatusBadge } from "./ui";
 import { useLanguage } from "./i18n";
 
 function campusTimestamp(date: string, time: string): number {
@@ -647,7 +647,7 @@ export function AdminRoomsPage() {
     </div>
     {error ? <Notice tone="error">{error}</Notice> : null}
     {notice ? <Notice tone="success">{notice}</Notice> : null}
-    {loading ? <Loading label="Memuat inventaris ruangan…" /> : visible.length ? <div className="room-grid">
+    {loading ? <RoomGridSkeleton label="Memuat inventaris ruangan…" /> : visible.length ? <div className="room-grid">
       {visible.map((room) => {
         const isSelected = selectedIds.includes(room.id);
         return <article className={"room-card" + (isSelected ? " is-selected" : "")} key={room.id}>

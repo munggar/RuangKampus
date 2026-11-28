@@ -14,7 +14,7 @@ import {
 import { useAuth } from "./auth";
 import type { AppNotification, AppRole, AuthUser, AvailabilityResult, DashboardSummary, Reservation, Room } from "./types";
 import { PageTitle } from "./layout";
-import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, StatusBadge, useToast } from "./ui";
+import { Button, cleanLocationLabel, ConfirmModal, EmptyState, Field, initialsFromName, Loading, Modal, Notice, PageSection, RoomGridSkeleton, StatusBadge, useToast } from "./ui";
 
 function usePageError() {
   const [error, setError] = useState("");
@@ -290,7 +290,7 @@ export function RoomDirectoryPage({ role }: { role: AppRole }) {
     </div> : null}
     <div className="list-summary" role="status" aria-live="polite" aria-atomic="true"><strong>{meta?.total ?? rooms.length} ruangan</strong><span>Informasi lokasi dan fasilitas dari inventaris kampus</span></div>
     {error ? <Notice tone="error">{error}</Notice> : null}
-    {loading ? <Loading label="Memuat direktori ruangan…" /> : rooms.length ? (
+    {loading ? <RoomGridSkeleton label="Memuat direktori ruangan…" /> : rooms.length ? (
       <div className="room-grid">
         {rooms.map((room) => <article className="room-card" key={room.id}>
           <Link className="room-card__media" aria-label={"Lihat foto dan detail " + room.room_name} to={(role === "Student" ? "/student/rooms/" : "/admin/rooms/") + room.id}>

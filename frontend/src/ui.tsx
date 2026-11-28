@@ -155,6 +155,22 @@ export function Loading({ label = "Memuat data…" }: { label?: string }) {
   return <div className="loading-inline"><LoaderCircle className="spinner-icon" size={20} /><span>{label}</span></div>;
 }
 
+export function RoomGridSkeleton({ label, count = 6 }: { label: string; count?: number }) {
+  return <div className="room-grid room-grid--loading" role="status" aria-label={label}>
+    <span className="sr-only">{label}</span>
+    {Array.from({ length: count }, (_, index) => <article className="room-card room-skeleton" key={index} aria-hidden="true">
+      <div className="room-card__media room-skeleton__media" />
+      <div className="room-card__body room-skeleton__body">
+        <span className="room-skeleton__shape room-skeleton__shape--short" />
+        <span className="room-skeleton__shape room-skeleton__shape--title" />
+        <span className="room-skeleton__shape" />
+        <span className="room-skeleton__shape room-skeleton__shape--medium" />
+        <span className="room-skeleton__shape room-skeleton__shape--button" />
+      </div>
+    </article>)}
+  </div>;
+}
+
 export function EmptyState({ title, description, action, icon }: { title: string; description: string; action?: ReactNode; icon?: ReactNode }) {
   return <div className="empty-state"><span className="empty-state__icon">{icon || <Info size={22} />}</span><strong>{title}</strong><p>{description}</p>{action ? <div className="empty-state__action">{action}</div> : null}</div>;
 }
@@ -164,11 +180,33 @@ export function Modal({ open, title, description, children, onClose, closeDisabl
 }) {
   const titleId = useId();
   const descriptionId = useId();
+  const [present, setPresent] = useState(open);
+  const [closing, setClosing] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
   const closeRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
   useEffect(() => { closeDisabledRef.current = closeDisabled; }, [closeDisabled]);
+
+  useEffect(() => {
+    if (open) {
+      setPresent(true);
+      setClosing(false);
+      return;
+    }
+    if (!present) return;
+    setClosing(true);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setPresent(false);
+      setClosing(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      setPresent(false);
+      setClosing(false);
+    }, 120);
+    return () => window.clearTimeout(timeout);
+  }, [open, present]);
 
   useEffect(() => {
     if (!open) return;
@@ -215,11 +253,11 @@ export function Modal({ open, title, description, children, onClose, closeDisabl
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!present) return null;
   return createPortal(
-    <div className="modal-backdrop" role="presentation"
-      onMouseDown={(event) => { if (!closeDisabled && event.target === event.currentTarget) onClose(); }}>
-      <section ref={dialogRef} className="modal-card" role="dialog" aria-modal="true"
+    <div className={"modal-backdrop" + (closing ? " is-closing" : "")} role="presentation" aria-hidden={closing || undefined} inert={closing}
+      onMouseDown={(event) => { if (!closing && !closeDisabled && event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} className={"modal-card" + (closing ? " is-closing" : "")} role="dialog" aria-modal="true"
         aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} tabIndex={-1}>
         <button className="modal-close" type="button" onClick={onClose} disabled={closeDisabled} aria-label="Tutup dialog"><X size={18} /></button>
         <h2 id={titleId}>{title}</h2>
