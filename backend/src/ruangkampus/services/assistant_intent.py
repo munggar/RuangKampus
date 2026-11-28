@@ -82,6 +82,12 @@ CREATE_RESERVATION_PHRASES = (
     "reservasikan ruangan", "booking ruangan", "pesan ruangan",
     "buat booking", "submit reservasi",
 )
+RESERVATION_ACTION_PATTERN = re.compile(
+    r"\b(?:bisa|boleh|mau|ingin|tolong|bantu|sekalian|ajukan|buat|pesan)\b"
+    r".{0,36}\b(?:reservasi|booking|peminjaman)\b"
+    r"|\b(?:reservasi|booking|peminjaman)\s+(?:sekalian|sekarang|langsung)\b",
+    flags=re.IGNORECASE,
+)
 SMALLTALK_GREETINGS = (
     "halo", "hai", "hello", "hi", "hey", "hei", "woy", "woi", "oy",
     "bro", "sis", "cuy", "min", "assalamualaikum", "selamat pagi",
@@ -222,7 +228,9 @@ def detect_assistant_intent(
             matched_rule="RESERVATION_HELP_QUESTION",
         )
 
-    if _has_phrase(text, CREATE_RESERVATION_PHRASES):
+    if _has_phrase(text, CREATE_RESERVATION_PHRASES) or (
+        has_reservation and RESERVATION_ACTION_PATTERN.search(text)
+    ):
         return IntentDetection(
             intent="RESERVATION_CREATE_PREVIEW",
             matched_rule="RESERVATION_CREATE_REQUEST",

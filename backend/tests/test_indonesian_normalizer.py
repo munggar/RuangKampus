@@ -38,6 +38,8 @@ NORMALIZATION_CASES = [
     ("mo", "mau"),
     ("pengen", "ingin"),
     ("cariin", "cari"),
+    ("resevasiin", "reservasi"),
+    ("reservasiin", "reservasi"),
     ("nyari", "mencari"),
     ("nugas", "mengerjakan tugas"),
     ("pinjem", "meminjam"),

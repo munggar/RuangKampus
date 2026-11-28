@@ -524,9 +524,8 @@ def test_general_reply_prompt_requires_compact_reasoning_structure(
     assert data["engine"] == "HYBRID"
     assert data["message"].startswith("Menurutku")
     prompt = captured["body"]["messages"][0]["content"]
-    assert "maksimal 80 kata" in prompt
-    assert "maksimal 3 bullet" in prompt
-    assert "Jangan membuat esai" in prompt
+    assert "Jawab inti terlebih dahulu" in prompt
+    assert "nada hangat, jelas, dan wajar" in prompt
     assert captured["body"]["max_tokens"] == 768
     assert captured["body"]["reasoning_effort"] == "low"
 

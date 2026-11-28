@@ -857,7 +857,11 @@ def _intent_only_response(
             user_id=user_id,
             context_messages=[item.model_dump() for item in payload.context],
         )
-    engine_value = "HYBRID" if ai_fallback_used or ai_response_used else engine
+    engine_value = (
+        "HYBRID" if ai_response_used
+        else "AI_INTENT" if ai_fallback_used
+        else engine
+    )
     privacy_value = privacy_message or (
         "Pesan saat ini dan ringkasan fakta ruangan yang relevan dikirim ke penyedia AI yang dikonfigurasi. "
         "Maksimal sepuluh pesan terakhir dari tab percakapan dapat ikut dikirim sebagai konteks dan tidak disimpan sebagai isi chat oleh backend. "
@@ -1156,6 +1160,108 @@ def room_assistant_chat(
         db.commit()
         return response
 
+    if detection.intent == "RESERVATION_CREATE_PREVIEW":
+        reservation_filters = merge_room_slots(
+            filters,
+            conversation.state,
+            message=normalization.normalized_text,
+            explicitly_supplied=explicit_fields,
+        )
+        previous_rooms = _verified_previous_room_context(db, conversation)
+        previous_ids = {item["id"] for item in previous_rooms}
+        has_room_criteria = any((
+            reservation_filters["faculty"], reservation_filters["building"],
+            reservation_filters["min_capacity"], reservation_filters["facilities"],
+            reservation_filters["search_terms"],
+        ))
+        if has_room_criteria:
+            candidates = _room_candidates(
+                db,
+                faculty=reservation_filters["faculty"],
+                building=reservation_filters["building"],
+                min_capacity=reservation_filters["min_capacity"],
+                facilities=reservation_filters["facilities"],
+                search_terms=reservation_filters["search_terms"],
+            )
+        elif previous_ids:
+            previous_uuid_ids = [UUID(room_id) for room_id in previous_ids]
+            candidates = db.scalars(
+                select(Room).where(
+                    Room.id.in_(previous_uuid_ids),
+                    Room.deleted_at.is_(None),
+                    Room.room_status == "ACTIVE",
+                )
+            ).all()
+        else:
+            candidates = []
+        if previous_ids:
+            candidates = [room for room in candidates if str(room.id) in previous_ids]
+
+        has_reservation_window = bool(
+            reservation_filters["date"]
+            and reservation_filters["start_time"]
+            and reservation_filters["end_time"]
+        )
+        if has_reservation_window:
+            candidates = [
+                room for room in candidates
+                if check_room_availability(
+                    db, room, reservation_filters["date"], reservation_filters["start_time"],
+                    reservation_filters["end_time"], reservation_filters["participant_count"],
+                ).available
+            ]
+
+        reservation_room_data = [serialize_room(room) for room in candidates[:10]]
+        reservation_slots = AssistantChatSlots(
+            faculty=reservation_filters["faculty"],
+            building=reservation_filters["building"],
+            min_capacity=reservation_filters["min_capacity"],
+            facilities=reservation_filters["facilities"],
+            requested_date=reservation_filters["date"],
+            start_time=reservation_filters["start_time"],
+            end_time=reservation_filters["end_time"],
+            participant_count=reservation_filters["participant_count"],
+            search_terms=reservation_filters["search_terms"],
+        )
+        if reservation_room_data:
+            message = (
+                f"Bisa. Ada {len(reservation_room_data)} ruang yang cocok dan tersedia di waktu itu. "
+                "Pilih salah satu kartu untuk lanjut; permohonan belum dikirim."
+                if has_reservation_window else
+                "Bisa, gue bantu sampai formulirnya. Pilih ruang di bawah; permohonan baru dikirim setelah lu meninjau dan menekan tombol ajukan."
+            )
+        elif has_reservation_window:
+            message = (
+                "Belum ada ruang dari kriteria tadi yang tersedia pada waktu itu. "
+                "Gue belum membuat reservasi; coba ubah waktunya dulu."
+            )
+        else:
+            message = (
+                "Bisa, tapi gue belum punya pilihan ruang dari percakapan ini. "
+                "Pilih ruang dari direktori dulu, lalu lanjutkan pengajuan lewat formulir."
+            )
+        response = _intent_only_response(
+            payload, normalization, detection,
+            conversation_id=conversation.id,
+            db=db,
+            user_id=user.id,
+            message_override=message,
+            rooms=reservation_room_data,
+            result_type="ROOMS_FOUND" if reservation_room_data else "NO_RESULTS",
+            requires_clarification=False,
+            slots_override=reservation_slots,
+            availability_checked=has_reservation_window,
+        )
+        save_conversation_state(
+            db,
+            conversation,
+            intent=detection.intent,
+            slots=reservation_filters,
+            room_ids=[room.id for room in candidates[:10]],
+        )
+        db.commit()
+        return response
+
     if detection.intent not in search_intents:
         contextual_room_reference = (
             detection.intent == "OUT_OF_SCOPE"
@@ -1364,6 +1470,11 @@ def room_assistant_chat(
         alternative_count=len(alternatives),
         has_complete_availability_window=has_complete_availability_window,
         has_effective_search_criteria=has_effective_search_criteria,
+        filters=filters,
+        follow_up_facilities=(
+            find_positive_facility_filters(normalization.normalized_text, catalog)
+            if not starts_new_search else []
+        ),
     )
     if (
         detection.intent in {"ROOM_AVAILABILITY", "ROOM_SEARCH"}
@@ -1392,10 +1503,6 @@ def room_assistant_chat(
                 "Oke, gue catat buat rapat organisasi minggu depan. "
                 "Kira-kira ada berapa orang yang bakal ikut?"
             )
-    elif not has_complete_availability_window:
-        follow_up.append(
-            "Kapan tanggal dan jam pemakaiannya? Kirim sekaligus, misalnya besok 09.00–11.00."
-        )
 
     room_data = [serialize_room(room) for room in rooms[:10]]
     legacy_filters = {
@@ -1419,11 +1526,7 @@ def room_assistant_chat(
         participant_count=filters["participant_count"],
         search_terms=filters["search_terms"],
     )
-    missing_fields = []
-    if detection.intent == "ROOM_SEARCH" and not has_complete_availability_window:
-        missing_fields.extend(["date", "start_time", "end_time"])
-    if detection.intent == "ROOM_SEARCH" and not filters["min_capacity"]:
-        missing_fields.append("min_capacity")
+    missing_fields: list[str] = []
 
     result_type = (
         "ROOMS_FOUND" if room_data
@@ -1464,7 +1567,11 @@ def room_assistant_chat(
             filters=slots,
         ),
         normalization=normalization,
-        engine="HYBRID" if ai_fallback_used or ai_response_used else "RULE_BASED",
+        engine=(
+            "HYBRID" if ai_response_used
+            else "AI_INTENT" if ai_fallback_used
+            else "RULE_BASED"
+        ),
         filters=legacy_filters,
         rooms=room_data,
         alternative_slots=alternatives,

@@ -17,8 +17,8 @@ def compose_intent_response(intent: str, response_variant: str | None = None) ->
         return "Gue cek status reservasi yang tercatat di akun lu."
     if intent == "RESERVATION_CREATE_PREVIEW":
         return (
-            "Gue bantu cari ruangannya dulu. Pengajuan reservasi belum dibuat lewat chat ini. "
-            "Setelah lu pilih ruang dan jadwal, lanjut ajukan lewat fitur Reservasi."
+            "Bisa, gue bantu sampai formulirnya. Reservasi belum dikirim dari chat ini; "
+            "pilih ruang di bawah untuk lanjut. Jadwal akan dicek lagi sebelum pengajuan dikirim."
         )
     if intent == "RESERVATION_CANCEL_PREVIEW":
         return (
@@ -59,30 +59,94 @@ def compose_search_result(
     alternative_count: int,
     has_complete_availability_window: bool,
     has_effective_search_criteria: bool,
+    filters: dict[str, Any] | None = None,
+    follow_up_facilities: list[str] | None = None,
 ) -> str:
+    filters = filters or {}
+    facility_labels = {
+        "air conditioner": "AC",
+        "wifi": "Wi-Fi",
+        "projector": "proyektor",
+        "whiteboard": "whiteboard",
+    }
+
+    def join_labels(items: list[str]) -> str:
+        labels = [facility_labels.get(item.casefold(), item) for item in items if item]
+        if len(labels) < 2:
+            return "".join(labels)
+        return ", ".join(labels[:-1]) + " dan " + labels[-1]
+
+    def criteria_summary() -> str:
+        criteria: list[str] = []
+        capacity = filters.get("min_capacity")
+        if capacity:
+            criteria.append(f"kapasitas minimal {capacity} orang")
+        facilities = filters.get("facilities") or []
+        if facilities:
+            criteria.append("fasilitas " + join_labels(facilities))
+        if filters.get("faculty"):
+            criteria.append("fakultas " + str(filters["faculty"]))
+        if filters.get("building"):
+            criteria.append("gedung " + str(filters["building"]))
+        return ", ".join(criteria)
+
     if not has_effective_search_criteria:
         return (
-            "Gue bisa bantu cariin ruang. Kasih tahu fakultas atau gedung, fasilitas, "
-            "kapasitas, atau kebutuhan ruang yang lu cari. Buat cek kosongnya, sebutin tanggal plus jam mulai–selesai."
+            "Bisa. Ceritain kebutuhan ruangnya—misalnya kapasitas, fasilitas, fakultas, atau gedung yang lu mau."
         )
     if intent == "ALTERNATIVE_SLOTS":
         return (
-            f"Gue nemu {alternative_count} pilihan slot alternatif."
+            f"Ketemu {alternative_count} pilihan waktu yang masih cocok. Cek jadwalnya di bawah."
             if alternative_count else
-            "Belum nemu slot alternatif yang cocok. Coba ubah fakultas, gedung, fasilitas, "
-            "tanggal, atau durasi pemakaian."
+            "Belum ketemu waktu pengganti yang cocok dengan kriteria tadi. Mau ubah hari atau jamnya?"
         )
     if room_count:
-        result = f"Gue nemu {room_count} ruang yang cocok sama kriteria lu."
         if has_complete_availability_window:
-            result += (
-                " Slotnya tersedia saat terakhir dicek. Klik kartu ruang untuk lanjut ke formulir "
-                "pengajuan; reservasi belum dikirim otomatis dan tetap menunggu persetujuan Staff Sekretariat."
+            requested_date = filters.get("date")
+            date_label = (
+                requested_date.strftime("%d/%m/%Y").lstrip("0")
+                if hasattr(requested_date, "strftime")
+                else str(requested_date or "tanggal tersebut")
             )
+            start_time = filters.get("start_time")
+            end_time = filters.get("end_time")
+            time_label = "–".join(
+                value.strftime("%H.%M") if hasattr(value, "strftime") else str(value or "")[:5]
+                for value in (start_time, end_time)
+            )
+            return (
+                f"Ada {room_count} ruang yang cocok dan terkonfirmasi tersedia {date_label}, pukul {time_label}. "
+                "Pilih salah satu kartu untuk lanjut ke formulir; pengajuan belum dikirim."
+            )
+        requested_facilities = join_labels(follow_up_facilities or [])
+        if requested_facilities:
+            return (
+                f"Iya, ada {room_count} ruang dari kriteria tadi yang punya {requested_facilities}. "
+                "Gue tampilkan pilihannya di bawah."
+            )
+        summary = criteria_summary()
+        result = f"Ketemu {room_count} ruang"
+        if summary:
+            result += f" dengan {summary}"
+        result += (
+            ". Kartu di bawah gue urutin dari kapasitas yang paling dekat."
+            if filters.get("min_capacity")
+            else ". Cek kartu di bawah untuk detailnya."
+        )
+        if intent == "ROOM_SEARCH":
+            result += " Kalau mau cek jadwalnya juga, kasih hari dan rentang jamnya."
         return result
     if alternative_count:
-        return "Belum ada ruang yang kosong di jam itu. Gue cariin alternatif tanggal, jam, atau ruang yang masih cocok."
-    return "Belum ada ruang yang cocok. Coba ubah fakultas, gedung, kapasitas, fasilitas, atau waktunya."
+        return "Belum ada yang kosong di jam itu, tapi gue nemu beberapa waktu lain yang cocok. Cek alternatifnya di bawah."
+    summary = criteria_summary()
+    if follow_up_facilities:
+        return (
+            f"Belum ada ruang dari hasil tadi yang punya {join_labels(follow_up_facilities)} "
+            "sekaligus memenuhi filter lainnya. Mau ubah salah satu kriterianya?"
+        )
+    if summary:
+        return f"Belum ketemu ruang aktif yang memenuhi {summary}. Mau ubah salah satu kriterianya?"
+    return "Belum ketemu ruang yang cocok. Coba ubah kebutuhan atau filter pencariannya."
 
 
 def compose_reservation_result(reservations: list[dict], *, status_only: bool) -> str:

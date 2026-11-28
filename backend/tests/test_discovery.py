@@ -174,7 +174,9 @@ def test_student_room_assistant_uses_grounded_room_records(
     assert data["engine"] == "RULE_BASED"
     assert data["reservation_action"] == "NOT_CREATED"
     assert any(item["id"] == room["id"] for item in data["rooms"])
-    assert "jam" in data["follow_up_questions"][0].lower()
+    assert data["follow_up_questions"] == []
+    assert data["requires_clarification"] is False
+    assert "kalau mau cek jadwal" in data["message"].lower()
 
 
 def test_room_assistant_shows_partial_room_candidates_before_asking_for_schedule(
@@ -237,8 +239,8 @@ def test_old_assistant_contract_remains_and_new_structured_fields_are_present(
     assert data["slots"]["faculty"] == "FTII"
     assert data["slots"]["min_capacity"] == 20
     assert 0 <= data["confidence"] <= 1
-    assert data["requires_clarification"] is True
-    assert data["clarification_message"] == data["follow_up_questions"][0]
+    assert data["requires_clarification"] is False
+    assert data["clarification_message"] is None
     assert data["result_type"] == "ROOMS_FOUND"
     assert data["requires_confirmation"] is False
     assert data["data"]["rooms"][0]["id"] == room["id"]
@@ -884,8 +886,9 @@ def test_room_assistant_parses_forty_org_and_heat_avoidance_as_ac(
     assert data["slots"]["facilities"] == ["air conditioner"]
     assert data["slots"]["search_terms"] == []
     assert room["id"] in {item["id"] for item in data["rooms"]}
-    assert data["requires_clarification"] is True
-    assert "tanggal" in data["follow_up_questions"][0].lower()
+    assert data["requires_clarification"] is False
+    assert data["follow_up_questions"] == []
+    assert "kalau mau cek jadwal" in data["message"].lower()
 
 
 def test_room_assistant_only_asks_for_time_when_date_was_already_parsed(
@@ -1097,7 +1100,7 @@ def test_rukka_adds_follow_up_facilities_and_understands_reservation_time_reques
     requested_slot = client.post(
         "/api/v1/assistant/chat",
         json={
-            "message": "coba Senin jam 10 sampe jam 12 bisa bantu reservasiin sekalian ga",
+            "message": "coba Senin jam 10 sampe jam 12 bisa bantu resevasiin sekalian ga",
             "conversation_id": conversation_id,
         },
         headers=headers,
@@ -1107,7 +1110,7 @@ def test_rukka_adds_follow_up_facilities_and_understands_reservation_time_reques
     selected_date = date.fromisoformat(slot_data["slots"]["date"])
     assert selected_date.weekday() == 0
     assert selected_date > date.today()
-    assert slot_data["intent"] == "ROOM_AVAILABILITY"
+    assert slot_data["intent"] == "RESERVATION_CREATE_PREVIEW"
     assert slot_data["slots"]["start_time"] == "10:00:00"
     assert slot_data["slots"]["end_time"] == "12:00:00"
     assert slot_data["slots"]["participant_count"] == 10
@@ -1119,7 +1122,7 @@ def test_rukka_adds_follow_up_facilities_and_understands_reservation_time_reques
     assert slot_data["reservation_action"] == "NOT_CREATED"
     assert slot_data["result_type"] == "ROOMS_FOUND"
     assert db_session.scalar(select(func.count()).select_from(Reservation)) == 0
-    assert "belum dikirim otomatis" in slot_data["message"].lower()
+    assert "permohonan belum dikirim" in slot_data["message"].lower()
 
 
 def test_rukka_ranks_smallest_room_that_fits_requested_capacity_first(
@@ -1236,4 +1239,4 @@ def test_rukka_does_not_let_generated_prose_replace_room_search_facts(
     data = response.json()["data"]
     assert data["engine"] == "RULE_BASED"
     assert created.json()["data"]["id"] in {item["id"] for item in data["rooms"]}
-    assert "nemu 1 ruang" in data["message"].lower()
+    assert "ketemu 1 ruang" in data["message"].lower()

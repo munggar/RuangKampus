@@ -85,6 +85,8 @@ TYPO_DICTIONARY: dict[str, str] = {
     "fasilits": "fasilitas",
     "proyektorr": "proyektor",
     "reservsi": "reservasi",
+    "resevasiin": "reservasi",
+    "reservasiin": "reservasi",
     "ksong": "kosong",
 }
 

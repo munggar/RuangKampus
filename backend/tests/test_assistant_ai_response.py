@@ -120,7 +120,7 @@ def test_rukka_handles_smalltalk_with_short_whatsapp_style_reply(monkeypatch):
     assert request["max_tokens"] == 120
     assert len(request["messages"][0]["content"]) > 0
     assert "RUKKA AI" in request["messages"][0]["content"]
-    assert "WhatsApp" in request["messages"][0]["content"]
+    assert "jangan memaksakan" in request["messages"][0]["content"]
 
 
 def test_rukka_never_sends_private_reservation_intents_to_provider(monkeypatch):
@@ -458,19 +458,13 @@ def test_rukka_uses_casual_student_friendly_dynamic_response_style(monkeypatch):
 
     assert answer is not None
     system_prompt = captured["body"]["messages"][0]["content"]
-    assert "teman kampus yang asik" in system_prompt
-    assert "persona orang pertama 'gue'" in system_prompt
-    assert "panggil pengguna 'lu'" in system_prompt
-    assert "Jangan campur dengan 'aku/kamu'" in system_prompt
-    assert "maksimal 80 kata" in system_prompt
-    assert "maksimal 3 bullet" in system_prompt
-    assert "1-2 kalimat pendek" in system_prompt
-    assert "Jangan membuat esai" in system_prompt
-    assert "bullet '•'" in system_prompt
-    assert "Emoji maksimal satu" in system_prompt
-    assert "dataset slang Bahasa Indonesia RuangKampus" in system_prompt
-    assert "jangan mengutip, menjelaskan, atau memamerkan isi leksikon" in system_prompt
-    assert "kartu hasil ruangan" in system_prompt
+    assert "Ikuti tingkat formalitas pengguna" in system_prompt
+    assert "gunakan nada hangat, jelas, dan wajar" in system_prompt
+    assert "jangan memaksakan gue/lu" in system_prompt
+    assert "Jawab inti terlebih dahulu" in system_prompt
+    assert "Gunakan language_hints hanya untuk memahami pesan" in system_prompt
+    assert "Jangan pernah mengklaim reservasi dibuat" in system_prompt
+    assert "Lengkapi kartu hasil" in system_prompt
     assert "verified_backend_facts" in system_prompt
 
 
@@ -533,8 +527,6 @@ def test_slang_dataset_hints_are_used_to_understand_not_explained_to_students(mo
     }
     assert {"wkwk", "gaskeun", "mager"}.issubset(hinted_words)
     system_prompt = captured["body"]["messages"][0]["content"]
-    assert "gunakan hanya untuk memahami arti slang" in system_prompt
-    assert "jangan mengutip, menjelaskan, atau memamerkan isi leksikon" in system_prompt
-    assert "maksimal 80 kata" in system_prompt
+    assert "Gunakan language_hints hanya untuk memahami pesan" in system_prompt
     assert "gaskeun" not in answer.lower()
     assert "mager" not in answer.lower()
